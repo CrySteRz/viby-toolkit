@@ -4,33 +4,33 @@ My personal Claude Code toolkit, distributed as a private plugin marketplace. On
 installed once per machine at **user scope**, so it applies automatically to every
 project — work and personal — and travels with me to any new computer.
 
-Marketplace: **`ionut-toolkit`** · Plugin: **`forge`**
+Marketplace: **`ionut-toolkit`** · Plugin: **`viby-code`**
 
 ---
 
 ## What's in it
 
-`forge` is an accuracy-first, token-disciplined set of engineering workflows. It's
+`viby-code` is an accuracy-first, token-disciplined set of engineering workflows. It's
 stack-agnostic (detects the project at runtime; assumes nothing).
 
-### Skills (auto-trigger by context, or call with `/forge:<name>`)
+### Skills (auto-trigger by context, or call with `/viby-code:<name>`)
 
 | Skill | What it does |
 |---|---|
-| `/forge:brainstorm` | **Design-before-code gate.** Decides WHAT to build (and whether it's the right thing) with an Iron-Law hold on any implementation until you approve the design. Runs before plan/orchestrate for anything whose shape isn't settled. |
-| `/forge:orchestrate` | Drives a task end-to-end: scope → research → plan → implement → verify → self-review. Fans out cheap scouts for discovery, keeps writes single-threaded, keeps main context clean. |
-| `/forge:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers (incl. an adversarial chaos-engineer dimension) find candidates; a grounding gate drops anything that can't quote its own line; one fresh-context validator per finding confirms real/introduced/not-already-handled; a confidence gate suppresses below-threshold. Reports the full kill count. |
-| `/forge:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
-| `/forge:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
-| `/forge:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
-| `/forge:learn` | Records a reusable lesson (gotcha, build quirk, rejected finding, known past risk, "never compact X") to Claude's native project memory — the compounding loop, both suppressing false positives and raising recall on known risks. |
-| `/forge:handoff` | Serializes live task state (goal, decisions, next step) so a fresh session resumes mid-task without re-deriving it. Ephemeral, distinct from `learn`. |
-| `/forge:worktrees` | Isolates work (parallel implementers, risky experiments) — detect existing isolation first, prefer the native worktree tool, never fight the harness. |
-| `/forge:forge-principles` | The operating contract everything follows: accuracy rules, the fan-out law, model-routing + escalation ladder, context discipline, the evidence gate. Read-only reference. |
+| `/viby-code:brainstorm` | **Design-before-code gate.** Decides WHAT to build (and whether it's the right thing) with an Iron-Law hold on any implementation until you approve the design. Runs before plan/orchestrate for anything whose shape isn't settled. |
+| `/viby-code:orchestrate` | Drives a task end-to-end: scope → research → plan → implement → verify → self-review. Fans out cheap scouts for discovery, keeps writes single-threaded, keeps main context clean. |
+| `/viby-code:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers (incl. an adversarial chaos-engineer dimension) find candidates; a grounding gate drops anything that can't quote its own line; one fresh-context validator per finding confirms real/introduced/not-already-handled; a confidence gate suppresses below-threshold. Reports the full kill count. |
+| `/viby-code:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
+| `/viby-code:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
+| `/viby-code:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
+| `/viby-code:learn` | Records a reusable lesson (gotcha, build quirk, rejected finding, known past risk, "never compact X") to Claude's native project memory — the compounding loop, both suppressing false positives and raising recall on known risks. |
+| `/viby-code:handoff` | Serializes live task state (goal, decisions, next step) so a fresh session resumes mid-task without re-deriving it. Ephemeral, distinct from `learn`. |
+| `/viby-code:worktrees` | Isolates work (parallel implementers, risky experiments) — detect existing isolation first, prefer the native worktree tool, never fight the harness. |
+| `/viby-code:principles` | The operating contract everything follows: accuracy rules, the fan-out law, model-routing + escalation ladder, context discipline, the evidence gate. Read-only reference. |
 
 ### Command
 
-- `/forge:ship <task>` — run the whole pipeline autonomously and don't stop until verified.
+- `/viby-code:ship <task>` — run the whole pipeline autonomously and don't stop until verified.
 
 ### Agents (dispatched by the skills; cheap models by design)
 
@@ -38,10 +38,10 @@ stack-agnostic (detects the project at runtime; assumes nothing).
 one per review dimension) · `skeptic` (sonnet, adversarial false-positive filter) ·
 `debugger` (sonnet, evidence gathering).
 
-### Hook
+### Hooks
 
-A tiny `SessionStart` hook injects the accuracy-first + token-discipline defaults (~120
-tokens/session) so the working style applies even when no skill is explicitly invoked.
+A `SessionStart` hook injects the working-style defaults, and a fail-open PreToolUse safety
+guard blocks a few genuinely destructive commands. See **Hooks & safety** below.
 
 ---
 
@@ -77,10 +77,10 @@ thread's context window** and your **rate-limit budget** — not dollars.
    many cheap voices get cross-checked, so a single cheap voice being wrong doesn't sink
    the result.
 7. **Compounding.** Each solved problem and each rejected review finding is recorded to
-   native memory (`/forge:learn`), so the next session is cheaper and the reviewer's taste
+   native memory (`/viby-code:learn`), so the next session is cheaper and the reviewer's taste
    drifts toward yours.
 
-Full contract: `/forge:forge-principles`.
+Full contract: `/viby-code:principles`.
 
 ### Provenance
 
@@ -110,7 +110,7 @@ adversarial fact-check; only convergent, credible mechanisms were kept.
   backstop that blocks a small set of genuinely destructive Bash commands: `rm -rf` of
   `/`/home, `dd` to a raw disk, `mkfs`, fork bombs, force-push to a protected branch
   (`main`/`master`/`prod`), `git reset --hard`, reading `.env`/keys/credentials, `curl|sh`.
-  It's tiered — `FORGE_SAFETY=high` (default), `critical`, `strict`, or `off`. It never
+  It's tiered — `VIBY_SAFETY=high` (default), `critical`, `strict`, or `off`. It never
   wedges a session (any error → allow) and prefers the JSON-deny form. Especially useful
   because your settings run with reduced permission prompts.
 - **Opt-in** (shipped, not enabled): `hooks/post-tool-use-format.py` auto-formats edited
@@ -127,7 +127,7 @@ The context discipline is measurable, not just asserted:
   in `~/.claude/settings.json` (or just use `bunx ccusage statusline`):
   ```json
   { "statusLine": { "type": "command",
-      "command": "python3 \"$HOME/.claude/plugins/cache/ionut-toolkit/forge/0.3.1/hooks/statusline.py\"" } }
+      "command": "python3 \"$HOME/.claude/plugins/cache/ionut-toolkit/viby-code/0.3.1/hooks/statusline.py\"" } }
   ```
 - **OpenTelemetry** — set `CLAUDE_CODE_ENABLE_TELEMETRY=1` and export
   `claude_code.token.usage`; group by `query_source` (`main` vs `subagent`) and `agent.name`
@@ -144,7 +144,7 @@ Prereqs: `gh` authenticated (`gh auth status`) or SSH access to this private rep
 
 ```
 /plugin marketplace add ionutblidaruvsp/claude-toolkit
-/plugin install forge@ionut-toolkit
+/plugin install viby-code@ionut-toolkit
 ```
 
 Then confirm it's enabled at **user scope** so it applies to every project.
@@ -160,13 +160,13 @@ Then confirm it's enabled at **user scope** so it applies to every project.
     }
   },
   "enabledPlugins": {
-    "forge@ionut-toolkit": true
+    "viby-code@ionut-toolkit": true
   }
 }
 ```
 
-Restart Claude Code. Verify with `/plugin` (should list `forge` as enabled) and by typing
-`/forge:` (skills should autocomplete).
+Restart Claude Code. Verify with `/plugin` (should list `viby-code` as enabled) and by typing
+`/viby-code:` (skills should autocomplete).
 
 ### Private-repo auto-update note
 
@@ -177,7 +177,7 @@ marketplace can fail silently. Either:
 - set `CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1` to keep the working clone if a
   refresh fails.
 
-Force a manual update anytime with `/plugin update forge`.
+Force a manual update anytime with `/plugin update viby-code`.
 
 ---
 
@@ -187,7 +187,7 @@ Everything lives here as plain files:
 
 ```
 .claude-plugin/marketplace.json      # marketplace manifest
-plugins/forge/
+plugins/viby-code/
   .claude-plugin/plugin.json         # plugin manifest
   skills/<name>/SKILL.md             # the workflows
   agents/<name>.md                   # the subagents (model routing in frontmatter)
@@ -201,7 +201,7 @@ After editing, bump `version` in `plugin.json`, commit, push. Validate before pu
 claude plugin validate .
 ```
 
-Machines pick up the change on next session (or `/plugin update forge`).
+Machines pick up the change on next session (or `/plugin update viby-code`).
 
 **Secrets:** this repo syncs across work and personal machines — never commit tokens,
 credentials, client names, or internal hostnames. `.gitignore` blocks the common ones;

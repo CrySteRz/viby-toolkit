@@ -9,8 +9,8 @@
   },
   "plugins": [
     {
-      "name": "forge",
-      "source": "./plugins/forge",
+      "name": "viby-code",
+      "source": "./plugins/viby-code",
       "description": "Orchestrator + brainstorm gate + grounded review cluster with false-positive filter + debugging + migration + compounding-memory + safety hooks for any stack",
       "version": "0.3.1",
       "author": {
