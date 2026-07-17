@@ -1,6 +1,6 @@
 {
   "name": "viby-code",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Accuracy-first engineering workflows: orchestrated plan→build→verify pipelines, adversarial review clusters with false-positive filtering, root-cause debugging, and large-scale migrations. Stack-agnostic, token-disciplined.",
   "author": {
     "name": "Ionut-Marian Blidaru"
@@ -13,6 +13,5 @@
     "debugging",
     "migration",
     "token-efficiency"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }

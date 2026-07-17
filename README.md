@@ -127,7 +127,7 @@ The context discipline is measurable, not just asserted:
   in `~/.claude/settings.json` (or just use `bunx ccusage statusline`):
   ```json
   { "statusLine": { "type": "command",
-      "command": "python3 \"$HOME/.claude/plugins/cache/viby-toolkit/viby-code/0.3.1/hooks/statusline.py\"" } }
+      "command": "python3 \"$HOME/.claude/plugins/cache/viby-toolkit/viby-code/0.3.2/hooks/statusline.py\"" } }
   ```
 - **OpenTelemetry** — set `CLAUDE_CODE_ENABLE_TELEMETRY=1` and export
   `claude_code.token.usage`; group by `query_source` (`main` vs `subagent`) and `agent.name`
