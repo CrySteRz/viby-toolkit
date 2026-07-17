@@ -1,0 +1,9 @@
+.DS_Store
+*.log
+node_modules/
+# Never commit secrets — this repo syncs across work and personal machines
+.env
+.env.*
+*.pem
+*.key
+credentials*

@@ -1,0 +1,77 @@
+---
+name: debug
+description: >
+  Root-cause a bug or incident by hypothesis and evidence rather than guessing. Use when
+  something is broken, failing, throwing, flaky, or behaving wrong and the cause isn't
+  obvious. Drives a disciplined loop — reproduce → localize → hypothesize → test the
+  hypothesis against real evidence → fix → verify the fix — and uses cheap parallel scout
+  agents to search logs/code/recent-changes without flooding context. Invoke with
+  /forge:debug.
+---
+
+# Debug (root-cause, evidence-driven)
+
+The failure mode of AI debugging is **plausible guessing**: changing code that "looks
+suspicious" without proving it's the cause. Forge debugging is the opposite — every fix
+is preceded by a reproduction and a confirmed causal chain. Follow
+`/forge:forge-principles`.
+
+## The loop
+
+### 1. Reproduce first (non-negotiable when possible)
+
+Establish a concrete, repeatable trigger: the exact input, command, request, or state
+that produces the failure, and the exact observed symptom (error text, wrong output,
+stack trace). If you can't reproduce it, say so — then your goal shifts to gathering
+enough evidence to reproduce it, not to speculatively patching.
+
+Capture the ground truth: the real error message, the actual stack trace, the failing
+assertion. Don't paraphrase from memory — get the literal output.
+
+### 2. Localize (fan out `scout` / `debugger` agents for breadth)
+
+Narrow *where* before reasoning about *why*. Spawn cheap parallel agents to gather
+evidence, each returning a tight summary (not dumps):
+- One traces the **code path** from the entry point to the failure site.
+- One searches **recent changes** — `git log`/`git blame` on the implicated files, what
+  changed around when this started failing. Regressions usually have a commit.
+- One pulls **logs / error telemetry** around the failure if available.
+- One checks **the obvious external causes** — config, env vars, dependency versions,
+  data shape.
+
+You keep the conclusions and assemble the picture. The bulk searching stays in the
+subagents.
+
+### 3. Hypothesize — explicitly
+
+State the single most likely cause as a falsifiable hypothesis: "The failure is X because
+Y; if that's true, I should see Z." Rank alternatives. **Do not skip to fixing.**
+
+### 4. Test the hypothesis against evidence
+
+Prove or kill the hypothesis *before* changing code:
+- Add a targeted log/print, inspect state at the suspect point, write a failing test that
+  isolates it, or trace the exact values. Confirm Z actually appears.
+- If the evidence contradicts the hypothesis, discard it and take the next one. This is
+  the discipline — you're not allowed to "fix" a cause you haven't confirmed.
+- Beware the signal that pattern-matches to a known failure but has a different root
+  cause. Confirm *this* instance, don't assume.
+
+### 5. Fix at the root, minimally
+
+Fix the actual cause, not the symptom. The smallest change that addresses the confirmed
+root cause. If you find yourself suppressing a symptom (catch-and-ignore, bumping a
+timeout, retry-until-it-works), stop — that's a signal you haven't found the root cause.
+
+### 6. Verify the fix closes the loop
+
+Re-run the exact reproduction from step 1 and show the symptom is gone. Then check you
+didn't break the neighborhood — run the relevant tests. A fix isn't done until the
+original trigger is demonstrably resolved *and* nothing adjacent regressed.
+
+## Output
+
+Report: the root cause (with the file:line and the evidence that confirmed it), the fix,
+and the verification (repro before → repro after). If you couldn't fully confirm, say
+exactly what's still uncertain and what evidence would settle it — don't dress up a guess
+as a diagnosis.
