@@ -1,101 +1,106 @@
 ---
 name: orchestrate
 description: >
-  Orchestrate a non-trivial engineering task end-to-end: scope → explore → plan →
-  implement → verify → self-review. Use for any feature, fix, or change that touches
-  more than one or two files, is ambiguous, or is worth doing carefully. Coordinates
-  cheap parallel scout agents for discovery and focused implementer agents for build-out
-  while keeping the main thread's context clean. Invoke explicitly with /forge:orchestrate
-  or let it trigger when the user asks to "build", "implement", "add", or "ship" something
-  substantial.
+  Orchestrate a non-trivial engineering task end-to-end: scope → research → plan →
+  implement → verify → self-review. Use for any feature, fix, or change that touches more
+  than one or two files, is ambiguous, or is worth doing carefully. Coordinates cheap
+  read-only scout agents for discovery, keeps writes single-threaded, and uses durable
+  plan artifacts so context stays clean. Triggers on "build", "implement", "add", "ship"
+  something substantial; or invoke /forge:orchestrate.
 ---
 
 # Orchestrate
 
-You are the orchestrator. You own the plan and the final judgment; you delegate breadth
-and bulk to subagents. Follow the forge principles (`/forge:forge-principles`):
-accuracy first, context hygiene, route each unit of work to the cheapest model that can
-do it correctly.
+You own the plan and every real decision; you delegate **read-only breadth** to
+subagents and keep **writes on your own single thread**. Follow `/forge:forge-principles`.
 
-The main thread (you) stays on the strong model and makes every real decision. Subagents
-gather and propose.
+```
+IRON LAW: Fan out to READ. Never fan out to WRITE.
+          Review the research and the plan harder than the diff — upstream errors compound.
+```
+
+Errors compound upstream: a bad research doc yields thousands of bad lines, a bad plan
+hundreds, bad code just bad code. So the judgment goes in early and the human/strong-model
+attention goes to the research and plan, not the diff.
 
 ## The pipeline
 
-Run these phases in order. **Skip phases that are obviously unnecessary** for a small
-task — don't ceremonially run all six for a one-line change. Match effort to the work.
+Run in order. **Scale to the task** — if you could describe the diff in one sentence, skip
+straight to implementing. Don't ceremonially run six phases for a one-line change.
 
-### Phase 0 — Scope (inline, always)
+### Phase 0 — Scope (inline)
 
-Restate the task in one or two sentences: what "done" means, what's explicitly out of
-scope, and the top risk. If the request is ambiguous in a way that changes the
-implementation, ask **before** building — one sharp question beats a wrong build. If it's
-clear, proceed without asking.
+Restate the task: what "done" means, what's out of scope, the top risk. If ambiguity
+would change the implementation, ask **one sharp question** before building. Otherwise
+proceed.
 
-### Phase 1 — Explore (fan out `scout` agents, cheap + parallel)
+### Phase 1 — Research (fan out read-only `scout` agents)
 
-Goal: build an accurate map of the code you're about to touch **without** dragging file
-dumps into main context.
+Build an accurate map without dragging file dumps into your context.
+- One `scout` per independent area (by feature, by layer, by the files a change touches),
+  **in parallel in a single message**. Each is read-only, cheap-model, returns a tight
+  summary: relevant `file:line`, key functions/types, conventions to follow, gotchas.
+- Keep only their conclusions. Don't scout what you already know — read that inline.
+- For a substantial task, distill the findings into a short **research note** (which files
+  are relevant, how data flows, candidate approaches). This is a durable artifact that
+  survives compaction.
 
-- Spawn one `scout` agent per independent area of the codebase (by feature, by layer, by
-  the set of files a change will touch). Each scout is read-only, runs on a cheap model,
-  reads what it needs, and returns a tight structured summary: relevant files with
-  line numbers, key functions/types, existing patterns/conventions, and gotchas.
-- Run scouts **in parallel** in a single message when their areas are independent.
-- You keep only their conclusions. The 30k tokens each scout read stay dead in the
-  subagent.
-- **Don't** spawn a scout for something you already know or a single known file — read
-  that inline.
+### Phase 2 — Plan (inline, strong model — judgment lives here)
 
-If exploration surfaces that the task is bigger or different than scoped, return to
-Phase 0.
+Write a concrete plan and, for anything substantial, **save it to a file** (e.g.
+`docs/plans/<date>-<topic>.md` or the project's convention). A good plan:
+- Header: Goal / Constraints / Approach.
+- An ordered list of steps, each `file:location → what changes → why`, sized bite-small
+  (each step ~a few minutes of work carrying its own verification).
+- The **risky step** called out with how you'll de-risk it.
+- The **verification strategy**: the *specific* tests/flows that prove each part.
+- What you're explicitly **not** doing.
+- Aim ~200 lines, readable in ~10 minutes. Write it as if for an engineer with zero
+  context and questionable taste — no unstated assumptions.
 
-### Phase 2 — Plan (inline, strong model — this is where judgment lives)
+Present the plan for approval (plan mode) when the user wants to steer direction or the
+change is risky. Use `/forge:plan` if the planning itself is hard enough to warrant a
+dedicated pass. **This plan file doubles as your checkpoint** (see Phase 3).
 
-Write a concrete plan: the ordered list of changes, each as `file:location → what
-changes → why`. Call out the risky step and how you'll verify it. For anything
-non-trivial or where the user wants to approve direction first, present the plan and use
-plan mode / get a green light before writing code. Use the `/forge:plan` skill if the
-planning itself is hard enough to warrant its own structured pass.
+### Phase 3 — Implement (single-threaded by default)
 
-### Phase 3 — Implement
-
-- **Small/coherent change (most cases):** implement inline. You have the plan and the
-  context; a subagent would just have to re-learn it. This is the "don't fan out for
-  things you already know" rule.
-- **Large change with independent, well-specified parts:** dispatch `implementer` agents
-  — one per part, each with a precise spec (exact files, exact contract, conventions to
-  follow). Use `isolation: worktree` only if they'd edit the same files and conflict;
-  otherwise plain parallel. Reintegrate and reconcile their diffs yourself.
-- Match the surrounding code's style, naming, and idioms. Don't add comments that narrate
-  the diff or explain the change to a reviewer — write comments only for constraints the
-  code can't show.
+- **Default: implement inline, one thread.** You have the plan and context; a subagent
+  would re-learn it, and parallel writers make conflicting decisions. This is the fan-out
+  law — writes stay single-threaded.
+- **Rare exception:** genuinely independent, well-specified parts (different subsystems,
+  no shared state) *may* be dispatched to `implementer` agents with `isolation: worktree`
+  so they can't conflict. You then reconcile their diffs yourself. If the parts touch
+  shared state or related logic, do NOT parallelize — do them in sequence.
+- Work phase-by-phase through the plan. **After each verified phase, compact its status
+  back into the plan file** (done / current approach / blockers). The plan is now your
+  durable state — if context is cleared, re-reading it restores where you are. This keeps
+  utilization in the 40–60% band on long tasks.
+- Match surrounding style, naming, idioms. Comments only for constraints the code can't
+  show — never to narrate the diff.
 
 ### Phase 4 — Verify (mandatory for anything with runtime behavior)
 
-Never report "done" on faith. Exercise the change:
-- Run the project's tests/typecheck/lint for the touched area (find the commands; don't
-  assume). Show the result.
-- For behavior changes, drive the actual flow — invoke the CLI, hit the endpoint, render
-  the component — and observe the real output, not just that tests are green.
-- If the project has a `verify` skill or the built-in `/verify`, use it.
-- If verification fails, fix and re-verify. Do not surface a failing change as done.
+Apply the evidence gate (`/forge:forge-principles` §5): identify the check → run it fresh
+→ read output + exit code → verify → only then claim, with evidence shown. Run the
+**specific tests relevant to the change**, named — plus, for behavior changes, drive the
+actual flow (invoke the CLI, hit the endpoint, render the component) and observe real
+output. Use the project's `verify` skill or `/verify` if present. If it fails, fix and
+re-verify. Never surface a failing change as done.
 
 ### Phase 5 — Self-review (fan out `review-cluster`, then filter)
 
-Before handing back, run `/forge:review-cluster` on your own diff. It fans out
-dimension reviewers and then runs the adversarial `skeptic` filter so only real,
-confirmed issues survive. Fix confirmed findings; re-verify anything you change.
+Run `/forge:review-cluster` on your own diff — a fresh-context reviewer is unbiased toward
+code it just wrote. It fans out dimension reviewers and the adversarial `skeptic` filter
+so only confirmed issues survive. Fix confirmed findings; re-verify anything you change.
 
-## Output to the user
+### Phase 6 — Compound (when something was non-obvious)
 
-End with: what changed (file:line), how you verified it (the actual evidence), any
-confirmed issues you deliberately left and why, and any follow-ups. Lead with the
-outcome. No narration of the process unless it's load-bearing.
+If you learned something reusable (a non-obvious gotcha, a build quirk, a pattern this
+repo insists on), invoke `/forge:learn` to record it to project memory so the next session
+gets it for free.
 
-## Token discipline (always on)
+## Output
 
-- Fan out for breadth; keep only conclusions. Cheap models find, the strong main thread
-  decides. See the routing table in `/forge:forge-principles`.
-- Don't spawn agents for trivial or already-known work.
-- One finding, one home — don't re-dump subagent output into main context.
+Lead with the outcome: what changed (`file:line`), the verification evidence, any
+confirmed issues you deliberately left and why, follow-ups. No process narration unless
+it's load-bearing.

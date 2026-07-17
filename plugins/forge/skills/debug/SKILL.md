@@ -11,10 +11,16 @@ description: >
 
 # Debug (root-cause, evidence-driven)
 
+```
+IRON LAW: NO FIX WITHOUT A CONFIRMED ROOT CAUSE.
+          A symptom fix is a failure. Systematic is faster than thrashing.
+```
+
 The failure mode of AI debugging is **plausible guessing**: changing code that "looks
 suspicious" without proving it's the cause. Forge debugging is the opposite — every fix
 is preceded by a reproduction and a confirmed causal chain. Follow
-`/forge:forge-principles`.
+`/forge:forge-principles`. Tempted to skip straight to a fix under time pressure? Don't —
+thrashing through unverified guesses is slower than one disciplined pass.
 
 ## The loop
 
@@ -62,6 +68,23 @@ Prove or kill the hypothesis *before* changing code:
 Fix the actual cause, not the symptom. The smallest change that addresses the confirmed
 root cause. If you find yourself suppressing a symptom (catch-and-ignore, bumping a
 timeout, retry-until-it-works), stop — that's a signal you haven't found the root cause.
+
+Trace bad values **backward** up the call stack to their origin and fix at the source, not
+where the value surfaced. A wrong value caught three layers down should be corrected where
+it was produced.
+
+**Defense-in-depth (only when warranted).** If the bug let invalid state reach a dangerous
+path, and either the pattern exists in 3+ places or the failure would be catastrophic,
+don't patch one layer — guard several, each catching a *distinct* failure class:
+1. **Entry validation** — reject bad input at the boundary (API/param parse).
+2. **Invariant check** — enforce preconditions entry validation can't express.
+3. **Environment guard** — refuse the dangerous op in the wrong context (e.g. refuse a
+   destructive command outside a temp dir under test).
+4. **Diagnostic breadcrumb** — log `{state, cwd, env, stack}` right before the risky op.
+
+Don't apply this speculatively to ordinary bugs — it's for catastrophic or widespread
+failure classes only. Each layer must catch something the others can't; don't duplicate
+the same check four times.
 
 ### 6. Verify the fix closes the loop
 

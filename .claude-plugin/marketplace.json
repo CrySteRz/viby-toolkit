@@ -11,8 +11,8 @@
     {
       "name": "forge",
       "source": "./plugins/forge",
-      "description": "Orchestrator + review cluster + false-positive filter + debugging + migration workflows for any stack",
-      "version": "0.1.0",
+      "description": "Orchestrator + review cluster + false-positive filter + debugging + migration + compounding-memory workflows for any stack",
+      "version": "0.2.0",
       "author": {
         "name": "Ionut-Marian Blidaru"
       },

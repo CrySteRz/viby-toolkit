@@ -10,9 +10,15 @@ description: >
 
 # Plan
 
-A good plan is the cheapest place to fix a mistake. This skill turns a fuzzy task into an
-ordered, file-anchored change-list you (or the user) can sanity-check before any code is
-written. Follow `/forge:forge-principles`.
+```
+IRON LAW: Write the plan for an engineer with ZERO context and questionable taste.
+          No unstated assumptions, no vague steps ("handle errors appropriately").
+```
+
+A good plan is the cheapest place to fix a mistake — a bad plan costs hundreds of bad
+lines, a bad research phase thousands, so this is where scrutiny pays off most. This skill
+turns a fuzzy task into an ordered, file-anchored change-list you (or the user) can
+sanity-check before any code is written. Follow `/forge:forge-principles`.
 
 ## 1. Understand the real request
 
@@ -46,7 +52,12 @@ An ordered list of steps, each as: `file:location → what changes → why`. Inc
 - What you're explicitly **not** doing.
 
 Keep it tight and concrete. A plan full of "handle errors appropriately" is not a plan —
-say which errors, where.
+say which errors, where. Aim for ~200 lines, readable in ~10 minutes.
+
+For a substantial task, **save the plan to a file** (e.g. `docs/plans/<date>-<topic>.md`
+or the project's convention). It then doubles as a durable checkpoint: as implementation
+proceeds, status is compacted back into it, so if context is cleared, re-reading the plan
+restores exactly where things stand.
 
 ## 5. Hand off
 

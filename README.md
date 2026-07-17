@@ -21,8 +21,9 @@ stack-agnostic (detects the project at runtime; assumes nothing).
 | `/forge:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers find candidates; adversarial skeptics try to refute each one; only findings that survive reach you. Reports how many false positives it killed. |
 | `/forge:debug` | Root-cause debugging by hypothesis and evidence — reproduce → localize → confirm → fix → verify. No speculative patching. |
 | `/forge:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
-| `/forge:plan` | Turns a fuzzy task into an ordered, file-anchored change-list with the risky step and verification strategy called out. |
-| `/forge:forge-principles` | The operating contract everything follows: accuracy rules, context hygiene, the model-routing table. Read-only reference. |
+| `/forge:plan` | Turns a fuzzy task into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
+| `/forge:learn` | Records a reusable lesson (gotcha, build quirk, rejected review finding) to Claude's native project memory so future sessions get it for free — the compounding loop. |
+| `/forge:forge-principles` | The operating contract everything follows: accuracy rules, the fan-out law, context hygiene, the model-routing table. Read-only reference. |
 
 ### Command
 
@@ -46,19 +47,42 @@ tokens/session) so the working style applies even when no skill is explicitly in
 Designed for a Claude Max subscription, where the scarce resources are the **main
 thread's context window** and your **rate-limit budget** — not dollars.
 
-1. **Subagents are context firewalls.** Bulk reading (grep 40 files, read 10) happens in
+1. **The fan-out law.** *Fan out for READ; keep WRITES single-threaded.* Parallel
+   read-only subagents (search/explore/review) are a genuine win — they isolate verbose
+   output and improve quality. Parallel *writers* are a trap: they make conflicting
+   decisions from partial context and produce incoherent results. This is where Anthropic
+   and Cognition both landed after a year in production; on Max, every fan-out also burns
+   rate-limit budget ~an order of magnitude faster, so it's gated behind "is this genuinely
+   parallel *and* read-only?"
+2. **Subagents are context firewalls.** Bulk reading (grep 40 files, read 10) happens in
    disposable subagents that return a ~200-token conclusion. The 30k tokens of file dumps
    die with the subagent and never touch main context.
-2. **Model routing.** Mechanical search → `haiku`. Parallel reading/reviewing/implementing
-   → `sonnet`. Planning, synthesis, and final judgment → the strong main-thread model.
-   Cheap models *find*; the strong model *decides*.
-3. **Don't fan out for what you already know.** Known file, known symbol → read it inline.
-   Fan-out pays off only when the search space is wide.
-4. **Adversarial verification** keeps accuracy high while most tokens are spent cheaply —
+3. **Model routing.** Mechanical search → `haiku`. Read-only reviewing/scouting →
+   `sonnet`. Planning, synthesis, final judgment, and all writes → the strong main-thread
+   model. Cheap models *find*; the strong model *decides*.
+4. **Frequent intentional compaction.** Target 40–60% context utilization. Research and
+   plan become durable markdown artifacts; the plan doubles as a checkpoint so a `/clear`
+   loses no state. Context quality priority: Correctness > Completeness > Size.
+5. **Evidence-gated completion.** Never claim done without running the check fresh and
+   showing its output. The words "should / probably / seems" are the tell that you skipped
+   verification.
+6. **Adversarial verification** keeps accuracy high while most tokens are spent cheaply —
    many cheap voices get cross-checked, so a single cheap voice being wrong doesn't sink
    the result.
+7. **Compounding.** Each solved problem and each rejected review finding is recorded to
+   native memory (`/forge:learn`), so the next session is cheaper and the reviewer's taste
+   drifts toward yours.
 
 Full contract: `/forge:forge-principles`.
+
+### Provenance
+
+The workflows distill what's actually working in production agentic coding as of mid-2026,
+keeping the mechanisms and discarding the marketing multipliers: Anthropic's
+context-engineering, multi-agent-research, and Claude Code best-practices docs; humanlayer's
+Advanced Context Engineering (frequent intentional compaction); obra/superpowers (the
+Iron-Law skill format, TDD/verification/systematic-debugging); Cognition (the read-vs-write
+fan-out rule); and Every's compound engineering (the learning loop, multi-persona review).
 
 ---
 

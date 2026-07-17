@@ -11,10 +11,21 @@ description: >
 
 # Review Cluster + False-Positive Filter
 
+```
+IRON LAW: A finding reaches the user only if a skeptic tried to REFUTE it and failed.
+          Flag correctness/requirement gaps only — never taste. Crying wolf once
+          teaches the user to ignore every future review.
+```
+
 Two stages. Stage 1 (the **review cluster**) maximizes *coverage* — many cheap reviewers,
 each on a different dimension, finding everything plausibly wrong. Stage 2 (the **false
 positive cluster**) maximizes *precision* — adversarial skeptics that try to kill each
 finding. Only findings that survive the skeptics reach the user.
+
+Reviewers and skeptics run on **fresh context** — an unbiased reviewer catches what the
+author rationalizes. And a reviewer told to "find gaps" will always find some, which is
+how false positives are born: so reviewers report only correctness and requirement gaps,
+and the skeptic stage exists precisely to kill the rest.
 
 This directly implements the accuracy-first + adversarial-verification rules in
 `/forge:forge-principles`. The whole point is to **never cry wolf**: a review that
@@ -97,6 +108,15 @@ positives" — that is a valid, valuable result. Don't invent something to repor
 
 Only if asked (or if invoked from `/forge:orchestrate`'s self-review): fix confirmed
 findings, then re-verify each fix. Never mark fixed without re-checking.
+
+## Learn from rejections (compounding)
+
+If the user dismisses a confirmed finding as *not something they want flagged* ("that's
+our convention", "we intentionally do X", "stop suggesting Y"), that's a false-positive
+class you should never surface again. Invoke `/forge:learn` to record the preference to
+project memory. Over time the cluster stops re-flagging this project's accepted patterns —
+the reviewer's "taste" compounds toward the user's, which is the whole point of a review
+you keep rather than mute.
 
 ## Token discipline
 

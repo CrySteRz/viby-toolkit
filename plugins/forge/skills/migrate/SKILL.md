@@ -10,9 +10,17 @@ description: >
 
 # Migrate (wide, mechanical, verified)
 
+```
+IRON LAW: No batch is done until it is verified. No migration is done until a fresh
+          discovery sweep finds ZERO remaining old-pattern sites.
+```
+
 Big sweeps fail in two ways: **missed sites** (incomplete migration that half-breaks) and
 **silent behavior drift** (a "mechanical" change that wasn't). This pipeline defends
-against both. Follow `/forge:forge-principles`.
+against both. Follow `/forge:forge-principles`. Discovery and per-site checking are
+read-only — fan those out. The transforms are writes — keep them single-threaded per
+batch (or in isolated worktrees for genuinely independent batches), never parallel writers
+on shared code.
 
 ## 1. Discover the full work-list (before transforming anything)
 
