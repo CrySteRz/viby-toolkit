@@ -1,28 +1,42 @@
 ---
 name: brainstorm
 description: >
-  Use BEFORE building anything non-trivial, when what to build isn't fully pinned down, or
-  when the user describes a goal/idea rather than a precise spec. Use when the user says
-  "I want to build", "how should we approach", "I'm thinking about", "help me design",
-  "should we". The design-before-code gate — decide WHAT and confirm it before any HOW.
+  Use when WHAT to build isn't settled — a fuzzy idea, a vague goal, or several possible
+  directions. Use when the user says "I want to build", "I'm thinking about", "should we",
+  "help me figure out what". Do NOT use when there's already a clear, well-specified
+  ticket/spec with unambiguous scope — go straight to /forge:plan (the how) or
+  /forge:orchestrate. This gate is about deciding WHAT, not planning HOW.
 ---
 
 # Brainstorm (design-before-code gate)
 
 ```
-IRON LAW: Do NOT write code, scaffold, create files, or invoke any implementation skill
-          until you have presented a design and the user has explicitly approved it.
-          No exception for "this is simple" — simple tasks are where unexamined
-          assumptions cost the most.
+IRON LAW (once you're here): Do NOT write code, scaffold, create files, or invoke an
+          implementation skill until you have presented a design and the user has approved
+          it. If the WHAT is genuinely unsettled, the size of the task is no excuse to skip
+          the design — unexamined assumptions cost the most on "simple" things.
 ```
 
-This is the gate `plan` and `orchestrate` sit behind for anything whose *shape* isn't
-already agreed. `plan` decides HOW to build a known thing; `brainstorm` decides WHAT to
-build and WHETHER this is the right thing. Follow `/forge:forge-principles`.
+## When to SKIP brainstorm
 
-Why the hard gate: the most expensive mistakes are solving the wrong problem and baking in
-an unstated assumption. Both are nearly free to fix here and very expensive to fix in code.
-"Too simple to need a design" is the exact rationalization that produces them — refuse it.
+This gate is about deciding **WHAT** to build. If the what is already settled, skip it:
+
+- **You have a clear, well-specified ticket or spec** — unambiguous scope, known
+  acceptance criteria, no real fork in the road. → Go straight to `/forge:plan` (design the
+  HOW) or `/forge:orchestrate` (which plans then builds). The person who wrote the ticket
+  already did the brainstorm.
+- **The change is obvious and you could describe the diff in a sentence.** → Just do it.
+
+Reach for brainstorm only when the *what* is fuzzy: a vague goal, an idea rather than a
+spec, several viable directions, or a ticket whose intent is unclear enough that building
+the literal text would risk solving the wrong problem. When in doubt on a ticket, a single
+clarifying question beats a full brainstorm.
+
+`plan` decides HOW to build a known thing; `brainstorm` decides WHAT to build and whether
+it's the right thing. Follow `/forge:forge-principles`. The mistakes this prevents —
+solving the wrong problem, baking in an unstated assumption — are nearly free to fix here
+and expensive to fix in code, which is why it exists; but a decided ticket has already
+paid that cost.
 
 ## Process
 

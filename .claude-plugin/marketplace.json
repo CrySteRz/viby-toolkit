@@ -12,7 +12,7 @@
       "name": "forge",
       "source": "./plugins/forge",
       "description": "Orchestrator + brainstorm gate + grounded review cluster with false-positive filter + debugging + migration + compounding-memory + safety hooks for any stack",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "author": {
         "name": "Ionut-Marian Blidaru"
       },

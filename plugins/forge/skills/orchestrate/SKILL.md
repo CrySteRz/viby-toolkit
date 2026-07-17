@@ -32,6 +32,10 @@ Restate the task: what "done" means, what's out of scope, the top risk. If ambig
 would change the implementation, ask **one sharp question** before building. Otherwise
 proceed.
 
+If the **what** itself is unsettled (a fuzzy idea, not a spec), run `/forge:brainstorm`
+first. When you already have a clear, well-specified ticket, the what is decided — skip
+brainstorm and go straight through research → plan → build.
+
 ### Phase 1 — Research (fan out read-only `scout` agents)
 
 Build an accurate map without dragging file dumps into your context.

@@ -60,9 +60,13 @@ thread's context window** and your **rate-limit budget** — not dollars.
 2. **Subagents are context firewalls.** Bulk reading (grep 40 files, read 10) happens in
    disposable subagents that return a ~200-token conclusion. The 30k tokens of file dumps
    die with the subagent and never touch main context.
-3. **Model routing.** Mechanical search → `haiku`. Read-only reviewing/scouting →
-   `sonnet`. Planning, synthesis, final judgment, and all writes → the strong main-thread
-   model. Cheap models *find*; the strong model *decides*.
+3. **Model routing — the full lineup, by need.** `haiku` (4.5) for mechanical search;
+   `sonnet` (5) for read-only reviewing/scouting fan-out; `opus` (4.8) for planning,
+   synthesis, judgment, and all writes; `fable` (5), the most capable tier, reserved for
+   the hardest, highest-stakes calls (authoring a repro test, resolving conflicting
+   verdicts, subtle security/concurrency) and the top of the escalation ladder. Cheap
+   models *find*; the strong model *decides*; escalate haiku → sonnet → opus → fable on low
+   confidence. Fable is a scalpel (heaviest on rate-limit), not a default.
 4. **Frequent intentional compaction.** Target 40–60% context utilization. Research and
    plan become durable markdown artifacts; the plan doubles as a checkpoint so a `/clear`
    loses no state. Context quality priority: Correctness > Completeness > Size.
@@ -123,7 +127,7 @@ The context discipline is measurable, not just asserted:
   in `~/.claude/settings.json` (or just use `bunx ccusage statusline`):
   ```json
   { "statusLine": { "type": "command",
-      "command": "python3 \"$HOME/.claude/plugins/cache/ionut-toolkit/forge/0.3.0/hooks/statusline.py\"" } }
+      "command": "python3 \"$HOME/.claude/plugins/cache/ionut-toolkit/forge/0.3.1/hooks/statusline.py\"" } }
   ```
 - **OpenTelemetry** — set `CLAUDE_CODE_ENABLE_TELEMETRY=1` and export
   `claude_code.token.usage`; group by `query_source` (`main` vs `subagent`) and `agent.name`

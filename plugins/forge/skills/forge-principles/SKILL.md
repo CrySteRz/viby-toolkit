@@ -87,11 +87,17 @@ a year of production experience.
 Route each unit of work to the cheapest model that can do it *correctly*. Agents declare
 their model in frontmatter; the orchestrator picks per task.
 
+Use the **whole lineup**, matched to need — Haiku 4.5 → Sonnet 5 → Opus 4.8 → Fable 5:
+
 | Work type | Model | Why |
 |---|---|---|
 | Mechanical search, file-location, "does X exist", grep-and-report | **haiku** | Pattern-matching, no deep judgment. High rate-limit headroom. |
 | Reading a subsystem and summarizing, single-file implementation to a clear spec, one review dimension, refuting one claim | **sonnet** | Solid reasoning at a fraction of the cost. The workhorse for read-only fan-out. |
 | Planning, architecture, cross-cutting judgment, final synthesis, ambiguous root-cause, reconciling conflicting reports, all writes to shared code | **opus / inherit (main thread)** | Hard judgment where a wrong call is expensive. Never delegate the final decision to a cheap model. |
+| The hardest, highest-stakes calls: authoring the reproduction test (the proven bottleneck), resolving conflicting validator verdicts, a subtle security/concurrency judgment, a gnarly root-cause that beat opus, the top rung of the escalation ladder | **fable** | The most capable tier. Reserve it for where being wrong is most expensive — it's the heaviest on rate-limit, so it's a scalpel, not a default. |
+
+The main thread runs whatever model you've selected (it makes the final decisions); the
+table governs what each **subagent** is dispatched with, and where to escalate.
 
 - **Cheap models find; the strong main thread decides.** Most tokens spent cheaply,
   accuracy preserved where it matters.
@@ -109,8 +115,9 @@ Cheap models are the default, but they fail *silently* on the wrong tasks. So:
 - **Cheap subagents signal, not just answer.** Every cheap-model agent's output carries a
   `confidence: high | medium | low` and, when stuck, `escalate: true` + a one-line reason.
 - **The orchestrator escalates** on `escalate: true`, low confidence, or a failed
-  validation/check: re-dispatch the same task to the next tier (haiku → sonnet → opus).
-  Escalating a hard case beats accepting a cheap wrong answer.
+  validation/check: re-dispatch the same task up one tier (haiku → sonnet → opus → fable).
+  Escalating a hard case beats accepting a cheap wrong answer; fable is the last rung for
+  the genuinely hardest calls.
 - **Where cheap models are dangerous (route up):** multi-step chained reasoning,
   instruction drift in long prompts, interpretive/judgment calls, whole-system synthesis,
   and anything with no downstream check. `scout` (haiku) is safe only for narrow, explicit,

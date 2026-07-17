@@ -37,8 +37,9 @@ test is the hard part; once you have it, the fix is comparatively easy.* So: wri
 that reproduces the reported behavior, confirm it fails **for the right reason** (not a
 typo or setup error), and keep it. This test is what proves the bug gone in step 6. Because
 authoring a correct repro test is the hard, high-leverage step, do it on the **strong
-model / main thread** even if you later route the mechanical fix to a cheaper agent —
-inverting the usual routing intuition, on purpose.
+model** (main thread, or escalate to the top tier / fable for a subtle one) even if you
+later route the mechanical fix to a cheaper agent — inverting the usual routing intuition,
+on purpose.
 
 ### 2. Localize (fan out `scout` / `debugger` agents for breadth)
 
