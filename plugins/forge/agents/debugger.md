@@ -47,3 +47,6 @@ Depending on your assignment:
 - **Evidence**: the concrete facts, with locations/output.
 - **What this supports or rules out**: a brief, evidence-bounded read — not a leap.
 - **Dead ends / still unknown**: what you couldn't determine.
+- **confidence**: `high | medium | low` in the evidence you gathered.
+- **escalate**: `true | false` — true if the trail needs deeper reasoning than your tier
+  can give, so the caller re-runs on a stronger model.

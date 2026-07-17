@@ -1,12 +1,9 @@
 ---
 name: debug
 description: >
-  Root-cause a bug or incident by hypothesis and evidence rather than guessing. Use when
-  something is broken, failing, throwing, flaky, or behaving wrong and the cause isn't
-  obvious. Drives a disciplined loop — reproduce → localize → hypothesize → test the
-  hypothesis against real evidence → fix → verify the fix — and uses cheap parallel scout
-  agents to search logs/code/recent-changes without flooding context. Invoke with
-  /forge:debug.
+  Use when something is broken, failing, throwing, crashing, flaky, or behaving wrong and
+  the cause isn't obvious. Use when the user says "why is this failing", "debug this",
+  "it's broken", "this test is flaky", "root cause", or pastes an error/stack trace.
 ---
 
 # Debug (root-cause, evidence-driven)
@@ -33,6 +30,15 @@ enough evidence to reproduce it, not to speculatively patching.
 
 Capture the ground truth: the real error message, the actual stack trace, the failing
 assertion. Don't paraphrase from memory — get the literal output.
+
+**Make the reproduction a first-class deliverable — a failing test.** The strongest 2026
+evidence across multiple independent studies is that *writing the correct reproduction
+test is the hard part; once you have it, the fix is comparatively easy.* So: write a test
+that reproduces the reported behavior, confirm it fails **for the right reason** (not a
+typo or setup error), and keep it. This test is what proves the bug gone in step 6. Because
+authoring a correct repro test is the hard, high-leverage step, do it on the **strong
+model / main thread** even if you later route the mechanical fix to a cheaper agent —
+inverting the usual routing intuition, on purpose.
 
 ### 2. Localize (fan out `scout` / `debugger` agents for breadth)
 
@@ -88,9 +94,15 @@ the same check four times.
 
 ### 6. Verify the fix closes the loop
 
-Re-run the exact reproduction from step 1 and show the symptom is gone. Then check you
-didn't break the neighborhood — run the relevant tests. A fix isn't done until the
-original trigger is demonstrably resolved *and* nothing adjacent regressed.
+Re-run the exact reproduction from step 1 (the failing test now passes) and show the
+symptom is gone. Then check you didn't break the neighborhood — run the relevant tests. A
+fix isn't done until the original trigger is demonstrably resolved *and* nothing adjacent
+regressed.
+
+**Anti-flake rule:** if the bug or its test involves waiting (async, I/O, a server coming
+up), never wait on an arbitrary `sleep`/timeout — wait on an **observable condition**
+(poll for the state, await the event). Arbitrary timeouts are how flaky tests and
+heisenbugs are born; a fix that relies on one hasn't found the real timing contract.
 
 ## Output
 

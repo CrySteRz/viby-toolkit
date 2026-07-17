@@ -17,13 +17,16 @@ stack-agnostic (detects the project at runtime; assumes nothing).
 
 | Skill | What it does |
 |---|---|
-| `/forge:orchestrate` | Drives a task end-to-end: scope → explore → plan → implement → verify → self-review. Fans out cheap scouts for discovery, keeps main context clean. |
-| `/forge:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers find candidates; adversarial skeptics try to refute each one; only findings that survive reach you. Reports how many false positives it killed. |
-| `/forge:debug` | Root-cause debugging by hypothesis and evidence — reproduce → localize → confirm → fix → verify. No speculative patching. |
+| `/forge:brainstorm` | **Design-before-code gate.** Decides WHAT to build (and whether it's the right thing) with an Iron-Law hold on any implementation until you approve the design. Runs before plan/orchestrate for anything whose shape isn't settled. |
+| `/forge:orchestrate` | Drives a task end-to-end: scope → research → plan → implement → verify → self-review. Fans out cheap scouts for discovery, keeps writes single-threaded, keeps main context clean. |
+| `/forge:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers (incl. an adversarial chaos-engineer dimension) find candidates; a grounding gate drops anything that can't quote its own line; one fresh-context validator per finding confirms real/introduced/not-already-handled; a confidence gate suppresses below-threshold. Reports the full kill count. |
+| `/forge:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
 | `/forge:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
-| `/forge:plan` | Turns a fuzzy task into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
-| `/forge:learn` | Records a reusable lesson (gotcha, build quirk, rejected review finding) to Claude's native project memory so future sessions get it for free — the compounding loop. |
-| `/forge:forge-principles` | The operating contract everything follows: accuracy rules, the fan-out law, context hygiene, the model-routing table. Read-only reference. |
+| `/forge:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
+| `/forge:learn` | Records a reusable lesson (gotcha, build quirk, rejected finding, known past risk, "never compact X") to Claude's native project memory — the compounding loop, both suppressing false positives and raising recall on known risks. |
+| `/forge:handoff` | Serializes live task state (goal, decisions, next step) so a fresh session resumes mid-task without re-deriving it. Ephemeral, distinct from `learn`. |
+| `/forge:worktrees` | Isolates work (parallel implementers, risky experiments) — detect existing isolation first, prefer the native worktree tool, never fight the harness. |
+| `/forge:forge-principles` | The operating contract everything follows: accuracy rules, the fan-out law, model-routing + escalation ladder, context discipline, the evidence gate. Read-only reference. |
 
 ### Command
 
@@ -81,10 +84,53 @@ The workflows distill what's actually working in production agentic coding as of
 keeping the mechanisms and discarding the marketing multipliers: Anthropic's
 context-engineering, multi-agent-research, and Claude Code best-practices docs; humanlayer's
 Advanced Context Engineering (frequent intentional compaction); obra/superpowers (the
-Iron-Law skill format, TDD/verification/systematic-debugging); Cognition (the read-vs-write
-fan-out rule); and Every's compound engineering (the learning loop, multi-persona review).
+Iron-Law skill format, trigger-only descriptions, TDD/verification/systematic-debugging);
+Cognition (the read-vs-write fan-out rule); and Every's compound engineering (the learning
+loop, multi-persona review, grounded findings schema).
+
+The v0.3.0 review pipeline and reliability upgrades additionally draw on 2026 research:
+the quote-the-line grounding gate and single-fresh-validator-over-panel design
+(Refute-or-Promote; "Nine Judges, Two Effective Votes"); reproduction-test-as-the-bottleneck
+(TDFlow and cogeneration-of-repro-test papers); the context-ledger idea (VISTA); failure-
+driven "never-compact" lessons (ACON); and the escalation-ladder / cheap-model-danger-zones
+model-routing guidance. Overstated single-number claims were deliberately dropped after an
+adversarial fact-check; only convergent, credible mechanisms were kept.
 
 ---
+
+## Hooks & safety
+
+- **SessionStart** injects the accuracy/fan-out defaults (~340 tokens) so the working style
+  applies even when no skill is invoked.
+- **PreToolUse safety guard** (`hooks/pre-tool-use-guard.py`) — a deterministic, fail-open
+  backstop that blocks a small set of genuinely destructive Bash commands: `rm -rf` of
+  `/`/home, `dd` to a raw disk, `mkfs`, fork bombs, force-push to a protected branch
+  (`main`/`master`/`prod`), `git reset --hard`, reading `.env`/keys/credentials, `curl|sh`.
+  It's tiered — `FORGE_SAFETY=high` (default), `critical`, `strict`, or `off`. It never
+  wedges a session (any error → allow) and prefers the JSON-deny form. Especially useful
+  because your settings run with reduced permission prompts.
+- **Opt-in** (shipped, not enabled): `hooks/post-tool-use-format.py` auto-formats edited
+  files *only* when the formatter is already installed and the project uses it (never
+  installs anything, never blocks). Enable by adding a `PostToolUse` matcher if you want it.
+
+## Telemetry — prove the token strategy works
+
+The context discipline is measurable, not just asserted:
+
+- **Statusline** (`hooks/statusline.py`) — shows `model · ctx NN% · cache NN% · $cost`,
+  with the context % measured against the auto-compact threshold and color-banded
+  (green <60, yellow <80, red). Watching `ctx%` is how you hold the 40–60% target. Wire it
+  in `~/.claude/settings.json` (or just use `bunx ccusage statusline`):
+  ```json
+  { "statusLine": { "type": "command",
+      "command": "python3 \"$HOME/.claude/plugins/cache/ionut-toolkit/forge/0.3.0/hooks/statusline.py\"" } }
+  ```
+- **OpenTelemetry** — set `CLAUDE_CODE_ENABLE_TELEMETRY=1` and export
+  `claude_code.token.usage`; group by `query_source` (`main` vs `subagent`) and `agent.name`
+  to measure fan-out ROI directly (main-thread tokens saved vs subagent tokens spent), and
+  by `type=cacheRead` to confirm cache reuse.
+- **ccusage** — `npx ccusage@latest blocks --live` for a zero-setup real-time view;
+  `/cost` for an in-session check.
 
 ## Install on a new machine
 

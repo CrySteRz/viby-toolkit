@@ -44,6 +44,11 @@ Return only this, no preamble:
 - **Gotchas / risks**: what would trip up a change here.
 - **Open questions** (if any): what you couldn't determine and where the answer likely
   lives.
+- **confidence**: `high | medium | low` — your certainty in this map.
+- **escalate**: `true | false` — set true if the task needed cross-file synthesis or
+  judgment beyond narrow retrieval (you run on a fast, cheap model tuned for locating
+  things, not deep reasoning). When true, the caller re-runs this on a stronger model.
 
-Be accurate over comprehensive. If you're unsure, say "unconfirmed" — do not guess and
-present it as fact. A wrong map is worse than an incomplete one.
+Be accurate over comprehensive. If you're unsure, say "unconfirmed" and lower your
+confidence — do not guess and present it as fact. A wrong map is worse than an incomplete
+one, and signaling low confidence is more useful than a confident wrong answer.

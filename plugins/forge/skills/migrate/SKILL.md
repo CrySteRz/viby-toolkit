@@ -1,11 +1,10 @@
 ---
 name: migrate
 description: >
-  Perform a large-scale, repetitive code change safely: renames, API/library upgrades,
-  pattern migrations, framework version bumps, or any sweep touching many files. Uses a
-  discover → transform → verify pipeline with cheap parallel agents per site, isolated
-  worktrees to avoid conflicts, and a verification gate so no batch is declared done
-  without proof. Use when a change is mechanical but wide. Invoke with /forge:migrate.
+  Use for a change that is mechanical but wide — a rename, an API/library upgrade, a
+  framework version bump, a pattern migration, or any sweep touching many files. Use when
+  the user says "rename X everywhere", "migrate", "upgrade", "replace all", "codemod", or
+  the edit is repetitive across the codebase.
 ---
 
 # Migrate (wide, mechanical, verified)

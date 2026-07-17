@@ -1,12 +1,10 @@
 ---
 name: orchestrate
 description: >
-  Orchestrate a non-trivial engineering task end-to-end: scope → research → plan →
-  implement → verify → self-review. Use for any feature, fix, or change that touches more
-  than one or two files, is ambiguous, or is worth doing carefully. Coordinates cheap
-  read-only scout agents for discovery, keeps writes single-threaded, and uses durable
-  plan artifacts so context stays clean. Triggers on "build", "implement", "add", "ship"
-  something substantial; or invoke /forge:orchestrate.
+  Use for any feature, fix, or change worth doing carefully — anything touching more than
+  a file or two, ambiguous, or multi-step. Use when the user says "build", "implement",
+  "add", "ship", "create", "refactor" something substantial, or hands you a task that
+  needs planning before coding. For a one-line change, skip this and just do it.
 ---
 
 # Orchestrate
@@ -41,6 +39,10 @@ Build an accurate map without dragging file dumps into your context.
   **in parallel in a single message**. Each is read-only, cheap-model, returns a tight
   summary: relevant `file:line`, key functions/types, conventions to follow, gotchas.
 - Keep only their conclusions. Don't scout what you already know — read that inline.
+- Honor the **escalation ladder** (`/forge:forge-principles`): if a scout returns
+  `escalate: true` or low confidence, re-run that area on a stronger model rather than
+  building on a shaky map. For a big audit, have scouts write full notes to a file and
+  return only the headline + path (two-tier return) so main context stays lean.
 - For a substantial task, distill the findings into a short **research note** (which files
   are relevant, how data flows, candidate approaches). This is a durable artifact that
   survives compaction.

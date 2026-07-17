@@ -1,11 +1,10 @@
 ---
 name: plan
 description: >
-  Produce a concrete, reviewable implementation plan before writing code for a task
-  that's ambiguous, cross-cutting, or high-stakes. Explores the codebase with cheap scout
-  agents, weighs approaches, and returns an ordered change-list with the risky step and
-  verification strategy called out. Use when the "how" isn't obvious or the user wants to
-  approve direction first. Invoke with /forge:plan.
+  Use when the HOW of a task isn't obvious, is cross-cutting or high-stakes, or the user
+  wants to approve direction before any code is written. Use when the user says "plan
+  this", "how would you approach", "what's the plan", or asks for a design/approach without
+  asking you to build yet. (For deciding WHAT to build at all, use brainstorm first.)
 ---
 
 # Plan

@@ -1,11 +1,10 @@
 ---
 name: learn
 description: >
-  Record a reusable lesson so future sessions get it for free — a non-obvious gotcha, a
-  build/test quirk, a pattern this project insists on, or a review finding the user
-  rejected as unwanted. Writes to Claude's native project memory so the knowledge compounds
-  across sessions with no extra infrastructure. Invoke /forge:learn, or reach for it after
-  solving something non-obvious or having a review finding dismissed.
+  Use after solving something non-obvious, discovering a build/test quirk or gotcha, having
+  a review finding dismissed as unwanted, or finding a task failed because context got
+  compacted away. Use when the user says "remember this", "don't flag that again", "note
+  for next time". Records a reusable lesson to project memory so it compounds.
 ---
 
 # Learn (the compounding loop)
@@ -30,7 +29,14 @@ memory** so it's portable across machines and needs no separate files or tooling
   violate.
 - A **rejected review finding** — a class of issue the user explicitly does *not* want
   flagged ("that's intentional", "our style", "stop suggesting X"), so `review-cluster`
-  stops re-surfacing it.
+  stops re-surfacing it (suppress direction).
+- A **known past failure** for a module — "this area had an N+1 regression", "auth
+  middleware here is easy to bypass". Future reviews cite it to *raise recall* (prime
+  direction). Compounding runs both ways: suppress false positives AND surface known risks.
+- A **"never compact away X"** lesson — when a task failed specifically because context
+  was compacted/cleared and lost something load-bearing (not because of bad reasoning),
+  record what must be preserved: "when doing X, always keep Y in context." Over time forge
+  learns what it must never evict, per project.
 - A solved-problem summary: the symptom, the root cause, the fix, in a few lines.
 
 **Don't record** (guidance from the memory system): anything derivable from the code,

@@ -1,6 +1,6 @@
 ---
 name: forge-principles
-description: The operating contract for the forge toolkit — accuracy-first rules, the read-only-fan-out law, token/rate-limit discipline, frequent intentional compaction, and the model-routing table every forge skill and agent follows. Read this to understand how forge decides when to fan out, which model each subagent runs on, and how it keeps context clean.
+description: The operating contract every forge skill and agent follows — accuracy rules, the fan-out law, model-routing and escalation, context discipline, evidence-gating. Read as reference. Use when you want to understand or explain how forge decides to fan out, route models, or verify.
 disable-model-invocation: true
 ---
 
@@ -40,6 +40,13 @@ on output quality** (humanlayer/ACE). On a Max subscription the scarce resources
   headroom for iteration and error handling. Don't run the window to overflow — recall
   degrades as it fills ("context rot"), and auto-compaction at ~90% produces noisy
   summaries. Compact *early*, at task boundaries, on purpose.
+- **Compact with a ledger, not blindly.** Before a compaction/`/clear` decision, take
+  stock of what's actually in context — the durable artifacts, the files still needed,
+  and the large stale tool outputs — and evict the stale bulk first (raw tool output
+  older than a few turns is worth replacing with its one-line conclusion; the subagent
+  already returned that conclusion, so keep only it). Deciding what to drop from an
+  explicit inventory beats hitting a blind threshold. Less context frequently *beats*
+  full context on accuracy, not just cost — verbatim old tool spew distracts.
 - **`/clear` liberally.** Between unrelated tasks, clear. **After two failed corrections
   on the same issue, `/clear` and rewrite the prompt** — a clean session with a better
   prompt beats a long session full of accumulated corrections.
@@ -70,6 +77,10 @@ a year of production experience.
   on the main thread.
 - **Don't fan out for what you already know.** Known file, known symbol → read it inline.
   Agent spin-up + its own context costs *more* than a direct read for a single known fact.
+- **Effort ceilings — match fleet size to the task.** Simple fact-finding: 1 agent, a few
+  tool calls. A comparison or multi-area map: 2–4 agents, ~10–15 calls each. 10+ agents
+  only for a genuinely broad audit/migration. Spawning 50 subagents for a simple question
+  is the classic waste.
 
 ## 4. Model-routing table
 
@@ -91,6 +102,26 @@ their model in frontmatter; the orchestrator picks per task.
   rate limit and aren't billed, so a stable prefix (stable CLAUDE.md, stable tool set) is
   pure headroom. Subagents run fresh contexts and don't inherit the parent's cache — one
   more reason to fan out only when the read-work justifies it.
+
+### The escalation ladder (route down, escalate on doubt)
+
+Cheap models are the default, but they fail *silently* on the wrong tasks. So:
+- **Cheap subagents signal, not just answer.** Every cheap-model agent's output carries a
+  `confidence: high | medium | low` and, when stuck, `escalate: true` + a one-line reason.
+- **The orchestrator escalates** on `escalate: true`, low confidence, or a failed
+  validation/check: re-dispatch the same task to the next tier (haiku → sonnet → opus).
+  Escalating a hard case beats accepting a cheap wrong answer.
+- **Where cheap models are dangerous (route up):** multi-step chained reasoning,
+  instruction drift in long prompts, interpretive/judgment calls, whole-system synthesis,
+  and anything with no downstream check. `scout` (haiku) is safe only for narrow, explicit,
+  single-hop retrieval; cross-file synthesis or judgment belongs on sonnet+.
+
+### The four-part subagent contract
+
+Every subagent prompt must specify four things or it will drift/duplicate work:
+**objective**, **output format** (a schema), **tools/sources to use**, and **task
+boundaries** (its lane, and what NOT to do). Hand it lightweight references (paths,
+queries) and let it load data just-in-time; don't pre-stuff its context.
 
 ## 5. Evidence-gated completion (the anti-"looks done" rule)
 
@@ -115,12 +146,16 @@ regressions; a vague TDD lecture makes them worse.
 
 ## 6. Adversarial verification kills false positives
 
-Any finding shown to the user as a "bug" must survive a skeptic pass whose explicit job
-is to *refute* it, defaulting to "not real unless proven." A gap-hunting reviewer always
-finds gaps — so reviewers flag **correctness/requirement issues only** (route taste and
-cleanups to `/simplify`), and skeptics on fresh context cross-check before anything
-surfaces. Prefer a fresh-context reviewer over pure self-review: models are weak at
-judging their own output. Details in `review-cluster`.
+Any finding shown to the user as a "bug" must survive gates before it surfaces: it must
+**quote the exact line** it's about (verified to exist), then a **single fresh-context
+validator** — not a same-model majority vote — must confirm it's real, introduced by this
+change, and not already handled, with a conservative reject-on-doubt bias. Same-family
+model panels share blind spots, so a majority can rubber-stamp a correlated hallucination;
+one independent validator that will *execute* a checkable claim beats N agreeing opinions.
+A gap-hunting reviewer always finds gaps — so reviewers flag **correctness only** (taste →
+`/simplify`), and validators see the claim, not the author's reasoning. Prefer a
+fresh-context reviewer over self-review: models are weak at judging their own output.
+Full protocol in `review-cluster`.
 
 ## 7. Compounding — each solved problem makes the next cheaper
 

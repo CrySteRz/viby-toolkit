@@ -1,127 +1,104 @@
 ---
 name: review-cluster
 description: >
-  Review a diff or body of code with a parallel multi-dimension review cluster, then run
-  an adversarial false-positive filter so only real, confirmed issues survive. Each raw
-  finding is attacked by skeptic verifiers whose job is to refute it; findings that can't
-  be refuted with concrete code-grounded counter-arguments are dropped. Use before
-  shipping, on a PR, after implementing a feature, or whenever the user asks for a code
-  review they can trust. Invoke with /forge:review-cluster.
+  Use when reviewing a diff, a PR, or freshly written code before shipping — or whenever
+  the user asks for a code review they can trust. Use after implementing a feature, as the
+  self-review step of orchestration, or when the user says "review this", "check my
+  changes", "is this correct", "find bugs".
 ---
 
 # Review Cluster + False-Positive Filter
 
 ```
-IRON LAW: A finding reaches the user only if a skeptic tried to REFUTE it and failed.
-          Flag correctness/requirement gaps only — never taste. Crying wolf once
-          teaches the user to ignore every future review.
+IRON LAW: A finding reaches the user only if (1) it quotes the exact line it's about,
+          verified to exist, and (2) a fresh-context validator confirms it's real,
+          introduced by this diff, and not already handled. Correctness only — taste
+          goes to /simplify. Crying wolf once teaches the user to ignore every review.
 ```
 
-Two stages. Stage 1 (the **review cluster**) maximizes *coverage* — many cheap reviewers,
-each on a different dimension, finding everything plausibly wrong. Stage 2 (the **false
-positive cluster**) maximizes *precision* — adversarial skeptics that try to kill each
-finding. Only findings that survive the skeptics reach the user.
+Findings flow through gates, cheapest-first, so each gate shrinks the work for the next:
 
-Reviewers and skeptics run on **fresh context** — an unbiased reviewer catches what the
-author rationalizes. And a reviewer told to "find gaps" will always find some, which is
-how false positives are born: so reviewers report only correctness and requirement gaps,
-and the skeptic stage exists precisely to kill the rest.
+```
+reviewers (coverage) → grounding gate → validator (precision) → confidence gate → report
+```
 
-This directly implements the accuracy-first + adversarial-verification rules in
-`/forge:forge-principles`. The whole point is to **never cry wolf**: a review that
-reports hallucinated bugs is worse than no review, because it trains you to ignore it.
+Reviewers and validators run on **fresh context** (they never see the author's reasoning,
+which is what makes them unbiased). This directly implements `/forge:forge-principles`
+§5–6. Dimensions, the finding schema, and the confidence rubric live in
+`references/dimensions-and-schema.md` — read it when running a real review.
 
-## Determine the target
+## 1. Target
 
-Default target is the current diff. Find it:
-- Uncommitted work: `git diff` and `git diff --staged`.
-- A branch/PR: `git diff <base>...HEAD` (find the base branch).
-- If the user names files or a range, use that.
+Default is the current diff: `git diff` + `git diff --staged`, or `git diff <base>...HEAD`
+for a branch/PR, or files the user names. If there's nothing substantive to review
+(docs/whitespace only), say so and stop — don't manufacture findings.
 
-If there is genuinely nothing to review (docs-only, whitespace), say so and stop — don't
-manufacture findings.
+## 2. Reviewers — coverage (parallel, cheap, read-only)
 
-## Stage 1 — Review cluster (parallel `reviewer` agents, cheap model, coverage)
+Spawn `reviewer` agents in parallel, **one per dimension relevant to this diff** (see the
+reference; don't run every dimension on every diff — spawn security only if it touches an
+auth/input surface, data-migration only if migration files are present, etc.). Always
+include **adversarial** for anything non-trivial — it's the highest-value dimension.
 
-Spawn `reviewer` agents in parallel, **one per dimension**, each seeing the diff and
-enough surrounding context. Standard dimensions (drop ones that don't apply, add
-project-specific ones):
+Each reviewer returns findings in the schema, and each finding MUST carry `first_evidence`:
+the verbatim line(s) at its `file:line`. A finding with no quotable evidence line is not a
+finding.
 
-1. **Correctness** — logic errors, wrong conditions, off-by-one, unhandled cases, broken
-   control flow, incorrect API/contract usage.
-2. **Edge cases & error handling** — null/undefined/empty, boundaries, error paths,
-   partial failure, resource cleanup, race conditions/concurrency.
-3. **Security** — injection, authz/authn gaps, secret exposure, unsafe deserialization,
-   SSRF/path traversal, missing validation on untrusted input.
-4. **Data & state** — persistence correctness, migrations, transaction boundaries,
-   caching/invalidation, state mutation bugs.
-5. **Regression & integration** — does this break existing callers, contracts, or
-   assumptions elsewhere? (This reviewer should check call sites, not just the diff.)
-6. **(Optional) Performance** — only when the change is on a hot path; N+1, unnecessary
-   work in loops, blocking I/O. Don't spawn this for a config tweak.
+## 3. Grounding gate — mechanical, before any validator burns tokens
 
-Each reviewer returns findings as structured items:
-`{severity, file:line, one-sentence claim, concrete failure scenario (inputs → wrong
-result)}`. A reviewer that can't tie a finding to a real failure scenario must drop it —
-"this could be cleaner" is not a bug (route true cleanups to `/simplify`, not here).
+For each candidate, **verify the quoted `first_evidence` actually exists at that
+`file:line`** (read/grep it). If the quote doesn't match, the reviewer misread the code →
+**drop it** (or demote to 25). This kills the largest false-positive class for near-zero
+cost and shrinks the validator workload. Then **dedup**: merge findings with the same
+`file` + line-bucket(±3) + normalized title.
 
-**Dedup:** collect all findings, merge ones that are the same issue at the same location.
-Now you have the raw candidate list. Do **not** show it to the user yet.
+## 4. Validator — precision (one fresh validator per surviving finding)
 
-## Stage 2 — False-positive filter (adversarial `skeptic` agents, the kill stage)
+This replaces majority-vote refutation. Same-family model panels share blind spots, so a
+2/3 vote can rubber-stamp a correlated hallucination (documented: 80 agents once
+unanimously "confirmed" a vulnerability that only *execution* disproved). Instead, dispatch
+**one `skeptic` (validator) per finding**, fresh context, given only the candidate claim
+and the code — **not** the reviewer's reasoning. It answers three questions:
 
-For each surviving candidate, run adversarial verification. This is the part that makes
-the whole thing trustworthy.
+1. **Real** in the code as written?
+2. **Introduced by this diff** (vs pre-existing)?
+3. **Not already handled** elsewhere (a guard, validation, middleware, framework default)?
 
-- Spawn **skeptic** verifiers per finding whose explicit instruction is: *try to refute
-  this. Default to "not a real issue" unless the code proves otherwise.* Each skeptic
-  independently reads the actual code around the finding and returns
-  `{verdict: real | refuted, reason grounded in file:line, confidence}`.
-- **Perspective-diverse voting** for findings that can fail in more than one way: give
-  each skeptic a distinct lens rather than three identical ones —
-  (a) *does it reproduce?* (construct the concrete input that triggers it),
-  (b) *is it already handled?* (a guard/validation/caller-side check the reviewer missed),
-  (c) *is the claim even correct about what the code does?*
-- **Kill rule:** a finding is dropped if a majority of skeptics refute it (e.g. ≥2 of 3),
-  or if any skeptic produces a *decisive* refutation (shows the exact guard that makes it
-  impossible, or shows the reviewer misread the code). Ambiguous → keep, but downgrade
-  severity and label it "unconfirmed — needs human check."
-- Cheap model is fine for skeptics **because they cross-check each other**; that's the
-  routing rule (many cheap voices that get reconciled). You (strong main thread) make the
-  final keep/kill call when skeptics disagree.
+Conservative bias: **when in doubt, reject.** It returns `{validated, reason, confidence}`.
 
-## Report (only survivors)
+**Execute, don't argue, where you can.** If a finding is mechanically checkable — a failing
+assertion, a type error, a reproducible crash — actually run it (or write the tiny repro)
+rather than reasoning about whether it reproduces. An executed check beats any number of
+agreeing opinions.
 
-Present confirmed findings ranked most-severe first. For each:
-- `file:line` — one-sentence issue — concrete failure scenario — suggested fix.
-- Mark each as **confirmed** (skeptics couldn't refute) or **unconfirmed** (kept but
-  uncertain).
+## 5. Confidence gate — the calibrated kill
 
-Then one line: how many raw candidates the cluster found and how many the filter killed
-(e.g. "12 candidates → 4 confirmed, 1 unconfirmed, 7 killed as false positives"). This
-transparency is the feature — it tells the user the filter is doing its job.
+Assign each surviving finding a confidence anchor (0/25/50/75/100 — see reference).
+**Suppress everything below 75**, except a **P0 at 50+** survives (labeled "unconfirmed —
+needs human check") so critical-but-uncertain never vanishes silently. Cross-reviewer
+agreement promotes one anchor step, but never past the grounding gate.
 
-If everything got killed, say "no real issues found; N candidates were all false
-positives" — that is a valid, valuable result. Don't invent something to report.
+## 6. Report — survivors only, plus a coverage line
 
-## Applying fixes
+Rank confirmed findings most-severe first. For each: `file:line` — the issue — the concrete
+failure scenario — suggested fix — `[confirmed]` or `[unconfirmed]`, and its `action_class`
+(route `advisory` to `/simplify`; `gated_auto`/`manual` stay here).
 
-Only if asked (or if invoked from `/forge:orchestrate`'s self-review): fix confirmed
-findings, then re-verify each fix. Never mark fixed without re-checking.
+End with a **Coverage line** — the audit trail that proves the filter worked: e.g. "14
+candidates → 3 grounding-dropped → 4 validator-killed → 2 below confidence → **5 confirmed,
+1 unconfirmed**." If everything got killed, say "no real issues; N candidates were all
+false positives" — a valid, valuable result. Never invent a finding to look useful.
 
-## Learn from rejections (compounding)
+## 7. Compounding (both directions)
 
-If the user dismisses a confirmed finding as *not something they want flagged* ("that's
-our convention", "we intentionally do X", "stop suggesting Y"), that's a false-positive
-class you should never surface again. Invoke `/forge:learn` to record the preference to
-project memory. Over time the cluster stops re-flagging this project's accepted patterns —
-the reviewer's "taste" compounds toward the user's, which is the whole point of a review
-you keep rather than mute.
+- If the user **rejects** a confirmed finding as unwanted ("that's our convention"),
+  `/forge:learn` it so the cluster stops re-flagging that class.
+- If a reviewer surfaces a **known past failure** for this module (recorded via `learn`),
+  cite it as prior context — past bugs raise recall, not just past FPs lowering noise.
 
-## Token discipline
+## Scale to the diff
 
-Reviewers and skeptics run on cheap models in parallel; their file reads die with them.
-You keep only the deduped candidate list and the verdicts. Scale the cluster to the diff:
-a 20-line change needs 2–3 dimensions and single-vote skeptics; a 2000-line change
-warrants the full dimension set and 3-vote adversarial verification. Don't run the heavy
-cluster on a trivial diff.
+A 20-line change: 2–3 dimensions, grounding gate, single validator, skip N-run stability.
+A large/high-risk diff: full dimension set incl. adversarial, and optionally **N-run
+stability** (run the cluster k times; keep only findings appearing in ≥⌈k/2⌉ runs —
+instability is itself a low-precision signal). Don't run the heavy path on a trivial diff.
