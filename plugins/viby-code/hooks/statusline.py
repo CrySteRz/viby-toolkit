@@ -9,7 +9,7 @@ blocks. On any error it prints a minimal line so the statusline never breaks.
 
 Wire it up (this file is not auto-registered — statuslines live in settings.json):
   "statusLine": { "type": "command",
-                  "command": "python3 \"$HOME/.claude/plugins/cache/ionut-toolkit/viby-code/<ver>/hooks/statusline.py\"" }
+                  "command": "python3 \"$HOME/.claude/plugins/cache/viby-toolkit/viby-code/<ver>/hooks/statusline.py\"" }
 Or just use `bunx ccusage statusline`. See the README telemetry section.
 """
 import sys, json

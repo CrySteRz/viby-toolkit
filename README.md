@@ -1,10 +1,10 @@
-# claude-toolkit
+# viby-toolkit
 
 My personal Claude Code toolkit, distributed as a private plugin marketplace. One repo,
 installed once per machine at **user scope**, so it applies automatically to every
 project — work and personal — and travels with me to any new computer.
 
-Marketplace: **`ionut-toolkit`** · Plugin: **`viby-code`**
+Marketplace: **`viby-toolkit`** · Plugin: **`viby-code`**
 
 ---
 
@@ -127,7 +127,7 @@ The context discipline is measurable, not just asserted:
   in `~/.claude/settings.json` (or just use `bunx ccusage statusline`):
   ```json
   { "statusLine": { "type": "command",
-      "command": "python3 \"$HOME/.claude/plugins/cache/ionut-toolkit/viby-code/0.3.1/hooks/statusline.py\"" } }
+      "command": "python3 \"$HOME/.claude/plugins/cache/viby-toolkit/viby-code/0.3.1/hooks/statusline.py\"" } }
   ```
 - **OpenTelemetry** — set `CLAUDE_CODE_ENABLE_TELEMETRY=1` and export
   `claude_code.token.usage`; group by `query_source` (`main` vs `subagent`) and `agent.name`
@@ -143,8 +143,8 @@ Prereqs: `gh` authenticated (`gh auth status`) or SSH access to this private rep
 **Option A — via Claude Code (recommended):**
 
 ```
-/plugin marketplace add ionutblidaruvsp/claude-toolkit
-/plugin install viby-code@ionut-toolkit
+/plugin marketplace add ionutblidaruvsp/viby-toolkit
+/plugin install viby-code@viby-toolkit
 ```
 
 Then confirm it's enabled at **user scope** so it applies to every project.
@@ -155,12 +155,12 @@ Then confirm it's enabled at **user scope** so it applies to every project.
 ```jsonc
 {
   "extraKnownMarketplaces": {
-    "ionut-toolkit": {
-      "source": { "source": "github", "repo": "ionutblidaruvsp/claude-toolkit" }
+    "viby-toolkit": {
+      "source": { "source": "github", "repo": "ionutblidaruvsp/viby-toolkit" }
     }
   },
   "enabledPlugins": {
-    "viby-code@ionut-toolkit": true
+    "viby-code@viby-toolkit": true
   }
 }
 ```
