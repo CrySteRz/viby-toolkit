@@ -7,3 +7,7 @@ node_modules/
 *.pem
 *.key
 credentials*
+
+# python bytecode
+__pycache__/
+*.pyc
