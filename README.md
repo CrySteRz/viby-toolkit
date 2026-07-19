@@ -179,6 +179,28 @@ marketplace can fail silently. Either:
 
 Force a manual update anytime with `/plugin update viby-code`.
 
+## Install on a machine without GitHub access (portable bundle)
+
+For a PC that can't reach the private repo (no account, no token), install straight from a
+copy of this folder — no GitHub, no login, no network:
+
+1. Copy the whole `viby-toolkit` folder to the target machine (USB, `scp`, a cloud drive,
+   or Syncthing). A clean copy without git history:
+   ```bash
+   git archive --format=tar.gz -o viby-toolkit.tar.gz HEAD    # on a machine that has the repo
+   # move the .tar.gz over, then on the target:  tar xzf viby-toolkit.tar.gz
+   ```
+2. On the target machine, from inside the folder, run:
+   ```bash
+   bash install.sh
+   ```
+   It registers this folder as a local marketplace and installs `viby-code` at user scope.
+   Restart Claude Code and type `/viby-code:`.
+
+**Keep the folder** — the plugin loads from it. **To update later:** copy a newer copy of
+the folder over the old one and re-run `bash install.sh` (it's idempotent). This trades
+auto-update for total independence from GitHub.
+
 ---
 
 ## Editing the toolkit
