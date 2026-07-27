@@ -4,47 +4,47 @@ My personal Claude Code toolkit, distributed as a private plugin marketplace. On
 installed once per machine at **user scope**, so it applies automatically to every
 project — work and personal — and travels with me to any new computer.
 
-Marketplace: **`viby-toolkit`** · Plugin: **`viby-code`**
+Marketplace: **`viby-toolkit`** · Plugin: **`viby-toolkit`**
 
 ---
 
 ## What's in it
 
-`viby-code` is an accuracy-first, token-disciplined set of engineering workflows. It's
+`viby-toolkit` is an accuracy-first, token-disciplined set of engineering workflows. It's
 stack-agnostic (detects the project at runtime; assumes nothing). Everything executable is
 TypeScript with zero runtime dependencies and no build step — see
 [Why TypeScript](#why-typescript-and-how-it-runs-without-a-build-step).
 
-### Skills (auto-trigger by context, or call with `/viby-code:<name>`)
+### Skills (auto-trigger by context, or call with `/viby-toolkit:<name>`)
 
 | Skill | What it does |
 |---|---|
-| `/viby-code:brainstorm` | **Design-before-code gate.** Decides WHAT to build (and whether it's the right thing) with an Iron-Law hold on any implementation until you approve the design. Runs before plan/orchestrate for anything whose shape isn't settled. |
-| `/viby-code:orchestrate` | Drives a task end-to-end: scope → research → plan → implement → verify → self-review. Fans out cheap scouts for discovery, keeps writes single-threaded, keeps main context clean. |
-| `/viby-code:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers (incl. an adversarial chaos-engineer dimension) find candidates; a grounding gate drops anything that can't quote its own line; one fresh-context validator per finding confirms real/introduced/not-already-handled; a confidence gate suppresses below-threshold. Reports the full kill count. |
-| `/viby-code:explore` | **Understand an unfamiliar codebase.** Detects the stack mechanically first (languages, package manager, monorepo tool, real build/test commands with their source), then fans out scouts on specific questions, traces one path end to end, and writes a durable map. Scouts each language separately in a polyglot repo and names the cross-language seams. |
-| `/viby-code:secure` | **Security pass, ordered by what actually goes wrong.** Credentials first (99.6% of critical findings in a 2026 study of 4,022 agent-assisted PRs), then supply chain and CI (82.3% by volume), then code surfaces judged by reachability. Confirms each candidate secret, because that study's own labelling was ~73% false positives. |
-| `/viby-code:verify` | **The evidence gate, executed.** Finds the project's real checks (CI config is authoritative), scopes them to the change, exercises the actual behavior — then screens the output for silent-pass modes, because a zero exit code with zero tests collected is not a pass. Fix the code, never the check. |
-| `/viby-code:test` | **QA and test design, with a scanner.** Picks the test level deliberately, insists every new test is *seen failing for the right reason* before it's trusted, and enforces mocking discipline (coding agents over-mock measurably more than humans). Ships an executable auditor — `scan-test-quality.ts` finds no-assertion tests, tautologies, over-mocking, `.only`/`.skip` left in, sleep-waits and swallowed errors, with `file:line`. |
-| `/viby-code:perf` | **Measure, or it didn't happen.** Baseline → profile → one change → re-measure, with correctness as a gate. Exists because a 2026 study of 407 performance PRs found agents pick statistically indistinguishable optimisations to humans but validate them far less: 45.7% vs 63.6%, and 67.2% of validated agent PRs reasoned statically instead of benchmarking. The detector reports the repo's bench command and which profilers are actually installed. |
-| `/viby-code:refactor` | **Behaviour-preserving, and proven so.** Name the invariant, find what pins it, add characterization tests if nothing does, then transform in small verified steps. The same tests must pass before and after, unchanged. Never mixed with a behaviour change in one diff. |
-| `/viby-code:schema` | **The one change you cannot undo.** Every schema change must deploy while the OLD code still runs and be reversible without data loss — expand, migrate, contract, never rename in place. Ships `check-migration.ts`: index without `CONCURRENTLY`, `NOT NULL` without a default, type changes, renames, unbounded `UPDATE`, constraints without `NOT VALID`, DDL mixed with a backfill, missing `lock_timeout`, no rollback. Every rule names the safe alternative. |
-| `/viby-code:incident` | **Stop the bleeding, then find out why.** Deliberately inverts `debug`: reversible mitigation *before* diagnosis, because users are losing service while you investigate — rollback, then flag, then shed load, then clear the blockage. Preserve evidence before mitigation destroys it. Never ship a speculative fix to production under pressure. Hands back to `debug` once service is restored. |
-| `/viby-code:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
-| `/viby-code:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
-| `/viby-code:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
-| `/viby-code:release` | **The version number is a promise.** Decide major/minor/patch from the public-surface diff, never from the size of the change — a review of 97 studies found 67% of Maven artifacts violate SemVer, and that detection handles syntactic breaks well but behavioural ones poorly. Ships `check-release.ts`: version drift across manifests, dirty tree, unpushed commits, tag collisions, stale changelog, debug artifacts left in. |
-| `/viby-code:observe` | **Instrument for the person reading it at 3am.** Log decisions and outcomes, never arrivals; structured fields, not sentences; correlation keys on every event. High cardinality is the point for logs and traces, and the cost trap for metric labels. Alert on symptoms, not causes — and verify the instrumentation by triggering the path and reading the real output. |
-| `/viby-code:api` | **Design the contract, because you cannot take it back.** Write the caller's code first, design inward from their use case rather than outward from the storage schema, and settle errors, pagination, idempotency and limits at design time — each is a breaking change if retrofitted. Expand-then-contract for evolution; diff the surface to decide if a change is breaking. |
-| `/viby-code:evaluate` | **Decide what to adopt, by measuring it on a case you already know the answer to.** Establish the ground truth *before* installing anything, price the baseline you'd be replacing, then put cost and correctness in one table — because a cheap wrong answer beats an expensive right one on every column except the one that matters. Ships `measure-read-cost.ts`: what a read set costs, `--repeat` for cadence (payload × frequency), `--budget` to gate it. Records the winner's failure case, the rejections with the bar each failed, and the back-out commands. |
-| `/viby-code:learn` | Records a reusable lesson (gotcha, build quirk, rejected finding, known past risk, "never compact X") to Claude's native project memory — the compounding loop, both suppressing false positives and raising recall on known risks. |
-| `/viby-code:handoff` | Serializes live task state (goal, decisions, next step) so a fresh session resumes mid-task without re-deriving it. Ephemeral, distinct from `learn`. |
-| `/viby-code:worktrees` | Isolates work (parallel implementers, risky experiments) — detect existing isolation first, prefer the native worktree tool, never fight the harness. |
-| `/viby-code:principles` | The operating contract everything follows: accuracy rules, the fan-out law, model-routing + escalation ladder, context discipline, the evidence gate. Read-only reference. |
+| `/viby-toolkit:brainstorm` | **Design-before-code gate.** Decides WHAT to build (and whether it's the right thing) with an Iron-Law hold on any implementation until you approve the design. Runs before plan/orchestrate for anything whose shape isn't settled. |
+| `/viby-toolkit:orchestrate` | Drives a task end-to-end: scope → research → plan → implement → verify → self-review. Fans out cheap scouts for discovery, keeps writes single-threaded, keeps main context clean. |
+| `/viby-toolkit:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers (incl. an adversarial chaos-engineer dimension) find candidates; a grounding gate drops anything that can't quote its own line; one fresh-context validator per finding confirms real/introduced/not-already-handled; a confidence gate suppresses below-threshold. Reports the full kill count. |
+| `/viby-toolkit:explore` | **Understand an unfamiliar codebase.** Detects the stack mechanically first (languages, package manager, monorepo tool, real build/test commands with their source), then fans out scouts on specific questions, traces one path end to end, and writes a durable map. Scouts each language separately in a polyglot repo and names the cross-language seams. |
+| `/viby-toolkit:secure` | **Security pass, ordered by what actually goes wrong.** Credentials first (99.6% of critical findings in a 2026 study of 4,022 agent-assisted PRs), then supply chain and CI (82.3% by volume), then code surfaces judged by reachability. Confirms each candidate secret, because that study's own labelling was ~73% false positives. |
+| `/viby-toolkit:verify` | **The evidence gate, executed.** Finds the project's real checks (CI config is authoritative), scopes them to the change, exercises the actual behavior — then screens the output for silent-pass modes, because a zero exit code with zero tests collected is not a pass. Fix the code, never the check. |
+| `/viby-toolkit:test` | **QA and test design, with a scanner.** Picks the test level deliberately, insists every new test is *seen failing for the right reason* before it's trusted, and enforces mocking discipline (coding agents over-mock measurably more than humans). Ships an executable auditor — `scan-test-quality.ts` finds no-assertion tests, tautologies, over-mocking, `.only`/`.skip` left in, sleep-waits and swallowed errors, with `file:line`. |
+| `/viby-toolkit:perf` | **Measure, or it didn't happen.** Baseline → profile → one change → re-measure, with correctness as a gate. Exists because a 2026 study of 407 performance PRs found agents pick statistically indistinguishable optimisations to humans but validate them far less: 45.7% vs 63.6%, and 67.2% of validated agent PRs reasoned statically instead of benchmarking. The detector reports the repo's bench command and which profilers are actually installed. |
+| `/viby-toolkit:refactor` | **Behaviour-preserving, and proven so.** Name the invariant, find what pins it, add characterization tests if nothing does, then transform in small verified steps. The same tests must pass before and after, unchanged. Never mixed with a behaviour change in one diff. |
+| `/viby-toolkit:schema` | **The one change you cannot undo.** Every schema change must deploy while the OLD code still runs and be reversible without data loss — expand, migrate, contract, never rename in place. Ships `check-migration.ts`: index without `CONCURRENTLY`, `NOT NULL` without a default, type changes, renames, unbounded `UPDATE`, constraints without `NOT VALID`, DDL mixed with a backfill, missing `lock_timeout`, no rollback. Every rule names the safe alternative. |
+| `/viby-toolkit:incident` | **Stop the bleeding, then find out why.** Deliberately inverts `debug`: reversible mitigation *before* diagnosis, because users are losing service while you investigate — rollback, then flag, then shed load, then clear the blockage. Preserve evidence before mitigation destroys it. Never ship a speculative fix to production under pressure. Hands back to `debug` once service is restored. |
+| `/viby-toolkit:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
+| `/viby-toolkit:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
+| `/viby-toolkit:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
+| `/viby-toolkit:release` | **The version number is a promise.** Decide major/minor/patch from the public-surface diff, never from the size of the change — a review of 97 studies found 67% of Maven artifacts violate SemVer, and that detection handles syntactic breaks well but behavioural ones poorly. Ships `check-release.ts`: version drift across manifests, dirty tree, unpushed commits, tag collisions, stale changelog, debug artifacts left in. |
+| `/viby-toolkit:observe` | **Instrument for the person reading it at 3am.** Log decisions and outcomes, never arrivals; structured fields, not sentences; correlation keys on every event. High cardinality is the point for logs and traces, and the cost trap for metric labels. Alert on symptoms, not causes — and verify the instrumentation by triggering the path and reading the real output. |
+| `/viby-toolkit:api` | **Design the contract, because you cannot take it back.** Write the caller's code first, design inward from their use case rather than outward from the storage schema, and settle errors, pagination, idempotency and limits at design time — each is a breaking change if retrofitted. Expand-then-contract for evolution; diff the surface to decide if a change is breaking. |
+| `/viby-toolkit:evaluate` | **Decide what to adopt, by measuring it on a case you already know the answer to.** Establish the ground truth *before* installing anything, price the baseline you'd be replacing, then put cost and correctness in one table — because a cheap wrong answer beats an expensive right one on every column except the one that matters. Ships `measure-read-cost.ts`: what a read set costs, `--repeat` for cadence (payload × frequency), `--budget` to gate it. Records the winner's failure case, the rejections with the bar each failed, and the back-out commands. |
+| `/viby-toolkit:learn` | Records a reusable lesson (gotcha, build quirk, rejected finding, known past risk, "never compact X") to Claude's native project memory — the compounding loop, both suppressing false positives and raising recall on known risks. |
+| `/viby-toolkit:handoff` | Serializes live task state (goal, decisions, next step) so a fresh session resumes mid-task without re-deriving it. Ephemeral, distinct from `learn`. |
+| `/viby-toolkit:worktrees` | Isolates work (parallel implementers, risky experiments) — detect existing isolation first, prefer the native worktree tool, never fight the harness. |
+| `/viby-toolkit:principles` | The operating contract everything follows: accuracy rules, the fan-out law, model-routing + escalation ladder, context discipline, the evidence gate. Read-only reference. |
 
 ### Command
 
-- `/viby-code:ship <task>` — run the whole pipeline autonomously and don't stop until verified.
+- `/viby-toolkit:ship <task>` — run the whole pipeline autonomously and don't stop until verified.
 
 ### Agents (dispatched by the skills; cheap models by design)
 
@@ -90,16 +90,16 @@ thread's context window** and your **rate-limit budget** — not dollars.
 5. **Evidence-gated completion.** Never claim done without running the check fresh and
    showing its output *and exit code*. The words "should / probably / seems" are the tell
    that you skipped verification — and a zero exit code is not a pass if zero tests ran,
-   everything skipped, or the check was neutered by `|| true`. `/viby-code:verify` runs this
+   everything skipped, or the check was neutered by `|| true`. `/viby-toolkit:verify` runs this
    as a procedure rather than leaving it as an aspiration.
 6. **Adversarial verification** keeps accuracy high while most tokens are spent cheaply —
    many cheap voices get cross-checked, so a single cheap voice being wrong doesn't sink
    the result.
 7. **Compounding.** Each solved problem and each rejected review finding is recorded to
-   native memory (`/viby-code:learn`), so the next session is cheaper and the reviewer's taste
+   native memory (`/viby-toolkit:learn`), so the next session is cheaper and the reviewer's taste
    drifts toward yours.
 
-Full contract: `/viby-code:principles`.
+Full contract: `/viby-toolkit:principles`.
 
 ### Provenance
 
@@ -119,7 +119,7 @@ driven "never-compact" lessons (ACON); and the escalation-ladder / cheap-model-d
 model-routing guidance. Overstated single-number claims were deliberately dropped after an
 adversarial fact-check; only convergent, credible mechanisms were kept.
 
-The v0.5.0 testing module (`/viby-code:test`) is grounded in four verified sources, each read
+The v0.5.0 testing module (`/viby-toolkit:test`) is grounded in four verified sources, each read
 rather than taken from a summary:
 
 - **Over-mocking is an agent-specific failure mode.** *Are Coding Agents Generating
@@ -161,7 +161,7 @@ The v0.8.0 additions:
   of critical-severity findings**, **81.1% of leaked credentials reached integration
   undetected** by bots and humans alike, supply-chain/CI misconfiguration was **82.3% by
   volume**, and **67.6% of genuine leaks came from the human collaborator, not the agent** —
-  so `/viby-code:secure` checks the whole change, credentials first. The same paper's
+  so `/viby-toolkit:secure` checks the whole change, credentials first. The same paper's
   automated labelling had only a **27.2% validation rate**, which is why confirming each
   candidate is in that skill's Iron Law rather than a footnote.
 
@@ -173,7 +173,7 @@ The v0.9.0 additions:
   optimisations (χ²=6.10, p=0.636), but agents validate far less often: explicit performance
   validation in **45.7% vs 63.6%** of PRs (p=0.007), and of validated agent PRs **67.2%
   reasoned statically** while only **25% reported benchmarks** against **49%** for humans
-  (χ²=12.43, p=0.006). `/viby-code:perf` is built entirely around closing that gap — baseline
+  (χ²=12.43, p=0.006). `/viby-toolkit:perf` is built entirely around closing that gap — baseline
   first, profile to choose the target, one change per measurement — and the detector now
   reports the repo's bench command plus which profilers are actually on PATH, so "I couldn't
   measure" stops being the default. Corroborated by
@@ -184,7 +184,7 @@ The v0.9.0 additions:
   [PROMISE 2026](https://homepages.dcc.ufmg.br/~figueiredo/publications/promise2026preprint.pdf)
   found a heuristic bias toward style and naming, plus *semantic overgeneralization* —
   penalising a legitimate refactor **because** it shortened the code, mistaking brevity for
-  lost functionality. So `/viby-code:refactor` requires the behaviour-pinning tests to pass
+  lost functionality. So `/viby-toolkit:refactor` requires the behaviour-pinning tests to pass
   unchanged before and after (adding characterization tests when nothing pins it), and the
   review cluster now carries the inverse caution: don't flag "this removed logic" from shape
   alone — name the input whose behaviour changed, or drop the finding.
@@ -197,7 +197,7 @@ The v0.10.0 additions:
   introduce at least one semantic-versioning violation**, and names *"the failure of semantic
   versioning as a trust mechanism"* a central open problem. Of its 43 surveyed detection
   approaches, the finding that shaped this skill is that they reach *"high accuracy on
-  syntactic breaks but limited coverage on behavioral ones"* — so `/viby-code:release` puts
+  syntactic breaks but limited coverage on behavioral ones"* — so `/viby-toolkit:release` puts
   the mechanical checks in a script and spends its judgement on the behavioural half: changed
   defaults, narrowed inputs, new error types, reordered results. When unsure between minor and
   major, it is major, because the cost is asymmetric.
@@ -225,9 +225,9 @@ The v0.11.0 additions, chosen by cost-of-error rather than by frequency:
   finding, and it is presented that way: every message says *check this against your engine*.
   Sources here were practitioner guides, not studies — stated plainly rather than dressed up as
   evidence.
-- **Incidents invert the debugging rule, on purpose.** `/viby-code:debug` forbids a fix without
+- **Incidents invert the debugging rule, on purpose.** `/viby-toolkit:debug` forbids a fix without
   a confirmed root cause, which is right when you have time and wrong when users are losing
-  service. `/viby-code:incident` puts reversible mitigation first (rollback → flag → shed load
+  service. `/viby-toolkit:incident` puts reversible mitigation first (rollback → flag → shed load
   → clear the blockage), insists on preserving evidence *before* mitigation destroys it, and
   forbids shipping a speculative code change to production under pressure. It then hands back
   to `debug` for the real root-cause pass. The two skills disagree about ordering by design,
@@ -338,7 +338,7 @@ place by being the best worked examples of a decision class this toolkit had no 
   and **zero results** on the cross-module question that was the entire reason to adopt it —
   because it followed an import to a re-export barrel and stopped. The savings column alone would
   have recommended it. You only see that failure if you established the right answer *first*, on
-  one labeled case. That is `/viby-code:evaluate`'s Iron Law, and the new §1 line in
+  one labeled case. That is `/viby-toolkit:evaluate`'s Iron Law, and the new §1 line in
   `principles`: *a fast, cheap, wrong answer is worse than the slow one it replaced* — because it
   gets believed and kept, while the slow method got checked.
 - **Cost is payload × cadence.** The browser spike's sharpest line was that cadence matters as
@@ -362,7 +362,7 @@ place by being the best worked examples of a decision class this toolkit had no 
 - **Rejections are the reusable part.** Each rejected candidate gets one line naming the bar it
   failed (a third-party egress, a runtime the machine doesn't have), which is what stops the same
   option being re-proposed next quarter. That pattern went into `evaluate` and into
-  `/viby-code:plan`, which previously recorded only the chosen approach.
+  `/viby-toolkit:plan`, which previously recorded only the chosen approach.
 
 Also adopted from them: pin exact versions and verify the publisher (one had a near-miss
 typosquat slot next to the legitimate package); trial in a throwaway worktree with nothing added
@@ -401,7 +401,7 @@ The context discipline is measurable, not just asserted:
   this form survives version bumps instead of hardcoding one:
   ```json
   { "statusLine": { "type": "command",
-      "command": "sh \"$(ls -d \"$HOME\"/.claude/plugins/cache/viby-toolkit/viby-code/*/hooks/run.sh | tail -1)\" \"$(ls -d \"$HOME\"/.claude/plugins/cache/viby-toolkit/viby-code/*/hooks/statusline.ts | tail -1)\"" } }
+      "command": "sh \"$(ls -d \"$HOME\"/.claude/plugins/cache/viby-toolkit/viby-toolkit/*/hooks/run.sh | tail -1)\" \"$(ls -d \"$HOME\"/.claude/plugins/cache/viby-toolkit/viby-toolkit/*/hooks/statusline.ts | tail -1)\"" } }
   ```
 - **OpenTelemetry** — set `CLAUDE_CODE_ENABLE_TELEMETRY=1` and export
   `claude_code.token.usage`; group by `query_source` (`main` vs `subagent`) and `agent.name`
@@ -424,7 +424,7 @@ degraded-but-functional install rather than errors. Check with `node --version`.
 
 ```
 /plugin marketplace add ionutblidaruvsp/viby-toolkit
-/plugin install viby-code@viby-toolkit
+/plugin install viby-toolkit@viby-toolkit
 ```
 
 Then confirm it's enabled at **user scope** so it applies to every project.
@@ -440,13 +440,13 @@ Then confirm it's enabled at **user scope** so it applies to every project.
     }
   },
   "enabledPlugins": {
-    "viby-code@viby-toolkit": true
+    "viby-toolkit@viby-toolkit": true
   }
 }
 ```
 
-Restart Claude Code. Verify with `/plugin` (should list `viby-code` as enabled) and by typing
-`/viby-code:` (skills should autocomplete).
+Restart Claude Code. Verify with `/plugin` (should list `viby-toolkit` as enabled) and by typing
+`/viby-toolkit:` (skills should autocomplete).
 
 ### Private-repo auto-update note
 
@@ -457,7 +457,7 @@ marketplace can fail silently. Either:
 - set `CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1` to keep the working clone if a
   refresh fails.
 
-Force a manual update anytime with `/plugin update viby-code`.
+Force a manual update anytime with `/plugin update viby-toolkit`.
 
 ## Install on a machine without GitHub access (portable bundle)
 
@@ -474,8 +474,8 @@ copy of this folder — no GitHub, no login, no network:
    ```bash
    bash install.sh
    ```
-   It registers this folder as a local marketplace and installs `viby-code` at user scope.
-   Restart Claude Code and type `/viby-code:`.
+   It registers this folder as a local marketplace and installs `viby-toolkit` at user scope.
+   Restart Claude Code and type `/viby-toolkit:`.
 
 **Keep the folder** — the plugin loads from it. **To update later:** copy a newer copy of
 the folder over the old one and re-run `bash install.sh` (it's idempotent). This trades
@@ -490,7 +490,7 @@ Everything lives here as plain files:
 ```
 .claude-plugin/marketplace.json      # marketplace manifest
 package.json + tsconfig.json         # TS config; zero runtime dependencies
-plugins/viby-code/
+plugins/viby-toolkit/
   .claude-plugin/plugin.json         # plugin manifest
   skills/<name>/SKILL.md             # the workflows
   skills/test/scripts/scan-test-quality.ts   # executable test auditor
@@ -525,7 +525,7 @@ cannot execute (no enums, no namespaces, no parameter properties).
 
 After editing, bump `version` in `plugin.json` **and** in `marketplace.json` (both carry
 it), commit, push. Machines pick up the change on next session (or `/plugin update
-viby-code`).
+viby-toolkit`).
 
 ### Verify before pushing
 
@@ -555,7 +555,7 @@ machines auto-update from this repo's default branch — a broken push propagate
 errors, type errors, nor failing tests — they were *instructions Claude could not follow*:
 a keystone skill marked `disable-model-invocation` (making it user-only while nine skills
 told Claude to load it), and a script path built from `CLAUDE_PLUGIN_ROOT`, which is set for
-hooks but empty in a skill body. The check verifies every `/viby-code:<name>` resolves to a
+hooks but empty in a skill body. The check verifies every `/viby-toolkit:<name>` resolves to a
 skill that exists *and is model-invocable*, that referenced agents and scripts exist, and
 that no skill body expands a hook-only variable.
 

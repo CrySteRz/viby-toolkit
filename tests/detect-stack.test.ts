@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { detectStack } from "../plugins/viby-code/skills/verify/scripts/detect-stack.ts";
+import { detectStack } from "../plugins/viby-toolkit/skills/verify/scripts/detect-stack.ts";
 
 function build(files: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "stack-"));

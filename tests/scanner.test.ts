@@ -1,5 +1,5 @@
 /**
- * Contract tests for the viby-code test-quality scanner.
+ * Contract tests for the viby-toolkit test-quality scanner.
  *
  * Run: node --experimental-strip-types --test tests/scanner.test.ts
  *
@@ -19,11 +19,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isTestFile } from "../plugins/viby-code/skills/test/scripts/scan-test-quality.ts";
+import { isTestFile } from "../plugins/viby-toolkit/skills/test/scripts/scan-test-quality.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(__dirname);
-const SCANNER = path.join(ROOT, "plugins", "viby-code", "skills", "test", "scripts", "scan-test-quality.ts");
+const SCANNER = path.join(ROOT, "plugins", "viby-toolkit", "skills", "test", "scripts", "scan-test-quality.ts");
 
 type Case = [name: string, filename: string, source: string, expected: string[]];
 

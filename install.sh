@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# viby-code portable installer — install on any machine WITHOUT a GitHub account.
+# viby-toolkit portable installer — install on any machine WITHOUT a GitHub account.
 #
 # Usage: copy this whole folder to the target machine (USB / scp / cloud drive /
 # Syncthing), then from inside it run:
@@ -12,7 +12,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MARKET="viby-toolkit"
-PLUGIN="viby-code"
+PLUGIN="viby-toolkit"
 
 # 1. Must be run from the toolkit folder (has the marketplace manifest).
 if [ ! -f "$ROOT/.claude-plugin/marketplace.json" ]; then
@@ -44,7 +44,7 @@ fi
 if [ -z "$runtime" ]; then
   echo "⚠ No TypeScript runtime found (need Node >= 22.6, or bun)."
   echo "  Skills, agents and commands will work fine — they're plain markdown."
-  echo "  The statusline and the /viby-code:test scanner will silently no-op until you"
+  echo "  The statusline and the /viby-toolkit:test scanner will silently no-op until you"
   echo "  install one. Everything else installs normally; continuing."
 else
   echo "  ✓ TypeScript runtime: $runtime"
@@ -69,6 +69,6 @@ else
 fi
 
 echo
-echo "✓ Done. Restart Claude Code, then type /viby-code: to see the skills."
+echo "✓ Done. Restart Claude Code, then type /viby-toolkit: to see the skills."
 echo "  Keep this folder around — the plugin loads from it. To update later:"
 echo "  copy a newer copy of the folder over this one and re-run: bash install.sh"

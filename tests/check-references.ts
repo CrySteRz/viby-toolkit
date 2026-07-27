@@ -9,7 +9,7 @@
  *
  *  1. `principles/SKILL.md` set `disable-model-invocation: true`, which makes a skill
  *     user-invocable ONLY. Nine skills plus the SessionStart hook instructed Claude to
- *     "Follow /viby-code:principles" — an instruction it could not execute.
+ *     "Follow /viby-toolkit:principles" — an instruction it could not execute.
  *  2. `test/SKILL.md` built a script path from `${CLAUDE_PLUGIN_ROOT}`, which is set for
  *     HOOKS only and is empty in a skill body, so the path silently broke.
  *
@@ -20,7 +20,7 @@ import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
-const PLUGIN = join(ROOT, "plugins", "viby-code");
+const PLUGIN = join(ROOT, "plugins", "viby-toolkit");
 
 type Problem = { file: string; line: number; message: string };
 const problems: Problem[] = [];
@@ -63,18 +63,18 @@ for (const file of allFiles) {
   const text = readFileSync(file, "utf8");
   const rel = file.replace(ROOT + "/", "");
 
-  // 1. /viby-code:<name> must exist and be model-invocable
-  for (const m of text.matchAll(/\/viby-code:([a-z-]+)/g)) {
+  // 1. /viby-toolkit:<name> must exist and be model-invocable
+  for (const m of text.matchAll(/\/viby-toolkit:([a-z-]+)/g)) {
     const name = m[1];
     if (name === undefined) continue;
     const line = lineOf(text, m.index);
     if (!skills.includes(name) && !commands.includes(name)) {
-      problems.push({ file: rel, line, message: `/viby-code:${name} does not exist` });
+      problems.push({ file: rel, line, message: `/viby-toolkit:${name} does not exist` });
     } else if (modelBlocked.includes(name)) {
       problems.push({
         file: rel,
         line,
-        message: `/viby-code:${name} is model-blocked (disable-model-invocation) — Claude cannot follow this reference`,
+        message: `/viby-toolkit:${name} is model-blocked (disable-model-invocation) — Claude cannot follow this reference`,
       });
     }
   }
@@ -120,7 +120,7 @@ for (const m of JSON.stringify(hooksJson).matchAll(/\$\{CLAUDE_PLUGIN_ROOT\}\/([
   const relPath = m[1];
   if (relPath === undefined) continue;
   if (!existsSync(join(PLUGIN, relPath))) {
-    problems.push({ file: "plugins/viby-code/hooks/hooks.json", line: 1, message: `hook target ${relPath} does not exist` });
+    problems.push({ file: "plugins/viby-toolkit/hooks/hooks.json", line: 1, message: `hook target ${relPath} does not exist` });
   }
 }
 

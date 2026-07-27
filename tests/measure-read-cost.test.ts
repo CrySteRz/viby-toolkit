@@ -6,7 +6,7 @@
  * Both halves pinned, as always: what must be counted, and what must NOT be. The second
  * half matters more here than usual — a baseline inflated by `node_modules` or a lockfile
  * makes every savings ratio computed against it a fiction, which is precisely the failure
- * mode /viby-code:evaluate exists to prevent.
+ * mode /viby-toolkit:evaluate exists to prevent.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -18,12 +18,12 @@ import {
   estimateTokens,
   kindOf,
   measureReadCost,
-} from "../plugins/viby-code/skills/evaluate/scripts/measure-read-cost.ts";
+} from "../plugins/viby-toolkit/skills/evaluate/scripts/measure-read-cost.ts";
 
 const SCRIPT = path.join(
   path.dirname(import.meta.dirname),
   "plugins",
-  "viby-code",
+  "viby-toolkit",
   "skills",
   "evaluate",
   "scripts",

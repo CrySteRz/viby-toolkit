@@ -33,12 +33,12 @@ jobs:
         run: |
           echo '{"model":{"display_name":"CI"},"context_window":{"used_percentage":42}}' \
             | node --experimental-strip-types --disable-warning=ExperimentalWarning \
-                plugins/viby-code/hooks/statusline.ts
+                plugins/viby-toolkit/hooks/statusline.ts
 
       - name: runner shim resolves a runtime
         run: |
           printf 'console.log("SHIM_OK");\n' > /tmp/sentinel.ts
-          out=$(sh plugins/viby-code/hooks/run.sh /tmp/sentinel.ts)
+          out=$(sh plugins/viby-toolkit/hooks/run.sh /tmp/sentinel.ts)
           echo "$out"
           test "$out" = "SHIM_OK"
 
@@ -52,9 +52,9 @@ jobs:
         run: npm run scan -- --all
 
       - name: SessionStart emits valid JSON
-        run: sh plugins/viby-code/hooks/session-start.sh | node -e "JSON.parse(require('fs').readFileSync(0,'utf8'))"
+        run: sh plugins/viby-toolkit/hooks/session-start.sh | node -e "JSON.parse(require('fs').readFileSync(0,'utf8'))"
 
-      # Every /viby-code:<name> reference must resolve to a skill that exists AND is
+      # Every /viby-toolkit:<name> reference must resolve to a skill that exists AND is
       # model-invocable. Two shipped bugs were exactly this: a keystone skill made
       # user-only, and a script path built from a hook-only env var.
       - name: cross-references resolve

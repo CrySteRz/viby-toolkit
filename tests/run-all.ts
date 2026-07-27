@@ -43,7 +43,7 @@ function which(name: string): boolean {
   return pathEnv.split(delimiter).some((dir) => dir && existsSync(join(dir, name)));
 }
 
-const SCANNER = join("plugins", "viby-code", "skills", "test", "scripts", "scan-test-quality.ts");
+const SCANNER = join("plugins", "viby-toolkit", "skills", "test", "scripts", "scan-test-quality.ts");
 
 const CHECKS: Check[] = [
   { name: "plugin manifests", cmd: ["claude", "plugin", "validate", "."], ok: new Set([0]) },
@@ -118,7 +118,7 @@ const CHECKS: Check[] = [
     cmd: [
       "sh",
       "-c",
-      `sh plugins/viby-code/hooks/session-start.sh | ${process.execPath} -e "JSON.parse(require('fs').readFileSync(0,'utf8'))"`,
+      `sh plugins/viby-toolkit/hooks/session-start.sh | ${process.execPath} -e "JSON.parse(require('fs').readFileSync(0,'utf8'))"`,
     ],
     ok: new Set([0]),
   },
@@ -172,7 +172,7 @@ function runRunnerShimCheck(): Result {
   const sentinel = "VIBY_RUN_ALL_SENTINEL_OK";
   try {
     writeFileSync(script, `console.log(${JSON.stringify(sentinel)});\n`);
-    const p = spawnSync("sh", [join(ROOT, "plugins", "viby-code", "hooks", "run.sh"), script], {
+    const p = spawnSync("sh", [join(ROOT, "plugins", "viby-toolkit", "hooks", "run.sh"), script], {
       cwd: ROOT,
       encoding: "utf8",
     });

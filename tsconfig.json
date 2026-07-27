@@ -26,8 +26,8 @@
     "allowImportingTsExtensions": true
   },
   "include": [
-    "plugins/viby-code/hooks/**/*.ts",
-    "plugins/viby-code/skills/**/scripts/**/*.ts",
+    "plugins/viby-toolkit/hooks/**/*.ts",
+    "plugins/viby-toolkit/skills/**/scripts/**/*.ts",
     "tests/**/*.ts"
   ]
 }

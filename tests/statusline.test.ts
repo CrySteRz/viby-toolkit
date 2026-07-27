@@ -1,5 +1,5 @@
 /**
- * Smoke tests for the viby-code statusline.
+ * Smoke tests for the viby-toolkit statusline.
  *
  * Run: node --experimental-strip-types --test tests/statusline.test.ts
  *
@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(__dirname);
-const SCRIPT = path.join(ROOT, "plugins", "viby-code", "hooks", "statusline.ts");
+const SCRIPT = path.join(ROOT, "plugins", "viby-toolkit", "hooks", "statusline.ts");
 
 type JsonRecord = Record<string, unknown>;
 

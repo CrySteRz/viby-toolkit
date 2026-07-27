@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkSkills, loadSkills } from "../plugins/viby-code/skills/principles/scripts/check-skills.ts";
+import { checkSkills, loadSkills } from "../plugins/viby-toolkit/skills/principles/scripts/check-skills.ts";
 
 function library(skills: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skills-"));
@@ -134,9 +134,9 @@ test("a skill marked disable-model-invocation is reported as not model-invocable
   }
 });
 
-test("the real viby-code library is clean", () => {
+test("the real viby-toolkit library is clean", () => {
   // Dogfooding: this is the check that would have caught migrate/refactor drifting together.
-  const dir = path.join(path.dirname(path.dirname(new URL(import.meta.url).pathname)), "plugins", "viby-code", "skills");
+  const dir = path.join(path.dirname(path.dirname(new URL(import.meta.url).pathname)), "plugins", "viby-toolkit", "skills");
   const { skills, findings: fs_ } = checkSkills(dir);
   assert.ok(skills.length >= 15, `expected the real library, found ${skills.length} skills`);
   assert.deepEqual(

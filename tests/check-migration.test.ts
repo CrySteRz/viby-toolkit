@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { scanMigration, isMigrationFile } from "../plugins/viby-code/skills/schema/scripts/check-migration.ts";
+import { scanMigration, isMigrationFile } from "../plugins/viby-toolkit/skills/schema/scripts/check-migration.ts";
 
 function rules(source: string, filename = "migrations/001_change.sql"): string[] {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mig-"));

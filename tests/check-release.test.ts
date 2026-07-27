@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkRelease } from "../plugins/viby-code/skills/release/scripts/check-release.ts";
+import { checkRelease } from "../plugins/viby-toolkit/skills/release/scripts/check-release.ts";
 
 function repo(files: Record<string, string>, opts: { commit?: boolean; tags?: string[] } = {}): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rel-"));

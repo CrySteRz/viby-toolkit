@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.0.0
+
+**Breaking: the plugin is renamed `viby-code` → `viby-toolkit`.** Every skill is now invoked
+`/viby-toolkit:<name>`, and the installed plugin id is `viby-toolkit@viby-toolkit`. Nothing
+else changed — no skill was added, removed or rewritten in this release. Major, not minor,
+because renaming every entry point is the definition of a breaking public-surface change,
+and this repo's own `release` skill says the version number is a promise about that surface
+rather than about the size of the diff.
+
+**To update:** `/plugin update viby-toolkit`. The old `viby-code@viby-toolkit` entry no
+longer exists in the marketplace, so `~/.claude/settings.json` needs its `enabledPlugins`
+key changed to `"viby-toolkit@viby-toolkit"` — done on this machine already. Any project
+`CLAUDE.md` or note that says `/viby-code:` must be updated by hand; the old prefix resolves
+to nothing rather than failing loudly.
+
 ## 1.1.0
 
 Adds the decision class the library was missing — **should we adopt this at all?** — taken
@@ -10,7 +25,7 @@ section for what each contributed and why.
 
 ### New
 
-- **`/viby-code:evaluate`** — choosing a tool, library, dependency or MCP server before
+- **`/viby-toolkit:evaluate`** — choosing a tool, library, dependency or MCP server before
   adopting it. Iron Law: *rank a candidate only on a case whose correct answer you
   established first; a cost number with no correctness verdict beside it is not a result.*
   Establish the oracle and price the baseline before installing anything; name the
@@ -56,7 +71,7 @@ its uncertainty is exactly the fast-and-wrong answer `evaluate` exists to preven
 
 First tagged release. Everything before this shipped untagged from `main`.
 
-`viby-code` is an accuracy-first Claude Code plugin: 21 skills covering the development
+`viby-toolkit` is an accuracy-first Claude Code plugin: 21 skills covering the development
 lifecycle, 5 subagents, and 5 executable checkers, in TypeScript with zero runtime
 dependencies and no build step.
 
