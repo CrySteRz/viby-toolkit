@@ -45,8 +45,8 @@ parallel fan-out is readable at a glance.
 
 ### Hooks
 
-A `SessionStart` hook injects the working-style defaults, and a fail-open PreToolUse safety
-guard blocks a few genuinely destructive commands. See **Hooks & safety** below.
+One `SessionStart` hook injects the working-style defaults. Nothing intercepts or blocks
+commands. See **Hooks** below.
 
 ---
 
@@ -138,30 +138,19 @@ rather than taken from a summary:
 
 ---
 
-## Hooks & safety
+## Hooks
 
-- **SessionStart** injects the accuracy/fan-out defaults (~440 tokens) so the working style
-  applies even when no skill is invoked.
-- **PreToolUse safety guard** (`hooks/pre-tool-use-guard.ts`) — a deterministic, fail-open
-  backstop against a small set of genuinely destructive Bash commands: recursive delete of
-  `/`, a top-level system dir, home, an unexpanded variable, or an unscoped glob; `dd` to a
-  raw disk; `mkfs`; fork bombs; force-push to a protected branch (`main`/`master`/`prod`);
-  `git reset --hard`; `git clean -f`; reading `.env`/keys/credentials; `curl|sh`; recursive
-  `chmod 777`. Tiered — `VIBY_SAFETY=high` (default), `critical`, `strict`, or `off`. It
-  never wedges a session (any error → allow) and prefers the JSON-deny form. Especially
-  useful because your settings run with reduced permission prompts.
-
-  **Precision is the whole design.** It decides on the *parsed* command — program, flags,
-  targets — not a regex over the raw string, because a guard that blocks routine work
-  teaches you to switch it off, which removes the net entirely. So routine cleanup passes
-  (`rm -rf node_modules`, `rm -rf dist`, `rm -rf /tmp/scratch-x`, `cat .env.example`,
-  `git push --force-with-lease`, and any command that merely *quotes* a dangerous string
-  like `grep 'rm -rf' README.md`) while the catastrophic forms still stop (`rm -rf /`,
-  `rm -rf $BUILD_DIR`, `sudo rm -rf /`, `bash -c "rm -rf /"`). `VIBY_SAFETY=strict` restores
-  the paranoid posture: it blocks *all* recursive delete and any force-push.
+- **SessionStart** injects the accuracy/fan-out defaults (~400 tokens) so the working style
+  applies even when no skill is invoked. This is the only hook enabled by default.
 - **Opt-in** (shipped, not enabled): `hooks/post-tool-use-format.ts` auto-formats edited
   files *only* when the formatter is already installed and the project uses it (never
   installs anything, never blocks). Enable by adding a `PostToolUse` matcher if you want it.
+
+**No command-blocking guard.** An earlier version shipped a `PreToolUse` hook that vetoed
+destructive Bash commands. It's gone: this is a single-user toolkit, and a veto that has to
+be argued with costs more than it protects. Nothing here now intercepts or blocks a command
+— permissions are left entirely to Claude Code itself. (The removed hook and its 110-case
+contract are still in git history if it's ever wanted back.)
 
 ## Telemetry — prove the token strategy works
 
@@ -192,7 +181,7 @@ The context discipline is measurable, not just asserted:
 Prereqs: `gh` authenticated (`gh auth status`) or SSH access to this private repo.
 
 **Runtime:** the skills, agents and prompts are plain markdown and need nothing. The
-executable parts (safety guard, statusline, test scanner) need **Node ≥22.6**, or bun, or
+executable parts (statusline, test scanner) need **Node ≥22.6**, or bun, or
 `tsx` — `hooks/run.sh` takes the first one it finds. With none of them present the hooks
 no-op silently and the markdown half still works, so a machine without a JS runtime gets a
 degraded-but-functional install rather than errors. Check with `node --version`.
@@ -273,9 +262,8 @@ plugins/viby-code/
   skills/test/scripts/scan-test-quality.ts   # executable test auditor
   agents/<name>.md                   # the subagents (model routing in frontmatter)
   commands/ship.md                   # the autonomous entry command
-  hooks/hooks.json + session-start.sh
+  hooks/hooks.json + session-start.sh   # SessionStart is the only default hook
   hooks/run.sh                       # picks a TS runtime; no-ops if none exists
-  hooks/pre-tool-use-guard.ts        # registered by default
   hooks/statusline.ts + post-tool-use-format.ts   # opt-in, wired in settings.json
 tests/*.test.ts                      # contract tests (node:test)
 tests/run-all.ts                     # the pre-push gate
@@ -313,7 +301,6 @@ Which runs:
 ```bash
 claude plugin validate .          # manifests + skill/agent frontmatter
 npm test                          # every tests/*.test.ts via the built-in node:test runner
-#   guard.test.ts       — what the safety guard must and must NOT block
 #   statusline.test.ts  — payload shapes incl. the documented null cases
 #   scanner.test.ts     — test-quality checks + file classification
 npm run typecheck                 # tsc --noEmit (fetched on demand; skipped when offline)
@@ -326,10 +313,10 @@ allowed; every smell that must be flagged **and** every healthy test that must n
 you add a rule, add cases for both — a guard that blocks real work gets switched off, and a
 scanner that flags good tests gets ignored. Either way it then protects nothing.
 
-Two bugs in this repo were caught only because the must-allow half exists: the safety guard
-briefly permitted `sudo rm -rf /` (the sudo rule returned before target inspection), and the
-test scanner flagged 23 false positives on its own fixtures until it learned to blank string
-literals before matching. Same root cause both times — matching raw text instead of code.
+The must-allow half earns its keep: the test scanner flagged 23 false positives on its own
+fixtures until it learned to blank string literals before matching, then flagged them again
+when it met multi-line template literals. Both times the root cause was the same — matching
+raw text instead of parsed code.
 
 **Secrets:** this repo syncs across work and personal machines — never commit tokens,
 credentials, client names, or internal hostnames. `.gitignore` blocks the common ones;

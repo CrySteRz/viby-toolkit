@@ -31,6 +31,11 @@ type Check = {
   skipUnless?: () => boolean;
   /** Printed alongside a skip so the reason is never a mystery. */
   skipNote?: string;
+  /**
+   * Minimum passing tests the suite must report. Guards against a gutted or emptied test
+   * file still exiting 0. Raise it when you add cases; never lower it to make a run green.
+   */
+  minPassing?: number;
 };
 
 function which(name: string): boolean {
@@ -43,19 +48,16 @@ const SCANNER = join("plugins", "viby-code", "skills", "test", "scripts", "scan-
 const CHECKS: Check[] = [
   { name: "plugin manifests", cmd: ["claude", "plugin", "validate", "."], ok: new Set([0]) },
   {
-    name: "safety guard contract",
-    cmd: [...NODE_RUNNER, "--test", "tests/guard.test.ts"],
-    ok: new Set([0]),
-  },
-  {
     name: "statusline contract",
     cmd: [...NODE_RUNNER, "--test", "tests/statusline.test.ts"],
     ok: new Set([0]),
+    minPassing: 13,
   },
   {
     name: "test-scanner contract",
     cmd: [...NODE_RUNNER, "--test", "tests/scanner.test.ts"],
     ok: new Set([0]),
+    minPassing: 40,
   },
   // The toolkit's own test files must survive its own auditor. 0 = clean, 2 = nothing
   // to scan; 1 (findings) is a failure here because we dogfood a clean suite.
@@ -98,10 +100,31 @@ function runCheck(check: Check): Result {
     encoding: "utf8",
   });
   const code = p.status;
+  const out = (p.stdout || "") + (p.stderr || "");
+
+  // Exit 0 alone is a weak proof for a test suite: `node --test` exits 0 for a file whose
+  // tests assert nothing, and also for a file that was emptied or lost its cases. A gate
+  // that says "safe to push" must not go green on a suite that stopped testing anything,
+  // so assert the suite still reports at least the number of passing tests we expect.
+  if (check.minPassing !== undefined && code !== null && check.ok.has(code)) {
+    const m = /^# pass (\d+)$/m.exec(out);
+    const passed = m?.[1] !== undefined ? Number(m[1]) : -1;
+    if (passed < check.minPassing) {
+      return {
+        name: check.name,
+        status: "FAIL",
+        output:
+          `expected at least ${check.minPassing} passing tests, saw ` +
+          `${passed < 0 ? "no '# pass N' line at all" : passed} — the suite lost cases, ` +
+          `or its output format changed\n\n${out}`,
+        code,
+      };
+    }
+  }
+
   if (code !== null && check.ok.has(code)) {
     return { name: check.name, status: "pass", output: "", code };
   }
-  const out = (p.stdout || "") + (p.stderr || "");
   return { name: check.name, status: "FAIL", output: out, code };
 }
 

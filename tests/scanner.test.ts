@@ -293,6 +293,158 @@ def test_eventually_ready():
   ],
 
   [
+    // `eq = self.assertEqual` then `eq(a, b)` — the assertion-alias idiom. Without this,
+    // every test in suites that use it (CPython does, throughout) looks assertion-free.
+    "py: assertion bound to a local alias counts as an assertion",
+    "test_alias.py",
+    `
+def test_percents():
+    eq = self.assertEqual
+    s = Template("%(foo)s $foo")
+    d = dict(foo="baz")
+    eq(s.substitute(d), "%(foo)s baz")
+`,
+    [],
+  ],
+
+  [
+    // `self.fail(...)` is how you assert "we should not have reached here".
+    "py: self.fail in an except branch counts as an assertion",
+    "test_fail.py",
+    `
+def test_map_chunksize():
+    try:
+        self.pool.map_async(sqr, [], chunksize=1).get(timeout=1)
+    except TimeoutError:
+        self.fail("map_async stalled on a null list")
+`,
+    [],
+  ],
+
+  [
+    // Transitive delegation: the helper the test calls does not assert directly, but the
+    // helper IT calls does. Resolved to a fixpoint.
+    "py: transitive helper chain counts as delegation",
+    "test_chain.py",
+    `
+def _really_check(x):
+    assert x > 0
+
+def check_value(x):
+    _really_check(x)
+
+def test_uses_chain():
+    v = compute()
+    save(v)
+    check_value(v)
+`,
+    [],
+  ],
+
+  [
+    // Regression: a quote inside a regex literal used to open "string mode", blanking the
+    // rest of the line and erasing the real assertion after it.
+    "ts: regex literal containing a quote does not erase the line",
+    "regex.test.ts",
+    `
+it("validates format", () => {
+  const ok = /['"]/.test(x);
+  expect(ok).toBe(true);
+});
+`,
+    [],
+  ],
+
+  [
+    "ts: regex literal with a quote, assertion on the same line",
+    "regex2.test.ts",
+    `
+it("validates format", () => {
+  const ok = /["']/.test(x); expect(ok).toBe(true);
+});
+`,
+    [],
+  ],
+
+  [
+    // Regression: delegation was keyed on the helper's NAME only, so a test calling an
+    // unrelated `cache.get(...)` was excused because some fixture class defined `get`.
+    "py: unrelated local name does not excuse a missing assertion",
+    "test_deleg.py",
+    `
+class FakeCache:
+    def get(self, key):
+        return self.data.get(key)
+
+
+def test_creates_user():
+    user = make_user("ana")
+    cache.get("some_key")
+    log_event(user)
+`,
+    ["no-assertion"],
+  ],
+
+  [
+    "py: delegating to a helper that really asserts is clean",
+    "test_deleg2.py",
+    `
+def check_user(user):
+    assert user.id is not None
+    assert user.name
+
+
+def test_creates_user():
+    user = make_user("ana")
+    save(user)
+    check_user(user)
+`,
+    [],
+  ],
+
+  [
+    // Regression: fake timers anywhere in the file used to suppress sleep-wait everywhere,
+    // hiding a genuine flaky wait in an unrelated suite.
+    "ts: fake timers in one suite do not excuse a real wait in another",
+    "mixed-timers.test.ts",
+    `
+describe("debounce", () => {
+  beforeEach(() => { jest.useFakeTimers(); });
+  it("debounces", () => {
+    const fn = debounce(cb, 100);
+    setTimeout(() => {}, 100);
+    expect(cb).toHaveBeenCalled();
+  });
+});
+
+describe("server readiness", () => {
+  it("becomes ready eventually", async () => {
+    startServer();
+    await new Promise((r) => setTimeout(r, 2000));
+    expect(isReady()).toBe(true);
+  });
+});
+`,
+    ["sleep-wait"],
+  ],
+
+  [
+    "py: freeze_time does not excuse a blocking time.sleep",
+    "test_freeze.py",
+    `
+def test_a():
+    freeze_time("2020-01-01")
+    assert now() == "2020-01-01"
+
+def test_b():
+    start_server()
+    time.sleep(5)
+    assert is_ready()
+`,
+    ["sleep-wait"],
+  ],
+
+  [
     "ts: template literal mentioning time.sleep is not flagged",
     "k.test.ts",
     "it(\"builds a message\", () => {\n  const msg = `retrying, use time.sleep(2) if flaky`;\n  expect(msg).toContain(\"retrying\");\n});\n",

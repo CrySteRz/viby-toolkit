@@ -1,10 +1,9 @@
 #!/bin/sh
 # viby-code TypeScript runner shim.
 #
-# Hooks are shell commands, so a .ts entrypoint needs a runtime. This picks the best
-# one available and — critically — **exits 0 silently when none is found**, so a machine
-# without a TS runtime degrades to "no hook" rather than a wedged session. That is the
-# same fail-open rule the safety guard itself follows.
+# Hooks and skill scripts are shell commands, so a .ts entrypoint needs a runtime. This
+# picks the best one available and — critically — **exits 0 silently when none is found**,
+# so a machine without a TS runtime degrades to "no hook" rather than a wedged session.
 #
 # Order: node (ubiquitous; also runs the test suite) -> bun -> npx tsx -> give up.
 # Type stripping needs Node >= 22.6; older Node falls through to the next option.

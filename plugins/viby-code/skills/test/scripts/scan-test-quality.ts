@@ -149,8 +149,19 @@ const ASSERT = new RegExp(
     /\bassert_eq!\s*\(/.source,
     /\bexpect_err\s*\(/.source,
     /\bhypothesis\b/.source,
+    // `self.fail("...")` / `pytest.fail(...)` — an unconditional failure IS an assertion
+    // mechanism, and is the standard way to assert "we should not have reached here".
+    /\bfail\s*\(/.source,
   ].join("|"),
 );
+
+/**
+ * An assertion function bound to a short local alias, e.g. `eq = self.assertEqual`, then
+ * called as `eq(a, b)`. Extremely common in large suites (CPython uses it throughout), and
+ * without it every such test looks assertion-free. Matches the BINDING (no call parens).
+ */
+const ASSERT_ALIAS_BINDING =
+  /^\s*(\w+)\s*=\s*(?:self\.|cls\.|this\.)?(\w*(?:[aA]ssert|[eE]xpect)\w*|fail)\s*$/;
 
 const MOCK = new RegExp(
   [
@@ -204,17 +215,27 @@ const FOCUSED_OR_SKIPPED = new RegExp(
   ].join("|"),
 );
 
-const SLEEP_WAIT = new RegExp(
+// A real, blocking wait. Fake timers NEVER excuse these: a fake-timer clock does not make
+// `time.sleep` non-blocking, and an *awaited* real-timer promise would simply hang under
+// fake timers — so its presence means the wait is genuine. Keeping these unconditional
+// fixes a silent false negative: one suite calling `useFakeTimers()` used to suppress the
+// flaky real waits in every other, unrelated suite in the same file.
+const SLEEP_WAIT_HARD = new RegExp(
   [
     /\btime\.sleep\s*\(/.source,
     /\bThread\.sleep\s*\(/.source,
-    /\bawait\s+new\s+Promise\s*\([^)]*setTimeout/.source,
+    // Bounded `.` rather than `[^)]*`: the idiomatic form is
+    // `await new Promise((r) => setTimeout(r, 2000))`, whose arrow-function parameter list
+    // closes a paren before `setTimeout` is reached.
+    /\bawait\s+new\s+Promise\s*\(.{0,120}?setTimeout/.source,
     /\bawait\s+(?:delay|sleep|wait)\s*\(\s*\d/.source,
     /\btime\.Sleep\s*\(/.source,
     /\busleep\s*\(/.source,
-    /\bsetTimeout\s*\(/.source,
   ].join("|"),
 );
+// A bare timer call, which fake timers DO make deterministic — so it is excused when the
+// file installs them.
+const SLEEP_WAIT_SOFT = /\b(?:setTimeout|setInterval)\s*\(/;
 const FAKE_TIMERS = /\b(useFakeTimers|sinon\.useFakeTimers|vi\.useFakeTimers|freeze_time|freezegun)\b/;
 
 // Single-line forms: `except ValueError: pass`, `catch (e) {}`.
@@ -249,13 +270,30 @@ const LOCAL_DEF = new RegExp(
 
 const CALL_NAME = /\b(\w+)\s*\(/g;
 
+/**
+ * Does an unescaped `delim` close on the same line, starting after position `start`?
+ * Used to distinguish a real string literal from a stray quote inside a regex literal.
+ */
+function closesOnSameLine(text: string, start: number, delim: string): boolean {
+  for (let j = start + 1; j < text.length; j += 1) {
+    const ch = text[j];
+    if (ch === "\n") return false;
+    if (ch === "\\") {
+      j += 1;
+      continue;
+    }
+    if (ch === delim) return true;
+  }
+  return false;
+}
+
 const BLANK = "\x00"; // neutral filler: matches no pattern, preserves offsets
 const HASH_COMMENT_EXTS = new Set([".py", ".rb", ".sh", ".pl", ".r", ".yaml", ".yml"]);
 
 /**
  * Blank out string-literal contents and comments, preserving line and column offsets.
  *
- * This is the same lesson as the safety guard: decide on code, not on raw text. A test
+ * The lesson is to decide on code, not on raw text. A test
  * fixture, a regex pattern, or a docstring that *mentions* `it.skip` or `time.sleep` is
  * not a focused test or a sleep — and a scanner that can't tell the difference floods
  * any repo containing meta-tests. String *lengths* are preserved because one check
@@ -333,8 +371,22 @@ function stripNoncode(text: string, ext: string): string {
       continue;
     }
 
-    // single/double quoted strings
+    // single/double quoted strings.
+    //
+    // Only enter string mode when a matching delimiter actually closes on THIS line.
+    // A quote character with no partner is far more likely to be a quote inside a regex
+    // literal (`/['"]/` — an ordinary pattern for splitting or validating quoted text)
+    // than the start of a string. Blanking to end-of-line in that case erased real code:
+    // `const ok = /['"]/.test(x); expect(ok).toBe(true);` lost its assertion and the test
+    // was reported as assertion-free. Treating the orphan quote as an ordinary character
+    // keeps the line intact, and costs nothing when it really was an unterminated string
+    // (which is a syntax error the test runner will report anyway).
     if (c !== undefined && "\"'".includes(c)) {
+      if (!closesOnSameLine(text, i, c)) {
+        out.push(c);
+        i += 1;
+        continue;
+      }
       const delim = c;
       out.push(delim);
       i += 1;
@@ -344,7 +396,6 @@ function stripNoncode(text: string, ext: string): string {
           i += 2;
           continue;
         }
-        if (text[i] === "\n") break; // unterminated: bail so we don't eat the file
         out.push(BLANK);
         i += 1;
       }
@@ -460,23 +511,95 @@ function scanFile(filePath: string): Finding[] {
     return body.filter(([, t]) => t.trim() && !COMMENT_ONLY.test(t));
   }
 
+  // Local aliases bound to assertion functions, so calls through them count as assertions.
+  const assertAliases = new Set<string>();
+  for (const line of lines) {
+    const m = ASSERT_ALIAS_BINDING.exec(line);
+    if (m?.[1] !== undefined) assertAliases.add(m[1]);
+  }
+  function assertsOnLine(text: string): boolean {
+    if (ASSERT.test(text)) return true;
+    if (assertAliases.size === 0) return false;
+    for (const m of text.matchAll(CALL_NAME)) {
+      if (m[1] !== undefined && assertAliases.has(m[1])) return true;
+    }
+    return false;
+  }
+
   const tests = [...splitTests(lines)];
 
-  // Callables defined in this file. A test that calls one of them may be asserting
-  // through it (`self.check_parse(...)`, `assertRoundTrips(...)`) — very common, and
-  // invisible to a per-test scan. Without this, delegation reads as "asserts nothing";
-  // measured against CPython's suite it was the single largest false-positive source.
-  const localNames = new Set<string>();
-  for (const line of lines) {
-    const m = LOCAL_DEF.exec(line);
-    if (m) {
+  // Callables defined in this file whose own body contains an assertion. A test that
+  // calls one of these may be asserting through it (`self.check_parse(...)`,
+  // `assertRoundTrips(...)`) — very common, and invisible to a per-test scan. Without
+  // this, delegation reads as "asserts nothing"; measured against CPython's suite it was
+  // the single largest false-positive source.
+  //
+  // The body check matters: keying on the NAME alone suppressed `no-assertion` whenever a
+  // test called anything sharing a name with any local definition. Since fixture and mock
+  // classes routinely define `get`, `run`, `close`, `load`, a test calling an unrelated
+  // `cache.get(...)` was silently excused, hiding real defects in the scanner's largest
+  // category. Only helpers that actually assert can be carrying an assertion.
+  // Resolved to a FIXPOINT, because helper chains are normal: `check_parse` calls `_check`
+  // which does the asserting. Requiring a *direct* assertion in the called helper doubled
+  // the no-assertion count on CPython's suite (1037 -> 2050) — almost all of it delegation
+  // one level deeper. A helper counts as asserting if its own body asserts, or if it calls
+  // another helper that does.
+  const assertingLocals = new Set<string>();
+  {
+    const defs: Array<{ name: string; line: number; indent: number }> = [];
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i] ?? "";
+      const m = LOCAL_DEF.exec(line);
+      if (!m) continue;
       const name = m.slice(1).find((g) => g !== undefined);
-      if (name) localNames.add(name);
+      if (name) defs.push({ name, line: i, indent: line.length - line.trimStart().length });
+    }
+    const allLocals = new Set(defs.map((d) => d.name));
+    // name -> { assertsDirectly, callee names defined in this file }
+    const info = new Map<string, { direct: boolean; calls: Set<string> }>();
+    for (let d = 0; d < defs.length; d += 1) {
+      const def = defs[d];
+      if (!def) continue;
+      let end = lines.length;
+      for (let e = d + 1; e < defs.length; e += 1) {
+        const next = defs[e];
+        if (next && next.indent <= def.indent) {
+          end = next.line;
+          break;
+        }
+      }
+      const entry = info.get(def.name) ?? { direct: false, calls: new Set<string>() };
+      for (let j = def.line; j < end; j += 1) {
+        const line = lines[j] ?? "";
+        if (assertsOnLine(line)) entry.direct = true;
+        for (const m of line.matchAll(CALL_NAME)) {
+          const callee = m[1];
+          if (callee !== undefined && callee !== def.name && allLocals.has(callee)) {
+            entry.calls.add(callee);
+          }
+        }
+      }
+      info.set(def.name, entry);
+    }
+    for (const [name, entry] of info) if (entry.direct) assertingLocals.add(name);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const [name, entry] of info) {
+        if (assertingLocals.has(name)) continue;
+        for (const callee of entry.calls) {
+          if (assertingLocals.has(callee)) {
+            assertingLocals.add(name);
+            grew = true;
+            break;
+          }
+        }
+      }
     }
   }
   function delegatesToLocal(text: string): boolean {
     for (const m of text.matchAll(CALL_NAME)) {
-      if (m[1] !== undefined && localNames.has(m[1])) return true;
+      if (m[1] !== undefined && assertingLocals.has(m[1])) return true;
     }
     return false;
   }
@@ -534,7 +657,7 @@ function scanFile(filePath: string): Finding[] {
         ),
       );
     }
-    if (SLEEP_WAIT.test(text) && !hasFakeTimers) {
+    if (SLEEP_WAIT_HARD.test(text) || (SLEEP_WAIT_SOFT.test(text) && !hasFakeTimers)) {
       findings.push(
         makeFinding(
           filePath,
@@ -551,7 +674,7 @@ function scanFile(filePath: string): Finding[] {
   // ---- per-test checks
   for (const [start, body] of tests) {
     const real = codeLines(body);
-    const asserts = real.filter(([, t]) => ASSERT.test(t));
+    const asserts = real.filter(([, t]) => assertsOnLine(t));
     const mocks = real.filter(([, t]) => MOCK.test(t));
 
     // A test with a real body but nothing that can fail. A one- or two-line body is

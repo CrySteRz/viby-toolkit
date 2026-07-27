@@ -15,7 +15,7 @@
  * Left off by default because auto-format is a matter of taste and can create surprise
  * diffs.
  */
-import { existsSync } from "node:fs";
+import { accessSync, constants, existsSync, statSync } from "node:fs";
 import { join, extname, delimiter } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -27,10 +27,26 @@ function run(cmd: string[], cwd: string): void {
   }
 }
 
-/** Equivalent of Python's shutil.which(name) is not None. */
+/**
+ * Equivalent of Python's `shutil.which(name) is not None`, which checks
+ * `exists AND executable AND not a directory`. Plain `existsSync` is not enough: a
+ * directory named `prettier` on PATH, or a non-executable file, would claim the tool is
+ * installed and make this hook try to format with something that cannot run.
+ */
 function has(name: string): boolean {
   const pathEnv = process.env.PATH || "";
-  return pathEnv.split(delimiter).some((dir) => dir && existsSync(join(dir, name)));
+  for (const dir of pathEnv.split(delimiter)) {
+    if (!dir) continue;
+    const candidate = join(dir, name);
+    try {
+      if (!statSync(candidate).isFile()) continue;
+      accessSync(candidate, constants.X_OK);
+      return true;
+    } catch {
+      // missing, not a file, or not executable — keep looking
+    }
+  }
+  return false;
 }
 
 function anyExists(cwd: string, names: string[]): boolean {

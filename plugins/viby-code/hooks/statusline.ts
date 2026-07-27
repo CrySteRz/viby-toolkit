@@ -69,14 +69,20 @@ function band(pct: number, low = 60, high = 80): [string, string] {
   return [colour, RESET];
 }
 
-/** Read a percentage field, returning null when absent or null. */
+/**
+ * Read a percentage field, returning null when absent or null.
+ *
+ * Clamped to 0-100: an out-of-range value is upstream nonsense, and rendering it raw was
+ * actively misleading — a `-50` would print as a reassuring green "ctx -50%" because the
+ * colour band only asks whether the number is below the green threshold.
+ */
 function pctOf(node: unknown, key = "used_percentage"): number | null {
   if (!isRecord(node)) return null;
   const v = node[key];
   if (v === null || v === undefined) return null;
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
-  if (Number.isNaN(n)) return null;
-  return Math.round(n);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(100, Math.max(0, Math.round(n)));
 }
 
 function numOr0(value: unknown): number {
