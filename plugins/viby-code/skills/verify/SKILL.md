@@ -22,7 +22,20 @@ has. This skill replaces that signal with evidence. Follow `/viby-code:principle
 ## 1. Identify the real checks — don't guess them
 
 Guessing `npm test` on a project that uses `pnpm vitest run` wastes a cycle and produces a
-misleading failure. Find the actual commands:
+misleading failure. **Run the detector first** — it works for any language and reports where
+each answer came from:
+
+```bash
+DETECT=$(ls "$HOME"/.claude/plugins/cache/*/viby-code/*/skills/verify/scripts/detect-stack.ts 2>/dev/null | tail -1)
+RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-code/*/hooks/run.sh 2>/dev/null | tail -1)
+sh "$RUN" "$DETECT" .
+```
+
+It ranks **[ci] above [task-runner] above [convention]**, and prints `unknown` rather than
+inventing a command — so an empty test slot is real information, not a detector failure. If
+it reports the repo is polyglot, one test command almost certainly does not cover it.
+
+Then confirm and fill gaps by hand:
 
 - **CI config is authoritative** — `.github/workflows/*.yml`, `.gitlab-ci.yml`, or similar
   define what "green" means for this repo. Read it first; it's the contract.

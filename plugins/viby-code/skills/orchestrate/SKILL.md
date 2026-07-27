@@ -38,7 +38,10 @@ brainstorm and go straight through research → plan → build.
 
 ### Phase 1 — Research (fan out read-only `scout` agents)
 
-Build an accurate map without dragging file dumps into your context.
+Build an accurate map without dragging file dumps into your context. **If the codebase (or
+this corner of it) is unfamiliar, run `/viby-code:explore` instead of improvising** — it
+detects the stack mechanically and writes a durable map, which becomes this phase's output.
+
 - One `scout` per independent area (by feature, by layer, by the files a change touches),
   **in parallel in a single message**. Each is read-only, cheap-model, returns a tight
   summary: relevant `file:line`, key functions/types, conventions to follow, gotchas.

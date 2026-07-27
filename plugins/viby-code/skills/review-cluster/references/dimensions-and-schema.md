@@ -27,8 +27,11 @@ skill metadata.
   `/simplify`, not here.)
 
 **Conditional (spawn when the diff touches the relevant surface):**
-- **security** — auth/authz, public endpoints, untrusted input, permission checks,
-  secrets, injection, SSRF, path traversal, unsafe deserialization.
+- **security** — auth/authz (especially a missing *ownership* check, not just a missing
+  login), public endpoints, untrusted input, permission checks, secrets, injection, SSRF,
+  path traversal, unsafe deserialization. Judge by **reachability**: can untrusted input
+  actually arrive here? For a dedicated pass over credentials, dependencies and CI config
+  rather than one diff, use `/viby-code:secure`.
 - **edge-cases** — null/undefined/empty, boundaries, partial failure, resource cleanup.
 - **data-state** — persistence correctness, migrations, transaction boundaries,
   caching/invalidation, state-mutation bugs. (Spawn `data-migration` focus only when

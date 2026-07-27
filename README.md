@@ -22,6 +22,8 @@ TypeScript with zero runtime dependencies and no build step — see
 | `/viby-code:brainstorm` | **Design-before-code gate.** Decides WHAT to build (and whether it's the right thing) with an Iron-Law hold on any implementation until you approve the design. Runs before plan/orchestrate for anything whose shape isn't settled. |
 | `/viby-code:orchestrate` | Drives a task end-to-end: scope → research → plan → implement → verify → self-review. Fans out cheap scouts for discovery, keeps writes single-threaded, keeps main context clean. |
 | `/viby-code:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers (incl. an adversarial chaos-engineer dimension) find candidates; a grounding gate drops anything that can't quote its own line; one fresh-context validator per finding confirms real/introduced/not-already-handled; a confidence gate suppresses below-threshold. Reports the full kill count. |
+| `/viby-code:explore` | **Understand an unfamiliar codebase.** Detects the stack mechanically first (languages, package manager, monorepo tool, real build/test commands with their source), then fans out scouts on specific questions, traces one path end to end, and writes a durable map. Scouts each language separately in a polyglot repo and names the cross-language seams. |
+| `/viby-code:secure` | **Security pass, ordered by what actually goes wrong.** Credentials first (99.6% of critical findings in a 2026 study of 4,022 agent-assisted PRs), then supply chain and CI (82.3% by volume), then code surfaces judged by reachability. Confirms each candidate secret, because that study's own labelling was ~73% false positives. |
 | `/viby-code:verify` | **The evidence gate, executed.** Finds the project's real checks (CI config is authoritative), scopes them to the change, exercises the actual behavior — then screens the output for silent-pass modes, because a zero exit code with zero tests collected is not a pass. Fix the code, never the check. |
 | `/viby-code:test` | **QA and test design, with a scanner.** Picks the test level deliberately, insists every new test is *seen failing for the right reason* before it's trusted, and enforces mocking discipline (coding agents over-mock measurably more than humans). Ships an executable auditor — `scan-test-quality.ts` finds no-assertion tests, tautologies, over-mocking, `.only`/`.skip` left in, sleep-waits and swallowed errors, with `file:line`. |
 | `/viby-code:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
@@ -135,6 +137,23 @@ rather than taken from a summary:
   repositories, finds that where Skills are used at all they "typically rely on static
   instructions rather than executable scripts." That's the gap `scan-test-quality.ts` and
   `tests/` close: guidance an agent can *run*, not only read.
+
+The v0.8.0 additions:
+
+- **Language-agnosticism made executable.** Every skill said "find the project's real
+  commands"; nothing helped it do so. `detect-stack.ts` now does, for ~30 languages and 16
+  package managers, ranking **CI config above task-runner above convention** and printing
+  `unknown` rather than inventing a command. Reporting on polyglot repos is a live weak spot
+  for coding agents — cross-language dependency tracking is still an open problem — so the
+  detector flags a polyglot repo explicitly instead of implying one test command covers it.
+- **Security ordered by measured impact** ([arXiv 2607.12428](https://arxiv.org/abs/2607.12428),
+  16,112 file changes across 4,022 agent-assisted PRs): hard-coded credentials were **99.6%
+  of critical-severity findings**, **81.1% of leaked credentials reached integration
+  undetected** by bots and humans alike, supply-chain/CI misconfiguration was **82.3% by
+  volume**, and **67.6% of genuine leaks came from the human collaborator, not the agent** —
+  so `/viby-code:secure` checks the whole change, credentials first. The same paper's
+  automated labelling had only a **27.2% validation rate**, which is why confirming each
+  candidate is in that skill's Iron Law rather than a footnote.
 
 ---
 
@@ -260,6 +279,7 @@ plugins/viby-code/
   .claude-plugin/plugin.json         # plugin manifest
   skills/<name>/SKILL.md             # the workflows
   skills/test/scripts/scan-test-quality.ts   # executable test auditor
+  skills/verify/scripts/detect-stack.ts      # language-agnostic toolchain detector
   agents/<name>.md                   # the subagents (model routing in frontmatter)
   commands/ship.md                   # the autonomous entry command
   hooks/hooks.json + session-start.sh   # SessionStart is the only default hook
