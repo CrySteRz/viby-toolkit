@@ -135,15 +135,24 @@ is the same as deleting the suite.
 
 ## 7. Audit a suite you didn't write
 
+Locate the scanner first. `CLAUDE_PLUGIN_ROOT` is only set for hooks, **not** for skill
+bodies, so resolve the path from the plugin cache (or your checkout) instead:
+
 ```bash
-SCAN="${CLAUDE_PLUGIN_ROOT}/skills/test/scripts/scan-test-quality.ts"
-sh "${CLAUDE_PLUGIN_ROOT}/hooks/run.sh" "$SCAN"            # test files changed vs HEAD
-sh "${CLAUDE_PLUGIN_ROOT}/hooks/run.sh" "$SCAN" --all      # every test file in the repo
-sh "${CLAUDE_PLUGIN_ROOT}/hooks/run.sh" "$SCAN" --json     # machine-readable
+# Glob for the script itself, not for a version directory — an older cached version may
+# not contain it, and matching the file guarantees the one you pick does.
+SCAN=$(ls "$HOME"/.claude/plugins/cache/*/viby-code/*/skills/test/scripts/scan-test-quality.ts 2>/dev/null | tail -1)
+RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-code/*/hooks/run.sh 2>/dev/null | tail -1)
+
+sh "$RUN" "$SCAN"            # test files changed vs HEAD
+sh "$RUN" "$SCAN" --all      # every test file in the repo
+sh "$RUN" "$SCAN" --json     # machine-readable
 ```
 
 `run.sh` picks whatever TypeScript runtime the machine has (node ≥22.6, else bun, else
-`tsx`) and no-ops silently if there is none, so this is safe to invoke anywhere.
+`tsx`) and no-ops silently if there is none, so this is safe to invoke anywhere. If `$VIBY`
+comes out empty, say so and fall back to reviewing the tests by hand — don't report a clean
+audit you never ran.
 
 Flags no-assertion tests, tautologies, assertion roulette, over-mocking, `.only`/`.skip`
 left in, sleep-based waits, and swallowed errors — with `file:line`. Exit 1 on findings, so

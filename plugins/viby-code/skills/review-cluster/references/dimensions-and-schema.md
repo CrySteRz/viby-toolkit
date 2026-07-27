@@ -18,9 +18,10 @@ skill metadata.
   **swallowed exceptions** in a test; missing tests for the branches and error paths this
   diff added; a **fixed bug with no regression test**; and assertion roulette (4+
   unexplained assertions — a failure that names no cause). Run
-  `skills/test/scripts/scan-test-quality.ts` on the diff's test files first (via
-  `hooks/run.sh`): it finds most of these mechanically for near-zero cost, leaving you the
-  judgment calls. Full guidance in `/viby-code:test`.
+  the test-quality scanner on the diff's test files first — it finds most of these
+  mechanically for near-zero cost, leaving you the judgment calls. `/viby-code:test` has the
+  invocation (the path must be resolved by globbing the plugin cache; `CLAUDE_PLUGIN_ROOT`
+  is not set for skill bodies) and the full guidance.
 - **maintainability** — structural quality only where it threatens correctness later:
   dangerous complexity, coupling, type-boundary leaks, dead code. (Pure taste →
   `/simplify`, not here.)
