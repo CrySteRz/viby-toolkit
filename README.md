@@ -64,13 +64,15 @@ commands. See **Hooks** below.
 Designed for a Claude Max subscription, where the scarce resources are the **main
 thread's context window** and your **rate-limit budget** — not dollars.
 
-1. **The fan-out law.** *Fan out for READ; keep WRITES single-threaded.* Parallel
-   read-only subagents (search/explore/review) are a genuine win — they isolate verbose
-   output and improve quality. Parallel *writers* are a trap: they make conflicting
-   decisions from partial context and produce incoherent results. This is where Anthropic
-   and Cognition both landed after a year in production; on Max, every fan-out also burns
-   rate-limit budget ~an order of magnitude faster, so it's gated behind "is this genuinely
-   parallel *and* read-only?"
+1. **The fan-out law.** *Fan out for READ; keep WRITES single-threaded — unless you have
+   mapped the dependency graph.* Parallel read-only subagents (search/explore/review) are a
+   genuine win: they isolate verbose output and improve quality. Naive parallel *writing* is a
+   trap — agents make conflicting decisions from partial context. But the trap is the naive
+   partition, not parallelism itself: dependency-aware partitioning that isolates hub files
+   measurably beat sequential on real repositories (see Provenance), so the operative rule is
+   "don't parallelise writes across a boundary you haven't mapped". On Max every fan-out also
+   burns rate-limit budget ~an order of magnitude faster, so each one is still gated on being
+   genuinely parallel.
 2. **Subagents are context firewalls.** Bulk reading (grep 40 files, read 10) happens in
    disposable subagents that return a ~200-token conclusion. The 30k tokens of file dumps
    die with the subagent and never touch main context.
@@ -288,6 +290,40 @@ newer evidence corrected or strengthened a claim already made here:
   simultaneous instructions, so `check-skills.ts` now counts directives per skill and reports the
   heaviest. The largest here is `principles` at 32, so nothing fires — stated plainly rather than
   manufacturing a problem, and it now guards against drift.
+
+The v0.14.0 round — one of these corrects a law this toolkit had stated absolutely:
+
+- **The fan-out law was too strong, and here is the counter-evidence.** Co-Coder
+  ([arXiv 2606.00953](https://arxiv.org/abs/2606.00953)) parallelised repository-level *coding*
+  and beat sequential, file-based-parallel, **and Claude Code with Agent Teams** — by **+14.0%
+  pass rate, up to 2.10× wall-clock, and −35% API cost** across 28 real tasks on DevEval and
+  CodeProjectEval, with the largest gains on the most dependency-dense projects. What made the
+  difference was not more agents but how the work was cut: dependency graph from static
+  analysis, **structural hub files isolated**, partition by community boundary rather than by
+  file, dependency-aware scheduling. So "never fan out to write" is now stated as what it
+  actually is — *don't parallelise writes across a dependency boundary you have not mapped* —
+  with single-threaded writes remaining the default because mapping is real work. `orchestrate`
+  gained concrete criteria in place of "genuinely independent parts", and its Iron Law was
+  updated to match, since nothing mechanical catches a doctrine that contradicts its own body.
+- **Agent self-reported confidence is close to worthless, and the fix is adversarial framing.**
+  ([arXiv 2602.06948](https://arxiv.org/abs/2602.06948)) *"All results exhibit agentic
+  overconfidence: some agents that succeed only 22% of the time predict 77% success."* Two more
+  findings shaped the response: a **pre-execution** estimate discriminated better than
+  post-execution self-review despite having less information, and **reframing assessment as
+  bug-finding achieved the best calibration**. That last one is exactly the `skeptic`'s shape —
+  told to refute rather than to rate — so the review pipeline's design is now defended on
+  evidence, and the escalation ladder is explicit that a subagent's `confidence` field is a weak
+  input and the executed check is the strong one.
+- **The instruction budget did its job on its author.** Adding the doctrine above pushed
+  `principles` to 36 directives against a measured redesign threshold of ~40, so the
+  model-routing table, escalation ladder and subagent contract moved to
+  `references/model-routing.md` — consulted material rather than continuously-obeyed
+  directives. The heaviest skill is now `test` at 32.
+
+**Two fetches were discarded this round.** The PDF versions of both papers returned no
+extractable text, and the fetcher answered from titles and metadata with "appears to", "likely"
+and "the title suggests". Nothing from those responses is cited; the numbers above come from the
+abstracts, re-fetched as HTML.
 
 ---
 

@@ -13,7 +13,8 @@ You own the plan and every real decision; you delegate **read-only breadth** to
 subagents and keep **writes on your own single thread**. Follow `/viby-code:principles`.
 
 ```
-IRON LAW: Fan out to READ. Never fan out to WRITE.
+IRON LAW: Fan out to READ, freely.
+          Never fan out to WRITE across a dependency boundary you have not mapped.
           Review the research and the plan harder than the diff — upstream errors compound.
 ```
 
@@ -76,10 +77,15 @@ dedicated pass. **This plan file doubles as your checkpoint** (see Phase 3).
 - **Default: implement inline, one thread.** You have the plan and context; a subagent
   would re-learn it, and parallel writers make conflicting decisions. This is the fan-out
   law — writes stay single-threaded.
-- **Rare exception:** genuinely independent, well-specified parts (different subsystems,
-  no shared state) *may* be dispatched to `implementer` agents with `isolation: worktree`
-  so they can't conflict. You then reconcile their diffs yourself. If the parts touch
-  shared state or related logic, do NOT parallelize — do them in sequence.
+- **Exception, with real criteria:** parallel `implementer` agents (with
+  `isolation: worktree` so they cannot conflict on disk) pay off when you can **name the
+  partition and the hub files** — not merely when the parts *feel* separate. Concretely:
+  map what depends on what, keep the structural hubs (the files many others import) on your
+  own thread and do them first, then hand each independent community of files to one agent,
+  and reconcile the diffs yourself. Dependency-aware partitioning of exactly this shape
+  measured better than sequential on real repositories, with the largest gains where
+  dependencies were densest (`/viby-code:principles` §3). If you cannot draw that map, the
+  parts are not independent — do them in sequence.
 - Work phase-by-phase through the plan. **After each verified phase, compact its status
   back into the plan file** (done / current approach / blockers). The plan is now your
   durable state — if context is cleared, re-reading it restores where you are. This keeps

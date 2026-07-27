@@ -72,6 +72,15 @@ and the code — **not** the reviewer's reasoning. It answers three questions:
 
 Conservative bias: **when in doubt, reject.** It returns `{validated, reason, confidence}`.
 
+**Why the adversarial framing specifically.** Agents are badly calibrated about their own
+success — measured, some that succeed only 22% of the time predict 77% (arXiv 2602.06948) — so
+a validator asked "is this finding good?" mostly agrees with itself. The same study found that
+**reframing the assessment as bug-finding produced the best calibration** of the methods tried,
+and that a *pre-execution* estimate discriminated better than post-hoc self-review. That is
+exactly this gate's shape: the skeptic is told to refute, not to rate, and the `confidence`
+number is a by-product rather than the decision. Treat a self-reported confidence as a weak
+signal everywhere in this pipeline; the executed check is the strong one.
+
 **Execute, don't argue, where you can.** If a finding is mechanically checkable — a failing
 assertion, a type error, a reproducible crash — actually run it (or write the tiny repro)
 rather than reasoning about whether it reproduces. An executed check beats any number of
