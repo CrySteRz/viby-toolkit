@@ -231,7 +231,29 @@ This also corrects a tempting mistake: trimming an always-on preamble is worth d
 redundancy, but *not* on the theory that its tokens degrade selection. They do not measurably.
 Overlapping descriptions do.
 
-## 9. Portability & secrets
+## 9. Authored vs derived — know which of your artifacts is which
+
+Work produces two kinds of artifact, and treating one as the other is how a session ends up
+confidently reasoning from a stale map. **Authored** artifacts are the *why* — decisions,
+lessons, requirements, contracts, plans (`learn`, `plan`, `api`): written with the user,
+reviewed, durable, the source of truth. **Derived** artifacts are the *what* — maps, indexes,
+scan output, caches, generated clients: rebuilt from the code by a command, disposable, and
+never a source of truth. Keep them layered rather than merged, so neither has to pretend to
+be the other; they connect by stable reference (`file:line`, an ID), never by copying each
+other's content, because a copy is what goes silently stale.
+
+- **Stamp a derived artifact with its provenance** — the commit or date it was built from and
+  the command that rebuilds it. Without those, staleness is invisible and the thing can only
+  be believed, not checked. An `explore` map is derived: stamp it. And when derived disagrees
+  with its source, the source wins — regenerate rather than hand-patch, because patching
+  quietly converts it into an authored file no command can reproduce.
+- **Don't commit what a command can rebuild** unless rebuilding is expensive; commit the
+  *guidance* on when to trust it and when to verify it, which is the genuinely authored part.
+- **A heuristic derived artifact is a planning aid, not evidence.** Fine for "where should I
+  look"; never the proof in an evidence-gated claim (§5), and never the basis for a change to
+  auth, payments or migrations without verifying the specific edge you relied on.
+
+## 10. Portability & secrets
 
 This toolkit syncs across work and personal machines via a private Git marketplace.
 - **Never hardcode secrets, tokens, internal hostnames, or client names** anywhere here.

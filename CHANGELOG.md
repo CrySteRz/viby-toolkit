@@ -1,5 +1,47 @@
 # Changelog
 
+## 2.1.0
+
+The four patterns from the source spikes that 1.1.0 left on the table — audited and named
+after the fact, because "did you take *all* the best parts" turned out to have the answer
+"no, four are missing", and three of them belong in skills other than `evaluate`.
+
+- **`principles` §9 — authored vs derived artifacts.** The strongest idea in the longer
+  spike, generalised: authored artifacts are the *why* (decisions, lessons, contracts —
+  reviewed, durable, the source of truth), derived are the *what* (maps, indexes, scan
+  output, caches — rebuilt by a command, disposable, never ground truth). Keep them layered
+  and joined by stable reference, never by copying. Stamp derived output with the commit it
+  was built from; when derived disagrees with its source, regenerate rather than hand-patch,
+  because patching converts it into an authored file no command can reproduce. A heuristic
+  derived artifact is a planning aid, never the proof in an evidence-gated claim.
+  (Portability & secrets moves to §10; no other section renumbered.)
+- **`worktrees` — where the generated stuff lives.** Every worktree starts with nothing
+  gitignored inherited, so each one either rebuilds the index/cache/venv (minutes × N) or
+  shares it (races). Now an explicit options table: one canonical read-only copy pinned to
+  mainline (default) · per-worktree (only for a long-lived branch) · symlinked into every
+  worktree (❌ — concurrent writers race, and it only works if the artifact stores relative
+  paths, which is usually undocumented). Two rules follow: shared *writes* to a cache are
+  parallel writes and the fan-out law applies; and name the mechanical assumption you have
+  not verified, because that class of assumption fails silently and looks like a tool bug.
+- **`evaluate` — difference-only matrices, and the lifecycle-split routing table.** A
+  capability matrix with a column of ✅ all the way down teaches nothing and hides the two
+  rows that decide it: state the shared baseline in a sentence, table only the differences.
+  And the routing rule now has the shape that made it land — by lifecycle stage (inner loop
+  → cheap and fast, deep investigation → heavy and accurate, committed in CI → boring and
+  stable), because the loser overall often wins one row outright.
+- **`evaluate` — a status line at the top of the decision record.** What was actually done,
+  before anything is read: candidates tried, how many were measured versus rejected on a
+  stated bar, tasks checked against ground truth, and how many of your own earlier claims
+  the run refuted. The same audit trail `review-cluster` ends with. A document that cannot
+  fill it honestly is a survey, and should say so instead of dressing itself up.
+- **`explore`** stamps its map as derived; **`learn`** records the authored layer only — a
+  *why* stays true and is expensive to re-derive, a *what* is regenerable in seconds and goes
+  stale silently, which makes recording it actively harmful.
+
+`principles` hit 38 directives against its own redesign threshold of 40, so §9's definitions
+were rewritten as prose (a definition is not an instruction) and its rules merged — 34 now,
+with nothing dropped. The checker caught its author again.
+
 ## 2.0.0
 
 **Breaking: the plugin is renamed `viby-code` → `viby-toolkit`.** Every skill is now invoked

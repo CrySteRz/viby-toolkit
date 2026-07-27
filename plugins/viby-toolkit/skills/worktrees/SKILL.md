@@ -42,6 +42,32 @@ shared state). Follow `/viby-toolkit:principles`.
 - A **migration** batch you want to keep reviewable and revertible in isolation.
 - A **risky experiment** you may throw away.
 
+## Where the generated stuff lives — the question worktrees always raise
+
+Every worktree starts with a clean tree, so nothing gitignored is inherited: no
+`node_modules`, no venv, no build cache, no code index, no local DB. That is the whole point,
+and it is also the cost — each new worktree either rebuilds them (minutes, × N) or shares
+them (races). Decide deliberately, per artifact, before spawning parallel work:
+
+| Option | Verdict | Trade-off |
+|---|---|---|
+| **One canonical copy, pinned to mainline, read-only from every worktree** | ✅ default for *read-only* artifacts (a code index, a symbol map, a package cache) | One build ever, zero per-worktree setup. Weak on symbols the branch just added — but those have no existing callers anyway, so a grep over the diff is the complete answer there. |
+| **Per-worktree copy** | ⚠️ only for a long-lived branch | Exact on the branch's own new code; pays a cold build per throwaway worktree and N× disk. |
+| **One copy symlinked into every worktree** | ❌ avoid | Concurrent writers race (last-writer-wins) and leave stale locks; and it only works at all if the artifact stores *relative* paths, which is usually undocumented. |
+
+Two rules that follow:
+
+- **Read-only sharing is fine; shared writes are the same trap as parallel writes.** If two
+  worktrees would both *rebuild* the shared thing, they are parallel writers to one file — the
+  fan-out law applies to caches too.
+- **Name the mechanical assumption you have not verified, and check it before relying on it**
+  — "this only works if the index stores relative paths; unconfirmed". An unstated assumption
+  of this kind fails silently and looks like a tool bug for an hour. The default option above
+  is the default precisely because it never has to be answered.
+
+These artifacts are derived, so the rules in `/viby-toolkit:principles` §9 apply: regenerable
+by command, never hand-patched, never committed, never cited as ground truth.
+
 ## Don't use it for
 
 - Ordinary single-threaded work on the current branch — isolation you don't need is just

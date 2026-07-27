@@ -39,9 +39,20 @@ memory** so it's portable across machines and needs no separate files or tooling
   learns what it must never evict, per project.
 - A solved-problem summary: the symptom, the root cause, the fix, in a few lines.
 
+- A **rejected option and the bar it failed** — "we evaluated X and dropped it because it
+  ships data to a third party" (`/viby-toolkit:evaluate`). This is the highest-value entry per
+  line here: without it the same option gets re-proposed and re-investigated every few months,
+  and the reasoning has to be rebuilt from nothing.
+
 **Don't record** (guidance from the memory system): anything derivable from the code,
 git history, or CLAUDE.md; anything that only mattered to this one conversation; secrets
 or client-identifying details (this knowledge may sync across machines).
+
+**Record the authored layer, not the derived one** (`/viby-toolkit:principles` §9). A *why* —
+a decision, a constraint, a rejected option, a trap — stays true and is expensive to
+re-derive. A *what* — this function lives here, this module calls that one — is regenerable
+by a command in seconds and goes stale silently, which makes recording it actively harmful:
+a confidently wrong memory outlives the code it described.
 
 ## How
 

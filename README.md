@@ -364,6 +364,18 @@ place by being the best worked examples of a decision class this toolkit had no 
   option being re-proposed next quarter. That pattern went into `evaluate` and into
   `/viby-toolkit:plan`, which previously recorded only the chosen approach.
 
+**v2.1.0 closed the gaps in that round**, after auditing what had actually been taken versus
+left: the **authored-vs-derived two-layer model** (`principles` §9 — the *why* is written,
+reviewed and durable; the *what* is rebuilt by a command, disposable and never ground truth;
+they join by stable reference, never by copying, and a heuristic derived artifact is a
+planning aid rather than evidence), the **generated-artifact strategy across worktrees**
+(`worktrees` — one canonical read-only copy pinned to mainline beats per-worktree rebuilds and
+beats symlinking a single writable copy into N worktrees, which races; and the undocumented
+mechanical assumption behind option three has to be named rather than assumed), the
+**difference-only capability matrix** (a column of ✅ hides the two rows that decide it), and
+the **verification status line** at the top of a decision record. Three of the four belong to
+skills other than `evaluate`, which is why the first pass missed them.
+
 Also adopted from them: pin exact versions and verify the publisher (one had a near-miss
 typosquat slot next to the legitimate package); trial in a throwaway worktree with nothing added
 to the project's manifests; **write the uninstall command down before running the install

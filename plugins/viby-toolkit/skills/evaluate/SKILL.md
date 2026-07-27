@@ -64,7 +64,10 @@ reverse-engineered from the option you already like.
 - **Verify the package identity** — the plausible-looking name is sometimes the unregistered
   one. Check the publisher matches the repository you actually read.
 - **Add nothing to the project's manifests.** A dev/CI aid must not become a runtime
-  dependency by accident.
+  dependency by accident. If it generates an index or cache, that artifact is derived and
+  disposable — gitignored, per-machine, never a source of truth
+  (`/viby-toolkit:principles` §9). **The only thing that gets committed is the guidance**:
+  when to trust it and when to verify it.
 - **Write the uninstall command down before you run the install command.** If you cannot
   state how to back it out, you are not running a trial, you are migrating.
 
@@ -87,6 +90,9 @@ it. A savings column on its own would have recommended it. Two rules follow:
   not one call (`--repeat`).
 - **Exclude what nobody reads** from a baseline — `node_modules`, `dist`, lockfiles. A
   ratio computed against an inflated denominator is a flattering fiction.
+- **Drop every row the candidates share.** A capability matrix where one column is ✅ all the
+  way down teaches nothing and hides the two rows that decide it. State the shared baseline
+  once in a sentence — "all three do X, Y and Z" — then table only the differences.
 
 ## 5. Label every cell: measured / inferred / not tested
 
@@ -109,10 +115,19 @@ Every recommendation states the case where its own choice is wrong or incomplete
 number attached ("20 of 61 files"), and what to fall back to there. A recommendation with no
 failure case has not been tested hard enough to trust.
 
-This is also why the answer is usually a **routing rule rather than a tool**: use the graph
-for structure, plain grep for exhaustive text; use the cheap browser tool in the dev loop,
-the heavy one for committed E2E. Write the routing rule where it will be read by default —
-the project's `CLAUDE.md` or a skill — not only in the spike document nobody opens again.
+This is also why the answer is usually a **routing rule rather than a tool** — and the most
+useful shape for it is by **lifecycle stage**, because the same job has different constraints
+in the inner loop than at the commit gate:
+
+| Stage | Pick | Why it wins here |
+|---|---|---|
+| Inner dev loop (many quick iterations) | the cheap, fast one | cadence dominates; correctness is checked by the next step anyway |
+| Deep investigation (rare, high value) | the heavy, accurate one | one-off cost, and being wrong is expensive |
+| Committed and repeated in CI | the boring, stable one | maintenance and flakiness dominate, not capability |
+
+The candidate that loses overall often wins one row outright, and a single-winner table hides
+that. Then write the routing rule where it will be read by default — the project's
+`CLAUDE.md` or a skill — not only in the spike document nobody opens again.
 
 ## 8. Generalisation check
 
@@ -149,6 +164,15 @@ make a rule.
 
 Save it (`docs/decisions/<date>-<topic>.md` or the project's convention):
 
+0. **A status line, first thing** — what was actually done, so a reader can weigh the
+   document before reading it. The same audit trail `review-cluster` ends with, at the top:
+
+   > Status: **benchmarked on this repo** (2026-07-08, commit `d1a0b95`) · 5 candidates, 3
+   > stood up and measured, 2 rejected on stated bars · 4 tasks × ground truth · **2 claims
+   > from the survey section refuted by the run**.
+
+   A document that cannot fill that line honestly is a survey, not an evaluation — label it
+   as one rather than dressing it up.
 1. **Decision** in one paragraph, up front, with the accepted trade-off named.
 2. **The oracle** — question, ground truth, how established.
 3. **The table** — cost × correctness, labeled measured/inferred/not tested, versions pinned.
