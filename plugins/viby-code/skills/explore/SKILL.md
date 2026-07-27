@@ -42,6 +42,17 @@ git ls-files | wc -l                        # scale
 encodes what the project believes about itself), then the manifest, then the actual entry
 point (`main`, `index`, `cmd/`, `src/app`). A stale README is itself a finding worth stating.
 
+Before reading a whole subsystem, price it — the answer decides whether you read it or send
+a scout:
+
+```bash
+METER=$(ls "$HOME"/.claude/plugins/cache/*/viby-code/*/skills/evaluate/scripts/measure-read-cost.ts 2>/dev/null | tail -1)
+sh "$RUN" "$METER" src/some-subsystem --budget 40000
+```
+
+Over budget means fan out (§2) instead of reading — a decision that used to be made by feel,
+and was usually made wrong, because a directory's cost is not visible from its file count.
+
 ## 2. Fan out — one scout per question, not per directory
 
 Dispatch `scout` agents in parallel, each on **one specific question**, each returning

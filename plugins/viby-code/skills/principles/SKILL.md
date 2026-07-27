@@ -11,7 +11,7 @@ description: >
 # Viby-code Operating Principles
 
 The shared contract. Every viby-code skill (`orchestrate`, `review-cluster`, `debug`,
-`migrate`, `refactor`, `plan`, `verify`, `test`, `explore`, `secure`, `perf`, `release`, `schema`, `incident`, `observe`, `api`, `learn`) and agent (`scout`, `implementer`, `reviewer`,
+`migrate`, `refactor`, `plan`, `verify`, `test`, `explore`, `secure`, `perf`, `release`, `schema`, `incident`, `observe`, `api`, `evaluate`, `learn`) and agent (`scout`, `implementer`, `reviewer`,
 `skeptic`, `debugger`) is built on these. It's a reference — read it, don't "run" it.
 
 Synthesized from what actually works in production agentic coding (Anthropic's
@@ -30,6 +30,11 @@ refactor that changed behavior. Never trade correctness for cost.
   label it as such.
 - **Read the actual code over recalling how it "usually" works** — especially for
   Claude/Anthropic APIs, library versions, and config schemas.
+- **A fast, cheap, WRONG answer is worse than the slow one it replaced** — because it gets
+  believed and kept, while the slow method got checked. This is the rule for adopting any
+  tool, index or shortcut: rank it on a case whose correct answer you established *first*,
+  and put the correctness verdict in the same table as the cost. A savings number with no
+  correctness column beside it is not a result (`/viby-code:evaluate`).
 
 ## 2. Context is the master resource. Curate it deliberately.
 
@@ -66,6 +71,12 @@ on output quality** (humanlayer/ACE). On a Max subscription the scarce resources
   touch main context. This is the single biggest lever.
 - **Just-in-time, not dumps.** Hold references (paths, queries); load content on demand
   with targeted reads/grep/`head`/`tail`. Don't pre-load whole files.
+- **Cost is payload × cadence.** A 15k-token payload re-sent after every step of a six-step
+  flow is 90k, and loses to a 40k one-shot read — so measure the *flow you will actually
+  run*, not one call. This is what makes a tool that "returns less per call" the more
+  expensive option, and it is invisible until you count the repeats.
+  `skills/evaluate/scripts/measure-read-cost.ts` prices a read set (`--repeat` for cadence,
+  `--budget` to gate it) so this stays a measurement rather than a feeling.
 
 ## 3. The fan-out law — the rule that decides every delegation
 
@@ -156,6 +167,12 @@ Before claiming anything complete:
 Red-flag words that mean you're about to violate this: "should," "probably," "seems to,"
 and a premature "Done!/Perfect!/Great!". If you didn't run the check, say so explicitly.
 Claiming complete without verification is dishonesty, not efficiency.
+
+**Label every claim measured, inferred, or not tested** — in the table or line where it
+appears, not in a caveat at the end. "Equivalent to the one we did test" is a legitimate
+finding *and* an inference; written as one, a reader can weight it. The reason to label at
+the point of the claim is that unlabeled inferences get promoted to results by your own
+summary three paragraphs later, and by then nothing distinguishes them.
 
 TDAD nuance: when you verify, run the **specific tests relevant to the change**, named
 explicitly — not a generic "do TDD" ritual. Telling an agent *which* tests to check cuts

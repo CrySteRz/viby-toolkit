@@ -36,6 +36,7 @@ TypeScript with zero runtime dependencies and no build step — see
 | `/viby-code:release` | **The version number is a promise.** Decide major/minor/patch from the public-surface diff, never from the size of the change — a review of 97 studies found 67% of Maven artifacts violate SemVer, and that detection handles syntactic breaks well but behavioural ones poorly. Ships `check-release.ts`: version drift across manifests, dirty tree, unpushed commits, tag collisions, stale changelog, debug artifacts left in. |
 | `/viby-code:observe` | **Instrument for the person reading it at 3am.** Log decisions and outcomes, never arrivals; structured fields, not sentences; correlation keys on every event. High cardinality is the point for logs and traces, and the cost trap for metric labels. Alert on symptoms, not causes — and verify the instrumentation by triggering the path and reading the real output. |
 | `/viby-code:api` | **Design the contract, because you cannot take it back.** Write the caller's code first, design inward from their use case rather than outward from the storage schema, and settle errors, pagination, idempotency and limits at design time — each is a breaking change if retrofitted. Expand-then-contract for evolution; diff the surface to decide if a change is breaking. |
+| `/viby-code:evaluate` | **Decide what to adopt, by measuring it on a case you already know the answer to.** Establish the ground truth *before* installing anything, price the baseline you'd be replacing, then put cost and correctness in one table — because a cheap wrong answer beats an expensive right one on every column except the one that matters. Ships `measure-read-cost.ts`: what a read set costs, `--repeat` for cadence (payload × frequency), `--budget` to gate it. Records the winner's failure case, the rejections with the bar each failed, and the back-out commands. |
 | `/viby-code:learn` | Records a reusable lesson (gotcha, build quirk, rejected finding, known past risk, "never compact X") to Claude's native project memory — the compounding loop, both suppressing false positives and raising recall on known risks. |
 | `/viby-code:handoff` | Serializes live task state (goal, decisions, next step) so a fresh session resumes mid-task without re-deriving it. Ephemeral, distinct from `learn`. |
 | `/viby-code:worktrees` | Isolates work (parallel implementers, risky experiments) — detect existing isolation first, prefer the native worktree tool, never fight the harness. |
@@ -325,6 +326,50 @@ extractable text, and the fetcher answered from titles and metadata with "appear
 and "the title suggests". Nothing from those responses is cited; the numbers above come from the
 abstracts, re-fetched as HTML.
 
+The v1.1.0 round has a different provenance from every round above: not papers, but **two
+in-house tooling spikes** — a code-graph benchmark and a browser-automation decision — read in
+full. Neither is published research, and both were run against a private codebase, so what is
+taken is **method only**; no code, names or figures from either appear here. They earned their
+place by being the best worked examples of a decision class this toolkit had no skill for:
+*should we adopt this tool at all?*
+
+- **The decisive result of a benchmark is a cheap tool being confidently wrong.** In the
+  code-graph spike, the front-runner returned real 3–19× token savings on within-scope queries
+  and **zero results** on the cross-module question that was the entire reason to adopt it —
+  because it followed an import to a re-export barrel and stopped. The savings column alone would
+  have recommended it. You only see that failure if you established the right answer *first*, on
+  one labeled case. That is `/viby-code:evaluate`'s Iron Law, and the new §1 line in
+  `principles`: *a fast, cheap, wrong answer is worse than the slow one it replaced* — because it
+  gets believed and kept, while the slow method got checked.
+- **Cost is payload × cadence.** The browser spike's sharpest line was that cadence matters as
+  much as size: a tool that re-sends its full page tree after every click pays its ~15k several
+  times in one flow, so a "cheaper per call" option loses. Nothing in this toolkit measured
+  either half, so `measure-read-cost.ts` now prices a read set with `--repeat` for the repeats
+  and `--budget` to gate it — and `explore` uses it to decide *read it myself vs send a scout*,
+  a call previously made by feel.
+- **Rank twice when the weightings disagree.** That spike ranked engines once by correctness and
+  supply chain, then again by the team's operational criteria — and the leader changed. Both
+  rankings shipped, side by side, which is the honest form: a single blended ranking is where an
+  unstated preference hides. The corollary is that the winner is rarely best at everything, it is
+  *the only option clearing every hard constraint* — and the recommendation is usually a **routing
+  rule between tools** (graph to scope, grep to complete) rather than a tool.
+- **Ship the winner's failure case, and correct your own earlier claims.** Both documents state
+  where their own recommendation is incomplete, with the number attached ("20 of 61 files"), and
+  route around it; one carries an explicit *"two claims this benchmark corrected"* paragraph
+  against its own survey section. Both are now steps in `evaluate`, and the measured/inferred/
+  not-tested labeling rule is in `principles` §5, at the point of the claim rather than in a
+  closing caveat — unlabeled inferences get promoted to results by your own summary.
+- **Rejections are the reusable part.** Each rejected candidate gets one line naming the bar it
+  failed (a third-party egress, a runtime the machine doesn't have), which is what stops the same
+  option being re-proposed next quarter. That pattern went into `evaluate` and into
+  `/viby-code:plan`, which previously recorded only the chosen approach.
+
+Also adopted from them: pin exact versions and verify the publisher (one had a near-miss
+typosquat slot next to the legitimate package); trial in a throwaway worktree with nothing added
+to the project's manifests; **write the uninstall command down before running the install
+command**; and a generalisation check — re-run the decision rule on a second, unrelated case,
+because one case makes a champion and two make a rule.
+
 ---
 
 ## Hooks
@@ -453,6 +498,7 @@ plugins/viby-code/
   skills/release/scripts/check-release.ts    # release pre-flight
   skills/schema/scripts/check-migration.ts   # migration safety linter
   skills/principles/scripts/check-skills.ts  # shadowing / trigger-collision check
+  skills/evaluate/scripts/measure-read-cost.ts # read-set cost, cadence, budget gate
   lib/strip-noncode.ts                      # shared: match code, never raw text
   agents/<name>.md                   # the subagents (model routing in frontmatter)
   commands/ship.md                   # the autonomous entry command

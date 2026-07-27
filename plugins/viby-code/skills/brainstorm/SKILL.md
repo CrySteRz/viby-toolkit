@@ -5,7 +5,8 @@ description: >
   directions. Use when the user says "I want to build", "I'm thinking about", "should we",
   "help me figure out what". Do NOT use when there's already a clear, well-specified
   ticket/spec with unambiguous scope — go straight to /viby-code:plan (the how) or
-  /viby-code:orchestrate. This gate is about deciding WHAT, not planning HOW.
+  /viby-code:orchestrate. This gate is about deciding WHAT, not planning HOW, and not which
+  existing tool to adopt (that is /viby-code:evaluate).
 ---
 
 # Brainstorm (design-before-code gate)

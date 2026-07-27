@@ -4,7 +4,8 @@ description: >
   Use when the HOW of a task isn't obvious, is cross-cutting or high-stakes, or the user
   wants to approve direction before any code is written. Use when the user says "plan
   this", "how would you approach", "what's the plan", or asks for a design/approach without
-  asking you to build yet. (For deciding WHAT to build at all, use brainstorm first.)
+  asking you to build yet. (For deciding WHAT to build at all, use brainstorm first; for
+  deciding which existing tool or dependency to adopt, use /viby-code:evaluate.)
 ---
 
 # Plan
@@ -40,6 +41,13 @@ this; a single obvious approach doesn't need a beauty pageant. When the solution
 genuinely wide and the choice is expensive, consider a small judge-panel: sketch each
 approach, evaluate against the constraints, pick the winner and graft the best ideas from
 the runners-up.
+
+**Record the rejections, each with the bar it failed** — "needs a migration we can't run
+mid-quarter", "couples the two services we're trying to split". One line each. This is the
+part of a plan that pays off months later, when the same option is proposed again and
+nobody remembers why it was dropped; without it, the plan reads as if only one idea was
+ever considered. If the choice is between existing *tools* rather than designs, that is
+`/viby-code:evaluate` — measure it, don't reason about it.
 
 ## 4. Write the plan
 
