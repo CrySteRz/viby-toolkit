@@ -60,6 +60,12 @@ const CHECKS: Check[] = [
     minPassing: 60,
   },
   {
+    name: "release-preflight contract",
+    cmd: [...NODE_RUNNER, "--test", "tests/check-release.test.ts"],
+    ok: new Set([0]),
+    minPassing: 15,
+  },
+  {
     name: "stack-detector contract",
     cmd: [...NODE_RUNNER, "--test", "tests/detect-stack.test.ts"],
     ok: new Set([0]),

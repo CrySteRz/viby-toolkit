@@ -11,7 +11,7 @@ description: >
 # Viby-code Operating Principles
 
 The shared contract. Every viby-code skill (`orchestrate`, `review-cluster`, `debug`,
-`migrate`, `refactor`, `plan`, `verify`, `test`, `explore`, `secure`, `perf`, `learn`) and agent (`scout`, `implementer`, `reviewer`,
+`migrate`, `refactor`, `plan`, `verify`, `test`, `explore`, `secure`, `perf`, `release`, `learn`) and agent (`scout`, `implementer`, `reviewer`,
 `skeptic`, `debugger`) is built on these. It's a reference — read it, don't "run" it.
 
 Synthesized from what actually works in production agentic coding (Anthropic's

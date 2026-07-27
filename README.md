@@ -31,6 +31,7 @@ TypeScript with zero runtime dependencies and no build step — see
 | `/viby-code:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
 | `/viby-code:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
 | `/viby-code:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
+| `/viby-code:release` | **The version number is a promise.** Decide major/minor/patch from the public-surface diff, never from the size of the change — a review of 97 studies found 67% of Maven artifacts violate SemVer, and that detection handles syntactic breaks well but behavioural ones poorly. Ships `check-release.ts`: version drift across manifests, dirty tree, unpushed commits, tag collisions, stale changelog, debug artifacts left in. |
 | `/viby-code:learn` | Records a reusable lesson (gotcha, build quirk, rejected finding, known past risk, "never compact X") to Claude's native project memory — the compounding loop, both suppressing false positives and raising recall on known risks. |
 | `/viby-code:handoff` | Serializes live task state (goal, decisions, next step) so a fresh session resumes mid-task without re-deriving it. Ephemeral, distinct from `learn`. |
 | `/viby-code:worktrees` | Isolates work (parallel implementers, risky experiments) — detect existing isolation first, prefer the native worktree tool, never fight the harness. |
@@ -181,6 +182,31 @@ The v0.9.0 additions:
   review cluster now carries the inverse caution: don't flag "this removed logic" from shape
   alone — name the input whose behaviour changed, or drop the finding.
 
+The v0.10.0 additions:
+
+- **Releases: the version number is the promise, and it is routinely broken.** A systematic
+  review of **97 primary studies** across Maven, npm, Python, Web APIs and Linux distributions
+  ([arXiv 2605.24397](https://arxiv.org/abs/2605.24397)) found **67% of Maven artifacts
+  introduce at least one semantic-versioning violation**, and names *"the failure of semantic
+  versioning as a trust mechanism"* a central open problem. Of its 43 surveyed detection
+  approaches, the finding that shaped this skill is that they reach *"high accuracy on
+  syntactic breaks but limited coverage on behavioral ones"* — so `/viby-code:release` puts
+  the mechanical checks in a script and spends its judgement on the behavioural half: changed
+  defaults, narrowed inputs, new error types, reordered results. When unsure between minor and
+  major, it is major, because the cost is asymmetric.
+  *(Search results also offered per-release breakage percentages for Maven and npm; the paper
+  did not confirm them in the text I fetched, so they are deliberately not cited here.)*
+- **A shared `lib/strip-noncode.ts`.** Four separate times in this repo, a checker matched raw
+  text and flagged a fixture, a comment, or a regex pattern that merely *mentioned* the thing
+  it hunts. The blanking pass is now shared rather than reimplemented, and the release
+  pre-flight uses it — which is exactly how its own `describe.only`-in-a-fixture false
+  positive disappeared. Extracting it was itself a refactor done under the new skill's rules:
+  62 scanner tests passed unchanged before and after.
+- **The always-on injection got smaller, not bigger.** It used to enumerate all fourteen
+  skills (~465 tokens) and grew with every addition. Skill *descriptions* are already loaded
+  for discovery, so that list bought nothing. Now ~291 tokens of pure contract — evidence
+  gate, fan-out law, one routing rule — and it no longer grows when a skill is added.
+
 ---
 
 ## Hooks
@@ -306,6 +332,8 @@ plugins/viby-code/
   skills/<name>/SKILL.md             # the workflows
   skills/test/scripts/scan-test-quality.ts   # executable test auditor
   skills/verify/scripts/detect-stack.ts      # language-agnostic toolchain detector
+  skills/release/scripts/check-release.ts    # release pre-flight
+  lib/strip-noncode.ts                      # shared: match code, never raw text
   agents/<name>.md                   # the subagents (model routing in frontmatter)
   commands/ship.md                   # the autonomous entry command
   hooks/hooks.json + session-start.sh   # SessionStart is the only default hook
