@@ -9,6 +9,9 @@ description: >
 
 # Migrate (wide, mechanical, verified)
 
+For restructuring one area rather than sweeping many files, use `/viby-code:refactor`; for a
+change whose point is a measured speedup, `/viby-code:perf`.
+
 ```
 IRON LAW: No batch is done until it is verified. No migration is done until a fresh
           discovery sweep finds ZERO remaining old-pattern sites.

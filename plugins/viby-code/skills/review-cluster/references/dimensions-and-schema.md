@@ -42,7 +42,17 @@ skill metadata.
   signatures, versioning, backward compatibility for existing callers.
 - **regression / previous-comments** — does this break existing callers or assumptions
   elsewhere? On a PR, re-check prior review threads.
-- **performance** — only on hot paths: N+1, work in loops, blocking I/O, allocations.
+- **performance** — only on hot paths: N+1, work in loops, blocking I/O, allocations. A
+  performance *claim* in the diff needs a measurement: agent-authored performance PRs
+  validate by static reasoning 67.2% of the time and report benchmarks only 25% of the time
+  (vs 49% for humans), so treat an unmeasured "this is faster" as unverified. Route real work
+  to `/viby-code:perf`.
+
+**Reviewing a refactor?** Models judge refactorings by surface features — they show a
+heuristic bias toward style and naming, and *semantic overgeneralization*: penalising a
+legitimate refactor because it shortened the code, mistaking brevity for lost functionality
+(PROMISE 2026). So for a behaviour-preserving diff, do not flag "this removed logic" from
+shape alone — name the specific input whose behaviour changed, or drop the finding.
 
 **adversarial** — the highest-value non-obvious dimension. Not pattern-matching; a chaos
 engineer that *constructs* failure scenarios in the space between the other reviewers:

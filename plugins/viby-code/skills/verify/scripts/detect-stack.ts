@@ -25,7 +25,9 @@ import path from "node:path";
 
 type Source = "ci" | "task-runner" | "convention";
 type Command = { command: string; source: Source; from: string };
-type Commands = Partial<Record<"install" | "build" | "test" | "lint" | "typecheck" | "format" | "dev", Command[]>>;
+type Commands = Partial<
+  Record<"install" | "build" | "test" | "lint" | "typecheck" | "format" | "dev" | "bench", Command[]>
+>;
 
 export type Stack = {
   root: string;
@@ -34,6 +36,7 @@ export type Stack = {
   monorepo: { tool: string; from: string } | null;
   testFrameworks: string[];
   ciFiles: string[];
+  profilers: string[];
   commands: Commands;
   unknowns: string[];
 };
@@ -121,8 +124,41 @@ const SCRIPT_ROLES: Array<{ role: keyof Commands; names: string[] }> = [
   { role: "lint", names: ["lint", "eslint", "check:lint", "ruff", "clippy"] },
   { role: "typecheck", names: ["typecheck", "type-check", "tsc", "types", "mypy"] },
   { role: "format", names: ["format", "fmt", "prettier", "format:check"] },
+  { role: "bench", names: ["bench", "benchmark", "benchmarks", "perf"] },
   { role: "dev", names: ["dev", "start", "serve", "watch"] },
 ];
+
+/**
+ * Profilers worth reaching for per language, reported only when the binary is actually on
+ * PATH. Agent-authored performance changes validate by static reasoning 67.2% of the time
+ * (arXiv 2512.21757) — naming the tool that is already installed removes one excuse.
+ */
+const PROFILERS: Array<{ lang: string; bin: string; note: string }> = [
+  { lang: "Python", bin: "py-spy", note: "py-spy top -- python x.py (sampling, no code change)" },
+  { lang: "Python", bin: "python3", note: "python3 -m cProfile -s cumtime x.py" },
+  { lang: "Python", bin: "scalene", note: "scalene x.py (CPU + memory)" },
+  { lang: "Go", bin: "go", note: "go test -cpuprofile cpu.out -bench . && go tool pprof cpu.out" },
+  { lang: "Rust", bin: "cargo", note: "cargo flamegraph / cargo bench (criterion)" },
+  { lang: "JavaScript", bin: "node", note: "node --cpu-prof / --heap-prof, or 0x" },
+  { lang: "TypeScript", bin: "node", note: "node --cpu-prof / --heap-prof, or 0x" },
+  { lang: "Ruby", bin: "ruby", note: "stackprof / rbspy" },
+  { lang: "Java", bin: "java", note: "async-profiler / JFR" },
+  { lang: "C", bin: "perf", note: "perf record -g ./bin && perf report" },
+  { lang: "C++", bin: "perf", note: "perf record -g ./bin && perf report" },
+];
+
+function onPath(bin: string): boolean {
+  const dirs = (process.env.PATH ?? "").split(path.delimiter);
+  for (const d of dirs) {
+    if (!d) continue;
+    try {
+      if (fs.statSync(path.join(d, bin)).isFile()) return true;
+    } catch {
+      /* keep looking */
+    }
+  }
+  return false;
+}
 
 function exists(p: string): boolean {
   try {
@@ -220,6 +256,8 @@ function ciCommands(root: string): { files: string[]; commands: Command[] } {
 }
 
 function classify(cmd: string): (keyof Commands) | null {
+  // Benchmarks first: `go test -bench=.` contains "test" but is a measurement, not a check.
+  if (/(-bench|\bbench\b|\bbenchmark|criterion|hyperfine|pytest-benchmark|\basv\b)/i.test(cmd)) return "bench";
   if (/\b(test|pytest|vitest|jest|mocha|go test|cargo test|rspec|phpunit|gradlew test|mix test)\b/i.test(cmd)) {
     return "test";
   }
@@ -317,6 +355,10 @@ function taskRunnerCommands(root: string, commands: Commands, unknowns: string[]
     { marker: "pubspec.yaml", role: "test", command: "dart test" },
     { marker: "Package.swift", role: "test", command: "swift test" },
     { marker: "CMakeLists.txt", role: "build", command: "cmake --build build" },
+    // Benchmarks: how you MEASURE, which is the step agents skip most often.
+    { marker: "go.mod", role: "bench", command: "go test -bench=. -benchmem ./..." },
+    { marker: "Cargo.toml", role: "bench", command: "cargo bench" },
+    { marker: "mix.exs", role: "bench", command: "mix run bench.exs" },
   ];
   for (const n of native) {
     if (exists(path.join(root, n.marker))) {
@@ -369,7 +411,27 @@ export function detectStack(root: string): Stack {
     );
   }
 
-  return { root, languages, packageManagers, monorepo, testFrameworks, ciFiles: ci.files, commands, unknowns };
+  const topLangs = new Set(languages.slice(0, 4).map((l) => l.name));
+  const profilers = PROFILERS.filter((p) => topLangs.has(p.lang) && onPath(p.bin)).map((p) => p.note);
+
+  if (commands.bench === undefined && languages.length > 0) {
+    unknowns.push(
+      "no benchmark command found — a performance claim needs a measurement, so establish a " +
+        "baseline first (see /viby-code:perf) rather than reasoning about the change",
+    );
+  }
+
+  return {
+    root,
+    languages,
+    packageManagers,
+    monorepo,
+    testFrameworks,
+    ciFiles: ci.files,
+    profilers,
+    commands,
+    unknowns,
+  };
 }
 
 function report(s: Stack): string {
@@ -387,12 +449,17 @@ function report(s: Stack): string {
   const ciRest = s.ciFiles.length > 4 ? ` (+${s.ciFiles.length - 4} more)` : "";
   out.push(`ci config     ${ciShown || "none"}${ciRest}`);
   out.push("");
-  const roles: Array<keyof Commands> = ["install", "build", "test", "typecheck", "lint", "format", "dev"];
+  const roles: Array<keyof Commands> = ["install", "build", "test", "bench", "typecheck", "lint", "format", "dev"];
   for (const role of roles) {
     const list = s.commands[role];
     if (!list || list.length === 0) continue;
     out.push(`${role}:`);
     for (const c of list.slice(0, 4)) out.push(`  ${c.command.padEnd(46)} [${c.source} · ${c.from}]`);
+  }
+  if (s.profilers.length) {
+    out.push("");
+    out.push("profilers available here:");
+    for (const p of s.profilers) out.push(`  ${p}`);
   }
   if (s.unknowns.length) {
     out.push("");

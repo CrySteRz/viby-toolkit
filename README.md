@@ -26,6 +26,8 @@ TypeScript with zero runtime dependencies and no build step — see
 | `/viby-code:secure` | **Security pass, ordered by what actually goes wrong.** Credentials first (99.6% of critical findings in a 2026 study of 4,022 agent-assisted PRs), then supply chain and CI (82.3% by volume), then code surfaces judged by reachability. Confirms each candidate secret, because that study's own labelling was ~73% false positives. |
 | `/viby-code:verify` | **The evidence gate, executed.** Finds the project's real checks (CI config is authoritative), scopes them to the change, exercises the actual behavior — then screens the output for silent-pass modes, because a zero exit code with zero tests collected is not a pass. Fix the code, never the check. |
 | `/viby-code:test` | **QA and test design, with a scanner.** Picks the test level deliberately, insists every new test is *seen failing for the right reason* before it's trusted, and enforces mocking discipline (coding agents over-mock measurably more than humans). Ships an executable auditor — `scan-test-quality.ts` finds no-assertion tests, tautologies, over-mocking, `.only`/`.skip` left in, sleep-waits and swallowed errors, with `file:line`. |
+| `/viby-code:perf` | **Measure, or it didn't happen.** Baseline → profile → one change → re-measure, with correctness as a gate. Exists because a 2026 study of 407 performance PRs found agents pick statistically indistinguishable optimisations to humans but validate them far less: 45.7% vs 63.6%, and 67.2% of validated agent PRs reasoned statically instead of benchmarking. The detector reports the repo's bench command and which profilers are actually installed. |
+| `/viby-code:refactor` | **Behaviour-preserving, and proven so.** Name the invariant, find what pins it, add characterization tests if nothing does, then transform in small verified steps. The same tests must pass before and after, unchanged. Never mixed with a behaviour change in one diff. |
 | `/viby-code:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
 | `/viby-code:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
 | `/viby-code:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
@@ -154,6 +156,30 @@ The v0.8.0 additions:
   so `/viby-code:secure` checks the whole change, credentials first. The same paper's
   automated labelling had only a **27.2% validation rate**, which is why confirming each
   candidate is in that skill's Iron Law rather than a footnote.
+
+The v0.9.0 additions:
+
+- **Performance: the gap is measurement, not knowledge.** A study of 407 performance PRs
+  ([arXiv 2512.21757](https://arxiv.org/abs/2512.21757) — 324 agent-authored, 83
+  human-authored) found agents and humans choose *statistically indistinguishable*
+  optimisations (χ²=6.10, p=0.636), but agents validate far less often: explicit performance
+  validation in **45.7% vs 63.6%** of PRs (p=0.007), and of validated agent PRs **67.2%
+  reasoned statically** while only **25% reported benchmarks** against **49%** for humans
+  (χ²=12.43, p=0.006). `/viby-code:perf` is built entirely around closing that gap — baseline
+  first, profile to choose the target, one change per measurement — and the detector now
+  reports the repo's bench command plus which profilers are actually on PATH, so "I couldn't
+  measure" stops being the default. Corroborated by
+  [PERFOPT-Bench](https://arxiv.org/abs/2607.07744), which scores agents on *verified* speedup
+  behind hidden correctness tests and finds capability is workload-dependent rather than a
+  property of the model.
+- **Refactoring: models judge it by surface, not semantics.**
+  [PROMISE 2026](https://homepages.dcc.ufmg.br/~figueiredo/publications/promise2026preprint.pdf)
+  found a heuristic bias toward style and naming, plus *semantic overgeneralization* —
+  penalising a legitimate refactor **because** it shortened the code, mistaking brevity for
+  lost functionality. So `/viby-code:refactor` requires the behaviour-pinning tests to pass
+  unchanged before and after (adding characterization tests when nothing pins it), and the
+  review cluster now carries the inverse caution: don't flag "this removed logic" from shape
+  alone — name the input whose behaviour changed, or drop the finding.
 
 ---
 
