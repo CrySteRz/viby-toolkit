@@ -11,7 +11,9 @@ Marketplace: **`viby-toolkit`** · Plugin: **`viby-code`**
 ## What's in it
 
 `viby-code` is an accuracy-first, token-disciplined set of engineering workflows. It's
-stack-agnostic (detects the project at runtime; assumes nothing).
+stack-agnostic (detects the project at runtime; assumes nothing). Everything executable is
+TypeScript with zero runtime dependencies and no build step — see
+[Why TypeScript](#why-typescript-and-how-it-runs-without-a-build-step).
 
 ### Skills (auto-trigger by context, or call with `/viby-code:<name>`)
 
@@ -21,6 +23,7 @@ stack-agnostic (detects the project at runtime; assumes nothing).
 | `/viby-code:orchestrate` | Drives a task end-to-end: scope → research → plan → implement → verify → self-review. Fans out cheap scouts for discovery, keeps writes single-threaded, keeps main context clean. |
 | `/viby-code:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers (incl. an adversarial chaos-engineer dimension) find candidates; a grounding gate drops anything that can't quote its own line; one fresh-context validator per finding confirms real/introduced/not-already-handled; a confidence gate suppresses below-threshold. Reports the full kill count. |
 | `/viby-code:verify` | **The evidence gate, executed.** Finds the project's real checks (CI config is authoritative), scopes them to the change, exercises the actual behavior — then screens the output for silent-pass modes, because a zero exit code with zero tests collected is not a pass. Fix the code, never the check. |
+| `/viby-code:test` | **QA and test design, with a scanner.** Picks the test level deliberately, insists every new test is *seen failing for the right reason* before it's trusted, and enforces mocking discipline (coding agents over-mock measurably more than humans). Ships an executable auditor — `scan-test-quality.ts` finds no-assertion tests, tautologies, over-mocking, `.only`/`.skip` left in, sleep-waits and swallowed errors, with `file:line`. |
 | `/viby-code:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
 | `/viby-code:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
 | `/viby-code:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
@@ -104,13 +107,42 @@ driven "never-compact" lessons (ACON); and the escalation-ladder / cheap-model-d
 model-routing guidance. Overstated single-number claims were deliberately dropped after an
 adversarial fact-check; only convergent, credible mechanisms were kept.
 
+The v0.5.0 testing module (`/viby-code:test`) is grounded in four verified sources, each read
+rather than taken from a summary:
+
+- **Over-mocking is an agent-specific failure mode.** *Are Coding Agents Generating
+  Over-Mocked Tests?* ([arXiv 2602.00409](https://arxiv.org/abs/2602.00409)) measured real
+  repositories: agent test commits add mocks 36% of the time vs 26% for non-agent commits,
+  and agents use the `mock` double in 95% of cases where humans spread across mocks (91%),
+  fakes (57%) and spies (51%). The paper's own recommendation is to *"include guidance on
+  mocking best practices and anti-patterns in agent configuration files"* — which is exactly
+  what the skill's mocking section is.
+- **Mutation beats coverage as the quality signal.** *Test vs Mutant: Adversarial LLM Agents
+  for Robust Unit Test Generation* ([arXiv 2602.08146](https://arxiv.org/abs/2602.08146))
+  runs a test-generator against a mutant-generator in an adversarial loop, reporting +8.56%
+  fault detection over LLM baselines and +63.30% over EvoSuite on Defects4J; Meta's ACH
+  deployed mutation-guided generation at scale with 73% of generated tests accepted. The
+  skill folds in the cheap manual form — deliberately break the code, confirm the test goes
+  red — plus the "weakest-test question", since most repos have no mutation tooling.
+- **Named smells to hunt.** *Test smells in LLM-Generated Unit Tests*
+  ([arXiv 2410.10628](https://arxiv.org/abs/2410.10628)) finds Assertion Roulette and Magic
+  Number Test most prevalent across 20,505 generated suites. Assertion roulette became a
+  scanner check; magic numbers stayed guidance only, because as a mechanical check it fires
+  constantly on legitimate table-driven tests — precision over coverage, as everywhere else
+  here.
+- **Ship executable checks, not just prose.** *Harness Engineering for Agentic AI Coding
+  Tools* ([arXiv 2602.14690](https://arxiv.org/abs/2602.14690)), a study of 2,853
+  repositories, finds that where Skills are used at all they "typically rely on static
+  instructions rather than executable scripts." That's the gap `scan-test-quality.ts` and
+  `tests/` close: guidance an agent can *run*, not only read.
+
 ---
 
 ## Hooks & safety
 
 - **SessionStart** injects the accuracy/fan-out defaults (~440 tokens) so the working style
   applies even when no skill is invoked.
-- **PreToolUse safety guard** (`hooks/pre-tool-use-guard.py`) — a deterministic, fail-open
+- **PreToolUse safety guard** (`hooks/pre-tool-use-guard.ts`) — a deterministic, fail-open
   backstop against a small set of genuinely destructive Bash commands: recursive delete of
   `/`, a top-level system dir, home, an unexpanded variable, or an unscoped glob; `dd` to a
   raw disk; `mkfs`; fork bombs; force-push to a protected branch (`main`/`master`/`prod`);
@@ -127,7 +159,7 @@ adversarial fact-check; only convergent, credible mechanisms were kept.
   like `grep 'rm -rf' README.md`) while the catastrophic forms still stop (`rm -rf /`,
   `rm -rf $BUILD_DIR`, `sudo rm -rf /`, `bash -c "rm -rf /"`). `VIBY_SAFETY=strict` restores
   the paranoid posture: it blocks *all* recursive delete and any force-push.
-- **Opt-in** (shipped, not enabled): `hooks/post-tool-use-format.py` auto-formats edited
+- **Opt-in** (shipped, not enabled): `hooks/post-tool-use-format.ts` auto-formats edited
   files *only* when the formatter is already installed and the project uses it (never
   installs anything, never blocks). Enable by adding a `PostToolUse` matcher if you want it.
 
@@ -135,7 +167,7 @@ adversarial fact-check; only convergent, credible mechanisms were kept.
 
 The context discipline is measurable, not just asserted:
 
-- **Statusline** (`hooks/statusline.py`) — shows
+- **Statusline** (`hooks/statusline.ts`) — shows
   `model · ctx NN% · cache NN% · 5h NN% · 7d NN% · $cost`. `ctx` is
   `context_window.used_percentage` (input tokens: fresh + cache creation + cache read, as a
   share of the window) colour-banded green <60 / yellow <80 / red — watching it is how you
@@ -146,7 +178,7 @@ The context discipline is measurable, not just asserted:
   this form survives version bumps instead of hardcoding one:
   ```json
   { "statusLine": { "type": "command",
-      "command": "python3 \"$(ls -d \"$HOME\"/.claude/plugins/cache/viby-toolkit/viby-code/*/hooks/statusline.py | tail -1)\"" } }
+      "command": "sh \"$(ls -d \"$HOME\"/.claude/plugins/cache/viby-toolkit/viby-code/*/hooks/run.sh | tail -1)\" \"$(ls -d \"$HOME\"/.claude/plugins/cache/viby-toolkit/viby-code/*/hooks/statusline.ts | tail -1)\"" } }
   ```
 - **OpenTelemetry** — set `CLAUDE_CODE_ENABLE_TELEMETRY=1` and export
   `claude_code.token.usage`; group by `query_source` (`main` vs `subagent`) and `agent.name`
@@ -158,6 +190,12 @@ The context discipline is measurable, not just asserted:
 ## Install on a new machine
 
 Prereqs: `gh` authenticated (`gh auth status`) or SSH access to this private repo.
+
+**Runtime:** the skills, agents and prompts are plain markdown and need nothing. The
+executable parts (safety guard, statusline, test scanner) need **Node ≥22.6**, or bun, or
+`tsx` — `hooks/run.sh` takes the first one it finds. With none of them present the hooks
+no-op silently and the markdown half still works, so a machine without a JS runtime gets a
+degraded-but-functional install rather than errors. Check with `node --version`.
 
 **Option A — via Claude Code (recommended):**
 
@@ -228,15 +266,34 @@ Everything lives here as plain files:
 
 ```
 .claude-plugin/marketplace.json      # marketplace manifest
+package.json + tsconfig.json         # TS config; zero runtime dependencies
 plugins/viby-code/
   .claude-plugin/plugin.json         # plugin manifest
   skills/<name>/SKILL.md             # the workflows
+  skills/test/scripts/scan-test-quality.ts   # executable test auditor
   agents/<name>.md                   # the subagents (model routing in frontmatter)
   commands/ship.md                   # the autonomous entry command
-  hooks/hooks.json + session-start.sh + pre-tool-use-guard.py
-  hooks/statusline.py + post-tool-use-format.py   # opt-in, wired in settings.json
-tests/                               # contract tests for the hooks (see below)
+  hooks/hooks.json + session-start.sh
+  hooks/run.sh                       # picks a TS runtime; no-ops if none exists
+  hooks/pre-tool-use-guard.ts        # registered by default
+  hooks/statusline.ts + post-tool-use-format.ts   # opt-in, wired in settings.json
+tests/*.test.ts                      # contract tests (node:test)
+tests/run-all.ts                     # the pre-push gate
 ```
+
+### Why TypeScript, and how it runs without a build step
+
+Everything executable is TypeScript with **zero runtime dependencies** — only `node:`
+builtins and the built-in `node:test` runner. There is no compile step and no
+`node_modules`: Node ≥22.6 strips the types and runs the file directly.
+
+Hooks are shell commands, so each one goes through `hooks/run.sh`, which picks the first
+runtime it finds — node ≥22.6 (`--experimental-strip-types`), then bun, then `tsx` — and
+**exits 0 silently when there is none**. A machine with no TypeScript runtime therefore
+degrades to "no hook" rather than a broken session, which is the same fail-open rule the
+guard itself follows. Because type stripping erases types rather than compiling them,
+`tsconfig.json` sets `erasableSyntaxOnly` so the compiler rejects anything the runtime
+cannot execute (no enums, no namespaces, no parameter properties).
 
 After editing, bump `version` in `plugin.json` **and** in `marketplace.json` (both carry
 it), commit, push. Machines pick up the change on next session (or `/plugin update
@@ -248,15 +305,31 @@ The toolkit holds itself to its own evidence gate — the hooks are executable c
 have tests. Run all three checks:
 
 ```bash
-claude plugin validate .          # manifests + skill/agent frontmatter
-python3 tests/test_guard.py       # 80 cases: what the safety guard must and must not block
-python3 tests/test_statusline.py  # 13 payload shapes incl. the documented null cases
+npm run check                     # the gate: every check, one verdict
 ```
 
-`tests/test_guard.py` is the guard's real specification. Both halves of the contract are
-pinned: every catastrophic command that must be denied, **and** every piece of routine work
-that must be allowed. If you add a rule, add cases for both — a guard that blocks real work
-gets switched off, and then it protects nothing.
+Which runs:
+
+```bash
+claude plugin validate .          # manifests + skill/agent frontmatter
+npm test                          # every tests/*.test.ts via the built-in node:test runner
+#   guard.test.ts       — what the safety guard must and must NOT block
+#   statusline.test.ts  — payload shapes incl. the documented null cases
+#   scanner.test.ts     — test-quality checks + file classification
+npm run typecheck                 # tsc --noEmit (fetched on demand; skipped when offline)
+# + scanner self-audit, SessionStart JSON validity, and a runner-shim probe
+```
+
+These are specifications, not smoke tests. Both halves of each contract are pinned: every
+catastrophic command that must be denied **and** every piece of routine work that must be
+allowed; every smell that must be flagged **and** every healthy test that must not be. If
+you add a rule, add cases for both — a guard that blocks real work gets switched off, and a
+scanner that flags good tests gets ignored. Either way it then protects nothing.
+
+Two bugs in this repo were caught only because the must-allow half exists: the safety guard
+briefly permitted `sudo rm -rf /` (the sudo rule returned before target inspection), and the
+test scanner flagged 23 false positives on its own fixtures until it learned to blank string
+literals before matching. Same root cause both times — matching raw text instead of code.
 
 **Secrets:** this repo syncs across work and personal machines — never commit tokens,
 credentials, client names, or internal hostnames. `.gitignore` blocks the common ones;

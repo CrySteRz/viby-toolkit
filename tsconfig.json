@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Node's --experimental-strip-types erases types without transforming them, so
+    // anything requiring codegen is off limits. These flags make the compiler reject
+    // what the runtime cannot execute, instead of letting it fail at run time.
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+    // Node resolves explicit `./foo.ts` specifiers when stripping types, so imports must
+    // carry the real extension. Safe because we only ever type-check (noEmit).
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "plugins/viby-code/hooks/**/*.ts",
+    "plugins/viby-code/skills/**/scripts/**/*.ts",
+    "tests/**/*.ts"
+  ]
+}

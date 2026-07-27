@@ -35,7 +35,8 @@ assertion. Don't paraphrase from memory — get the literal output.
 evidence across multiple independent studies is that *writing the correct reproduction
 test is the hard part; once you have it, the fix is comparatively easy.* So: write a test
 that reproduces the reported behavior, confirm it fails **for the right reason** (not a
-typo or setup error), and keep it. This test is what proves the bug gone in step 6. Because
+typo or setup error), and keep it. `/viby-code:test` covers how to make it a *good* test —
+in particular, don't mock away the component that actually contains the bug. This test is what proves the bug gone in step 6. Because
 authoring a correct repro test is the hard, high-leverage step, do it on the **strong
 model** (main thread, or escalate to the top tier / fable for a subtle one) even if you
 later route the mechanical fix to a cheaper agent — inverting the usual routing intuition,

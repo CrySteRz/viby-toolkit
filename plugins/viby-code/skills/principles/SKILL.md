@@ -11,7 +11,7 @@ description: >
 # Viby-code Operating Principles
 
 The shared contract. Every viby-code skill (`orchestrate`, `review-cluster`, `debug`,
-`migrate`, `plan`, `verify`, `learn`) and agent (`scout`, `implementer`, `reviewer`,
+`migrate`, `plan`, `verify`, `test`, `learn`) and agent (`scout`, `implementer`, `reviewer`,
 `skeptic`, `debugger`) is built on these. It's a reference — read it, don't "run" it.
 
 Synthesized from what actually works in production agentic coding (Anthropic's
@@ -159,6 +159,12 @@ A zero exit code is not automatically a pass — zero tests collected, an all-sk
 `|| true`, or a cached result all exit 0. `/viby-code:verify` runs this gate as a
 procedure: find the real checks, scope them to the change, exercise the actual behavior,
 then screen the output for those silent-pass modes.
+
+The same gate applies to the tests themselves: **a test never observed failing is not known
+to test anything.** Coverage proves a line executed, not that a wrong value would be caught
+— a suite can be fully covered and still survive nearly every mutation of the code. So see
+each new test go red for the right reason before trusting it, and be suspicious of tests
+that assert on mocks rather than outcomes (`/viby-code:test`).
 
 ## 6. Adversarial verification kills false positives
 

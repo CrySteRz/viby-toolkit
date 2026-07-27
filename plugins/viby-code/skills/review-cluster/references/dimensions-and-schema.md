@@ -8,8 +8,19 @@ skill metadata.
 **Always-on (cheap, every review):**
 - **correctness** — logic errors, wrong conditions, off-by-one, unhandled cases, broken
   control flow, incorrect API/contract usage, error propagation, intent compliance.
-- **testing** — coverage gaps, weak/missing assertions, brittle tests, missing edge-case
-  tests, tests that pass while the behavior is wrong.
+- **testing** — tests that pass while the behaviour is wrong. Hunt, in priority order:
+  a test with **no assertion** or one that **cannot fail** (`expect(true).toBe(true)`,
+  `assert x == x`); **over-mocking** — the test exercises mocks rather than code, or
+  asserts a call transcript (`toHaveBeenCalled`) instead of the resulting state, so it stays
+  green when the real implementation drifts; a **mocked boundary with no contract or
+  integration test** anywhere behind it; `.only`/`.skip`/`@Ignore` left in, silently
+  shrinking the suite; **sleep-based waiting** instead of an observable condition;
+  **swallowed exceptions** in a test; missing tests for the branches and error paths this
+  diff added; a **fixed bug with no regression test**; and assertion roulette (4+
+  unexplained assertions — a failure that names no cause). Run
+  `skills/test/scripts/scan-test-quality.ts` on the diff's test files first (via
+  `hooks/run.sh`): it finds most of these mechanically for near-zero cost, leaving you the
+  judgment calls. Full guidance in `/viby-code:test`.
 - **maintainability** — structural quality only where it threatens correctness later:
   dangerous complexity, coupling, type-boundary leaks, dead code. (Pure taste →
   `/simplify`, not here.)

@@ -1,0 +1,29 @@
+{
+  "name": "viby-toolkit",
+  "version": "0.6.0",
+  "private": true,
+  "description": "Personal Claude Code toolkit — accuracy-first engineering workflows, in TypeScript with zero runtime dependencies",
+  "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/*.test.ts",
+    "check": "node --experimental-strip-types --disable-warning=ExperimentalWarning tests/run-all.ts",
+    "typecheck": "tsc --noEmit",
+    "scan": "node --experimental-strip-types --disable-warning=ExperimentalWarning plugins/viby-code/skills/test/scripts/scan-test-quality.ts"
+  },
+  "//": "devDependencies are for type-checking ONLY. Nothing here is needed to run the plugin — the hooks and scripts use node: builtins exclusively, so a fresh clone works with no npm install. Run `npm install` only when you want `npm run typecheck`.",
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.0"
+  },
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "orchestration",
+    "code-review",
+    "testing"
+  ],
+  "license": "UNLICENSED"
+}

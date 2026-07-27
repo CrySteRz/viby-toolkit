@@ -83,6 +83,9 @@ dedicated pass. **This plan file doubles as your checkpoint** (see Phase 3).
   utilization in the 40–60% band on long tasks.
 - Match surrounding style, naming, idioms. Comments only for constraints the code can't
   show — never to narrate the diff.
+- **Write the tests as part of the change, not after it.** Follow `/viby-code:test`: pick the
+  level deliberately, and see each new test **fail for the right reason** before making it
+  pass. A test written only after the code is green is a test nobody has watched work.
 
 ### Phase 4 — Verify (mandatory for anything with runtime behavior)
 

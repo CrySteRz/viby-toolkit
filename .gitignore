@@ -8,6 +8,6 @@ node_modules/
 *.key
 credentials*
 
-# python bytecode
-__pycache__/
-*.pyc
+# typescript / node
+*.tsbuildinfo
+.node_repl_history

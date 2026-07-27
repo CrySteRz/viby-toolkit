@@ -11,13 +11,13 @@
     {
       "name": "viby-code",
       "source": "./plugins/viby-code",
-      "description": "Orchestrator + brainstorm gate + grounded review cluster with false-positive filter + evidence-gated verification + debugging + migration + compounding-memory + safety hooks for any stack",
-      "version": "0.4.0",
+      "description": "Orchestrator + brainstorm gate + grounded review cluster with false-positive filter + evidence-gated verification + test design and QA auditing + debugging + migration + compounding-memory + safety hooks for any stack. TypeScript, zero dependencies.",
+      "version": "0.6.0",
       "author": {
         "name": "Ionut-Marian Blidaru"
       },
       "category": "development",
-      "keywords": ["orchestration", "code-review", "verification", "debugging", "migration"]
+      "keywords": ["orchestration", "code-review", "verification", "testing", "qa", "debugging", "migration", "typescript"]
     }
   ]
 }
