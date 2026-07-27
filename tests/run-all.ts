@@ -57,7 +57,7 @@ const CHECKS: Check[] = [
     name: "test-scanner contract",
     cmd: [...NODE_RUNNER, "--test", "tests/scanner.test.ts"],
     ok: new Set([0]),
-    minPassing: 55,
+    minPassing: 60,
   },
   // The toolkit's own test files must survive its own auditor. 0 = clean, 2 = nothing
   // to scan; 1 (findings) is a failure here because we dogfood a clean suite.

@@ -871,3 +871,179 @@ test("--all on repo runs cleanly", () => {
     `expected exit 0, 1 or 2, got ${result.status}: ${result.stderr.slice(0, 200)}`,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Cross-file delegation. A test whose assertions live in a base class or mixin in ANOTHER
+// module was the largest single cause of false `no-assertion` — one pair of CPython files
+// accounted for ~10% of all findings. These cases need two files on disk, so they can't use
+// the single-file CASES table above.
+// ---------------------------------------------------------------------------
+
+function scanIn(files: Record<string, string>, target: string): string[] {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "xfile-"));
+  try {
+    for (const [rel, body] of Object.entries(files)) {
+      const full = path.join(dir, rel);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, body.replace(/^\n/, ""));
+    }
+    const r = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        "--disable-warning=ExperimentalWarning",
+        SCANNER,
+        "--json",
+        path.join(dir, target),
+      ],
+      { encoding: "utf8" },
+    );
+    return (JSON.parse(r.stdout).findings as Array<{ check: string }>).map((f) => f.check);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("py: assertion inherited from a mixin in a sibling module is recognised", () => {
+  const checks = scanIn(
+    {
+      "widget_tests.py": `
+class AbstractWidgetTest:
+    def checkParam(self, widget, name, value):
+        widget[name] = value
+        assert widget[name] == value
+`,
+      "test_widgets.py": `
+from widget_tests import AbstractWidgetTest
+
+class ButtonTest(AbstractWidgetTest):
+    def test_text_param(self):
+        widget = self.create()
+        self.checkParam(widget, "text", "hello")
+`,
+    },
+    "test_widgets.py",
+  );
+  assert.deepEqual(checks, [], `expected no findings, got ${JSON.stringify(checks)}`);
+});
+
+test("py: mixin reached through a dotted package path is recognised", () => {
+  const checks = scanIn(
+    {
+      "pkg/test_tk/widget_tests.py": `
+class AbstractWidgetTest:
+    def checkParam(self, widget, name, value):
+        assert widget[name] == value
+`,
+      "pkg/test_ttk/test_widgets.py": `
+from pkg.test_tk.widget_tests import AbstractWidgetTest
+
+class ComboTest(AbstractWidgetTest):
+    def test_values_param(self):
+        widget = self.create()
+        self.checkParam(widget, "values", "a b c")
+`,
+    },
+    "pkg/test_ttk/test_widgets.py",
+  );
+  assert.deepEqual(checks, [], `expected no findings, got ${JSON.stringify(checks)}`);
+});
+
+test("ts: assertion inherited from a relative import is recognised", () => {
+  const checks = scanIn(
+    {
+      "helpers.ts": `
+export function expectRendered(el: HTMLElement, html: string) {
+  expect(el.innerHTML).toBe(html);
+}
+`,
+      "widget.test.ts": `
+import { expectRendered } from "./helpers";
+
+class Base {
+  assertRendered(el: HTMLElement, html: string) {
+    expectRendered(el, html);
+  }
+}
+
+test("renders", () => {
+  const el = mount(App);
+  flush();
+  this.assertRendered(el, "<div>ok</div>");
+});
+`,
+    },
+    "widget.test.ts",
+  );
+  assert.deepEqual(checks, [], `expected no findings, got ${JSON.stringify(checks)}`);
+});
+
+test("cross-file delegation does NOT excuse a helper that never asserts", () => {
+  const checks = scanIn(
+    {
+      "helpers.py": `
+class SupportBase:
+    def prepare(self, widget):
+        widget.pack()
+        return widget
+`,
+      "test_thing.py": `
+from helpers import SupportBase
+
+class ThingTest(SupportBase):
+    def test_prepares(self):
+        widget = make_widget()
+        self.prepare(widget)
+        log_event(widget)
+`,
+    },
+    "test_thing.py",
+  );
+  assert.deepEqual(
+    checks,
+    ["no-assertion"],
+    `a non-asserting inherited helper must not suppress the finding, got ${JSON.stringify(checks)}`,
+  );
+});
+
+test("cross-file names only count via a receiver, not a bare call", () => {
+  const checks = scanIn(
+    {
+      "utils.py": `
+def check(value):
+    assert value is not None
+`,
+      "test_bare.py": `
+from utils import check
+
+def test_unrelated_bare_call():
+    widget = make_widget()
+    other = build()
+    render(widget, other)
+`,
+    },
+    "test_bare.py",
+  );
+  // `render(...)` is a bare call to an unrelated name; the imported `check` must not
+  // excuse it. Guards against the over-suppression that name-only matching caused.
+  assert.deepEqual(checks, ["no-assertion"], `got ${JSON.stringify(checks)}`);
+});
+
+test("py: calling a locally-declared abstract method suppresses no-assertion", () => {
+  const checks = scanIn(
+    {
+      "util.py": `
+class CommonTests:
+    def execute(self, package, path):
+        """Subclasses implement this and assert on the result."""
+
+    def test_package_object(self):
+        package = make_package()
+        path = make_path()
+        self.execute(package, path)
+`,
+    },
+    "util.py",
+  );
+  assert.deepEqual(checks, [], `abstract-method delegation, got ${JSON.stringify(checks)}`);
+});

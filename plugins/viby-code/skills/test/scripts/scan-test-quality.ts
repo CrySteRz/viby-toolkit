@@ -333,6 +333,26 @@ const LOCAL_DEF = new RegExp(
 );
 
 const CALL_NAME = /\b(\w+)\s*\(/g;
+/** A method call through a receiver: `self.checkParam(...)`, `this.expectOk(...)`. */
+const RECEIVER_CALL = /\b(?:self|this|cls)\s*\.\s*(\w+)\s*\(/g;
+
+/**
+ * A declaration whose body does nothing — `pass`, `...`, `raise NotImplementedError`, or
+ * only a docstring. It is an abstract or stub method, so the real implementation (and its
+ * assertions) live somewhere this scanner cannot see. Calling one is not evidence that a
+ * test asserts nothing.
+ */
+const STUB_BODY = /^\s*(?:pass|\.\.\.|raise\s+NotImplementedError|return\s+NotImplemented|throw\s+new\s+Error)\b/;
+
+/** Modules that hold shared test infrastructure, indexed even without a resolvable import. */
+const SHARED_INFRA =
+  /(^|\/)(\w*_tests?|util|utils|support|helpers?|base|common\w*|testcase|mixins?|shared|fixtures?)\.(py|[jt]sx?)$/;
+
+/** Import specifiers, read from RAW text — a stripped file has its specifiers blanked. */
+const JS_IMPORT = /(?:from|import)\s*\(?\s*["']([^"']+)["']|require\(\s*["']([^"']+)["']\s*\)/g;
+const PY_IMPORT = /^[ \t]*(?:from[ \t]+([\w.]+)[ \t]+import|import[ \t]+([\w.]+))/gm;
+
+const MAX_RELATED_FILES = 12; // per scanned file, so a wide import graph can't blow up runtime
 
 /**
  * Does an unescaped `delim` close on the same line, starting after position `start`?
@@ -610,6 +630,169 @@ function* splitTests(lines: string[]): Generator<[number, LineEntry[]]> {
   }
 }
 
+type Helpers = { asserting: Set<string>; stubs: Set<string> };
+
+/**
+ * Names declared in `lines` that provably assert, plus names that are abstract stubs.
+ *
+ * Extracted from scanFile so the same analysis can run over a RELATED file — a base class
+ * or mixin in another module. Resolved to a fixpoint, because helper chains are normal.
+ */
+function computeHelpers(lines: string[]): Helpers {
+  const aliases = new Set<string>();
+  for (const line of lines) {
+    const m = ASSERT_ALIAS_BINDING.exec(line);
+    if (m?.[1] !== undefined) aliases.add(m[1]);
+  }
+  const asserts = (t: string): boolean => {
+    if (ASSERT.test(t)) return true;
+    if (aliases.size === 0) return false;
+    for (const m of t.matchAll(CALL_NAME)) if (m[1] !== undefined && aliases.has(m[1])) return true;
+    return false;
+  };
+
+  const defs: Array<{ name: string; line: number; indent: number }> = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? "";
+    const m = LOCAL_DEF.exec(line);
+    if (!m) continue;
+    const name = m.slice(1).find((g) => g !== undefined);
+    if (name) defs.push({ name, line: i, indent: line.length - line.trimStart().length });
+  }
+  const allLocals = new Set(defs.map((d) => d.name));
+  const info = new Map<string, { direct: boolean; calls: Set<string> }>();
+  const stubs = new Set<string>();
+
+  for (let d = 0; d < defs.length; d += 1) {
+    const def = defs[d];
+    if (!def) continue;
+    let end = lines.length;
+    for (let e = d + 1; e < defs.length; e += 1) {
+      const next = defs[e];
+      if (next && next.indent <= def.indent) {
+        end = next.line;
+        break;
+      }
+    }
+    const entry = info.get(def.name) ?? { direct: false, calls: new Set<string>() };
+    const bodyCode: string[] = [];
+    for (let j = def.line; j < end; j += 1) {
+      const line = lines[j] ?? "";
+      if (j > def.line && line.trim() && !COMMENT_ONLY.test(line)) bodyCode.push(line);
+      if (asserts(line)) entry.direct = true;
+      for (const m of line.matchAll(CALL_NAME)) {
+        const callee = m[1];
+        if (callee !== undefined && callee !== def.name && allLocals.has(callee)) entry.calls.add(callee);
+      }
+    }
+    // Abstract/stub: nothing but a docstring (blanked to filler), `pass`, `...`, or a raise.
+    const meaningful = bodyCode.filter((l) => !/^[\s\x00"'`]*$/.test(l));
+    if (meaningful.length === 0 || (meaningful.length === 1 && STUB_BODY.test(meaningful[0] ?? ""))) {
+      stubs.add(def.name);
+    }
+    info.set(def.name, entry);
+  }
+
+  const asserting = new Set<string>();
+  for (const [name, entry] of info) if (entry.direct) asserting.add(name);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const [name, entry] of info) {
+      if (asserting.has(name)) continue;
+      for (const callee of entry.calls) {
+        if (asserting.has(callee)) {
+          asserting.add(name);
+          grew = true;
+          break;
+        }
+      }
+    }
+  }
+  return { asserting, stubs };
+}
+
+/** Memoized per-file helper analysis, so a shared mixin is parsed once per run. */
+const helperCache = new Map<string, Helpers>();
+function helpersInFile(filePath: string): Helpers {
+  const cached = helperCache.get(filePath);
+  if (cached) return cached;
+  let out: Helpers = { asserting: new Set(), stubs: new Set() };
+  try {
+    const raw = fs.readFileSync(filePath, "utf8");
+    out = computeHelpers(stripNoncode(raw, path.extname(filePath).toLowerCase()).split("\n"));
+  } catch {
+    // unreadable — treat as contributing nothing
+  }
+  helperCache.set(filePath, out);
+  return out;
+}
+
+/**
+ * Files whose declarations a test file could plausibly inherit or import: resolvable
+ * relative/`from x import y` targets, plus shared test-infrastructure modules sitting in
+ * the same directory. Import specifiers are read from RAW text, since the blanking pass
+ * (correctly) erases string contents.
+ */
+function relatedFiles(filePath: string, raw: string): string[] {
+  const dir = path.dirname(filePath);
+  const found = new Set<string>();
+  const tryAdd = (base: string): void => {
+    for (const e of [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py"]) {
+      const c = base + e;
+      try {
+        if (fs.statSync(c).isFile()) {
+          found.add(c);
+          return;
+        }
+      } catch {
+        /* keep looking */
+      }
+    }
+    for (const idx of ["/index.ts", "/index.tsx", "/index.js"]) {
+      try {
+        if (fs.statSync(base + idx).isFile()) {
+          found.add(base + idx);
+          return;
+        }
+      } catch {
+        /* keep looking */
+      }
+    }
+  };
+
+  for (const m of raw.matchAll(JS_IMPORT)) {
+    const spec = m[1] ?? m[2];
+    if (spec === undefined || !spec.startsWith(".")) continue; // relative only — skip packages
+    tryAdd(path.resolve(dir, spec.replace(/\.[jt]sx?$/, "")));
+  }
+  // Dotted Python modules: `from test.test_tkinter.widget_tests import AbstractWidgetTest`
+  // resolves relative to whichever ancestor directory the package root sits in — often NOT
+  // the importing file's own directory (test_ttk imports a mixin from test_tkinter). Try the
+  // full dotted path against each ancestor, then progressively drop leading components.
+  for (const m of raw.matchAll(PY_IMPORT)) {
+    const parts = (m[1] ?? m[2] ?? "").split(".").filter(Boolean);
+    if (parts.length === 0) continue;
+    for (let up = 0; up <= 4; up += 1) {
+      const ancestor = path.join(dir, ...Array(up).fill(".."));
+      for (let drop = 0; drop < parts.length; drop += 1) {
+        tryAdd(path.join(ancestor, ...parts.slice(drop)));
+      }
+    }
+  }
+  try {
+    for (const entry of fs.readdirSync(dir)) {
+      const full = path.join(dir, entry);
+      if (full !== filePath && SHARED_INFRA.test(full.split(path.sep).join("/"))) found.add(full);
+    }
+  } catch {
+    /* unreadable directory */
+  }
+
+  found.delete(filePath);
+  return [...found].slice(0, MAX_RELATED_FILES);
+}
+
 function scanFile(filePath: string): Finding[] {
   const findings: Finding[] = [];
   let raw: string;
@@ -661,58 +844,30 @@ function scanFile(filePath: string): Finding[] {
   // the no-assertion count on CPython's suite (1037 -> 2050) — almost all of it delegation
   // one level deeper. A helper counts as asserting if its own body asserts, or if it calls
   // another helper that does.
-  const assertingLocals = new Set<string>();
-  {
-    const defs: Array<{ name: string; line: number; indent: number }> = [];
-    for (let i = 0; i < lines.length; i += 1) {
-      const line = lines[i] ?? "";
-      const m = LOCAL_DEF.exec(line);
-      if (!m) continue;
-      const name = m.slice(1).find((g) => g !== undefined);
-      if (name) defs.push({ name, line: i, indent: line.length - line.trimStart().length });
-    }
-    const allLocals = new Set(defs.map((d) => d.name));
-    // name -> { assertsDirectly, callee names defined in this file }
-    const info = new Map<string, { direct: boolean; calls: Set<string> }>();
-    for (let d = 0; d < defs.length; d += 1) {
-      const def = defs[d];
-      if (!def) continue;
-      let end = lines.length;
-      for (let e = d + 1; e < defs.length; e += 1) {
-        const next = defs[e];
-        if (next && next.indent <= def.indent) {
-          end = next.line;
-          break;
-        }
-      }
-      const entry = info.get(def.name) ?? { direct: false, calls: new Set<string>() };
-      for (let j = def.line; j < end; j += 1) {
-        const line = lines[j] ?? "";
-        if (assertsOnLine(line)) entry.direct = true;
-        for (const m of line.matchAll(CALL_NAME)) {
-          const callee = m[1];
-          if (callee !== undefined && callee !== def.name && allLocals.has(callee)) {
-            entry.calls.add(callee);
-          }
-        }
-      }
-      info.set(def.name, entry);
-    }
-    for (const [name, entry] of info) if (entry.direct) assertingLocals.add(name);
-    let grew = true;
-    while (grew) {
-      grew = false;
-      for (const [name, entry] of info) {
-        if (assertingLocals.has(name)) continue;
-        for (const callee of entry.calls) {
-          if (assertingLocals.has(callee)) {
-            assertingLocals.add(name);
-            grew = true;
-            break;
-          }
-        }
-      }
-    }
+  const local = computeHelpers(lines);
+  const assertingLocals = local.asserting;
+  // Locally-declared abstract stubs: `self.execute(...)` whose body here is only a
+  // docstring, with the real implementation in a subclass elsewhere.
+  const stubNames = new Set(local.stubs);
+
+  // ---- cross-file delegation
+  //
+  // The scanner reads one file at a time, so an assertion living in a base class or mixin
+  // in ANOTHER module was invisible: `self.checkParam(...)` in test_widgets.py asserts via
+  // widget_tests.py. Measured on CPython this was the single largest cause of false
+  // `no-assertion` — one pair of files accounted for ~10% of all findings.
+  //
+  // Names from related files are accepted ONLY when called through a receiver
+  // (`self.x()` / `this.x()` / `cls.x()`). Inherited helpers are always invoked that way,
+  // and the restriction stops a generically-named helper in a shared module (`run`, `check`)
+  // from excusing an unrelated bare call — the same over-suppression trap that keying on
+  // names alone caused within a single file.
+  const inheritedAsserting = new Set<string>();
+  const inheritedStubs = new Set<string>();
+  for (const related of relatedFiles(filePath, raw)) {
+    const h = helpersInFile(related);
+    for (const n of h.asserting) inheritedAsserting.add(n);
+    for (const n of h.stubs) inheritedStubs.add(n);
   }
 
   // Second alias pass, now that we know which locals assert: a name bound to an asserting
@@ -731,12 +886,18 @@ function scanFile(filePath: string): Finding[] {
 
   function delegatesToLocal(text: string): boolean {
     for (const m of text.matchAll(CALL_NAME)) {
-      if (m[1] !== undefined && assertingLocals.has(m[1])) return true;
+      const n = m[1];
+      if (n !== undefined && (assertingLocals.has(n) || stubNames.has(n))) return true;
     }
     // A helper can also be PASSED rather than called — `test.each(cases)(name, assertThing)`
     // hands the asserting function to the runner, so it never appears with parentheses.
     for (const m of text.matchAll(/\b(\w+)\b/g)) {
       if (m[1] !== undefined && assertingLocals.has(m[1])) return true;
+    }
+    // Inherited from a base class or mixin in another file — receiver form only.
+    for (const m of text.matchAll(RECEIVER_CALL)) {
+      const n = m[1];
+      if (n !== undefined && (inheritedAsserting.has(n) || inheritedStubs.has(n))) return true;
     }
     return false;
   }
