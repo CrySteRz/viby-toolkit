@@ -57,8 +57,9 @@ doesn't hold.
 
 ## 4. Verify every batch (the gate)
 
-No batch is done until it passes:
-- Build/typecheck/lint on the touched area (find the real commands).
+No batch is done until it passes (`/viby-code:verify` finds the real commands and screens
+the output):
+- Build/typecheck/lint on the touched area.
 - The relevant tests — and for behavior-preserving migrations, ideally the *same* tests
   pass before and after.
 - A spot-check of a few transformed sites by eye to confirm the invariant held.

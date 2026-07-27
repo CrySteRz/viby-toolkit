@@ -96,9 +96,10 @@ the same check four times.
 ### 6. Verify the fix closes the loop
 
 Re-run the exact reproduction from step 1 (the failing test now passes) and show the
-symptom is gone. Then check you didn't break the neighborhood — run the relevant tests. A
-fix isn't done until the original trigger is demonstrably resolved *and* nothing adjacent
-regressed.
+symptom is gone. Then check you didn't break the neighborhood — run the relevant tests via
+`/viby-code:verify`, which also screens for the silent-pass modes that make a fix look
+confirmed when it isn't. A fix isn't done until the original trigger is demonstrably
+resolved *and* nothing adjacent regressed.
 
 **Anti-flake rule:** if the bug or its test involves waiting (async, I/O, a server coming
 up), never wait on an arbitrary `sleep`/timeout — wait on an **observable condition**

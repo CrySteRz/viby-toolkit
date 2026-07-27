@@ -20,6 +20,7 @@ stack-agnostic (detects the project at runtime; assumes nothing).
 | `/viby-code:brainstorm` | **Design-before-code gate.** Decides WHAT to build (and whether it's the right thing) with an Iron-Law hold on any implementation until you approve the design. Runs before plan/orchestrate for anything whose shape isn't settled. |
 | `/viby-code:orchestrate` | Drives a task end-to-end: scope → research → plan → implement → verify → self-review. Fans out cheap scouts for discovery, keeps writes single-threaded, keeps main context clean. |
 | `/viby-code:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers (incl. an adversarial chaos-engineer dimension) find candidates; a grounding gate drops anything that can't quote its own line; one fresh-context validator per finding confirms real/introduced/not-already-handled; a confidence gate suppresses below-threshold. Reports the full kill count. |
+| `/viby-code:verify` | **The evidence gate, executed.** Finds the project's real checks (CI config is authoritative), scopes them to the change, exercises the actual behavior — then screens the output for silent-pass modes, because a zero exit code with zero tests collected is not a pass. Fix the code, never the check. |
 | `/viby-code:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
 | `/viby-code:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
 | `/viby-code:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
@@ -36,7 +37,8 @@ stack-agnostic (detects the project at runtime; assumes nothing).
 
 `scout` (haiku, read-only recon) · `implementer` (sonnet) · `reviewer` (sonnet,
 one per review dimension) · `skeptic` (sonnet, adversarial false-positive filter) ·
-`debugger` (sonnet, evidence gathering).
+`debugger` (sonnet, evidence gathering). Each is colour-coded in the transcript so a
+parallel fan-out is readable at a glance.
 
 ### Hooks
 
@@ -71,8 +73,10 @@ thread's context window** and your **rate-limit budget** — not dollars.
    plan become durable markdown artifacts; the plan doubles as a checkpoint so a `/clear`
    loses no state. Context quality priority: Correctness > Completeness > Size.
 5. **Evidence-gated completion.** Never claim done without running the check fresh and
-   showing its output. The words "should / probably / seems" are the tell that you skipped
-   verification.
+   showing its output *and exit code*. The words "should / probably / seems" are the tell
+   that you skipped verification — and a zero exit code is not a pass if zero tests ran,
+   everything skipped, or the check was neutered by `|| true`. `/viby-code:verify` runs this
+   as a procedure rather than leaving it as an aspiration.
 6. **Adversarial verification** keeps accuracy high while most tokens are spent cheaply —
    many cheap voices get cross-checked, so a single cheap voice being wrong doesn't sink
    the result.
@@ -104,15 +108,25 @@ adversarial fact-check; only convergent, credible mechanisms were kept.
 
 ## Hooks & safety
 
-- **SessionStart** injects the accuracy/fan-out defaults (~340 tokens) so the working style
+- **SessionStart** injects the accuracy/fan-out defaults (~440 tokens) so the working style
   applies even when no skill is invoked.
 - **PreToolUse safety guard** (`hooks/pre-tool-use-guard.py`) — a deterministic, fail-open
-  backstop that blocks a small set of genuinely destructive Bash commands: `rm -rf` of
-  `/`/home, `dd` to a raw disk, `mkfs`, fork bombs, force-push to a protected branch
-  (`main`/`master`/`prod`), `git reset --hard`, reading `.env`/keys/credentials, `curl|sh`.
-  It's tiered — `VIBY_SAFETY=high` (default), `critical`, `strict`, or `off`. It never
-  wedges a session (any error → allow) and prefers the JSON-deny form. Especially useful
-  because your settings run with reduced permission prompts.
+  backstop against a small set of genuinely destructive Bash commands: recursive delete of
+  `/`, a top-level system dir, home, an unexpanded variable, or an unscoped glob; `dd` to a
+  raw disk; `mkfs`; fork bombs; force-push to a protected branch (`main`/`master`/`prod`);
+  `git reset --hard`; `git clean -f`; reading `.env`/keys/credentials; `curl|sh`; recursive
+  `chmod 777`. Tiered — `VIBY_SAFETY=high` (default), `critical`, `strict`, or `off`. It
+  never wedges a session (any error → allow) and prefers the JSON-deny form. Especially
+  useful because your settings run with reduced permission prompts.
+
+  **Precision is the whole design.** It decides on the *parsed* command — program, flags,
+  targets — not a regex over the raw string, because a guard that blocks routine work
+  teaches you to switch it off, which removes the net entirely. So routine cleanup passes
+  (`rm -rf node_modules`, `rm -rf dist`, `rm -rf /tmp/scratch-x`, `cat .env.example`,
+  `git push --force-with-lease`, and any command that merely *quotes* a dangerous string
+  like `grep 'rm -rf' README.md`) while the catastrophic forms still stop (`rm -rf /`,
+  `rm -rf $BUILD_DIR`, `sudo rm -rf /`, `bash -c "rm -rf /"`). `VIBY_SAFETY=strict` restores
+  the paranoid posture: it blocks *all* recursive delete and any force-push.
 - **Opt-in** (shipped, not enabled): `hooks/post-tool-use-format.py` auto-formats edited
   files *only* when the formatter is already installed and the project uses it (never
   installs anything, never blocks). Enable by adding a `PostToolUse` matcher if you want it.
@@ -121,13 +135,18 @@ adversarial fact-check; only convergent, credible mechanisms were kept.
 
 The context discipline is measurable, not just asserted:
 
-- **Statusline** (`hooks/statusline.py`) — shows `model · ctx NN% · cache NN% · $cost`,
-  with the context % measured against the auto-compact threshold and color-banded
-  (green <60, yellow <80, red). Watching `ctx%` is how you hold the 40–60% target. Wire it
-  in `~/.claude/settings.json` (or just use `bunx ccusage statusline`):
+- **Statusline** (`hooks/statusline.py`) — shows
+  `model · ctx NN% · cache NN% · 5h NN% · 7d NN% · $cost`. `ctx` is
+  `context_window.used_percentage` (input tokens: fresh + cache creation + cache read, as a
+  share of the window) colour-banded green <60 / yellow <80 / red — watching it is how you
+  hold the 40–60% target. `5h`/`7d` are **rate-limit consumption**, which is the resource
+  that actually binds on Max, so they rank above the cost figure; they appear only for
+  Pro/Max after the first API response. Absent or null fields are skipped rather than shown
+  as `0`. Wire it in `~/.claude/settings.json` (or just use `bunx ccusage statusline`) —
+  this form survives version bumps instead of hardcoding one:
   ```json
   { "statusLine": { "type": "command",
-      "command": "python3 \"$HOME/.claude/plugins/cache/viby-toolkit/viby-code/0.3.2/hooks/statusline.py\"" } }
+      "command": "python3 \"$(ls -d \"$HOME\"/.claude/plugins/cache/viby-toolkit/viby-code/*/hooks/statusline.py | tail -1)\"" } }
   ```
 - **OpenTelemetry** — set `CLAUDE_CODE_ENABLE_TELEMETRY=1` and export
   `claude_code.token.usage`; group by `query_source` (`main` vs `subagent`) and `agent.name`
@@ -214,16 +233,30 @@ plugins/viby-code/
   skills/<name>/SKILL.md             # the workflows
   agents/<name>.md                   # the subagents (model routing in frontmatter)
   commands/ship.md                   # the autonomous entry command
-  hooks/hooks.json + session-start.sh
+  hooks/hooks.json + session-start.sh + pre-tool-use-guard.py
+  hooks/statusline.py + post-tool-use-format.py   # opt-in, wired in settings.json
+tests/                               # contract tests for the hooks (see below)
 ```
 
-After editing, bump `version` in `plugin.json`, commit, push. Validate before pushing:
+After editing, bump `version` in `plugin.json` **and** in `marketplace.json` (both carry
+it), commit, push. Machines pick up the change on next session (or `/plugin update
+viby-code`).
 
-```
-claude plugin validate .
+### Verify before pushing
+
+The toolkit holds itself to its own evidence gate — the hooks are executable code, so they
+have tests. Run all three checks:
+
+```bash
+claude plugin validate .          # manifests + skill/agent frontmatter
+python3 tests/test_guard.py       # 80 cases: what the safety guard must and must not block
+python3 tests/test_statusline.py  # 13 payload shapes incl. the documented null cases
 ```
 
-Machines pick up the change on next session (or `/plugin update viby-code`).
+`tests/test_guard.py` is the guard's real specification. Both halves of the contract are
+pinned: every catastrophic command that must be denied, **and** every piece of routine work
+that must be allowed. If you add a rule, add cases for both — a guard that blocks real work
+gets switched off, and then it protects nothing.
 
 **Secrets:** this repo syncs across work and personal machines — never commit tokens,
 credentials, client names, or internal hostnames. `.gitignore` blocks the common ones;

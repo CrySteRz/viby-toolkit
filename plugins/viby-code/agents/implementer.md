@@ -8,6 +8,7 @@ description: >
   and owns the overall design.
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: sonnet
+color: green
 effort: medium
 maxTurns: 40
 ---

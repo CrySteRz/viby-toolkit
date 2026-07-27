@@ -10,6 +10,7 @@ description: >
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
 model: sonnet
+color: yellow
 effort: medium
 maxTurns: 25
 ---

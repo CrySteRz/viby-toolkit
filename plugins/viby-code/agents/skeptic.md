@@ -9,6 +9,7 @@ description: >
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
 model: sonnet
+color: orange
 effort: medium
 maxTurns: 20
 ---

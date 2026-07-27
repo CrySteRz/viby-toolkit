@@ -86,12 +86,12 @@ dedicated pass. **This plan file doubles as your checkpoint** (see Phase 3).
 
 ### Phase 4 — Verify (mandatory for anything with runtime behavior)
 
-Apply the evidence gate (`/viby-code:principles` §5): identify the check → run it fresh
-→ read output + exit code → verify → only then claim, with evidence shown. Run the
-**specific tests relevant to the change**, named — plus, for behavior changes, drive the
-actual flow (invoke the CLI, hit the endpoint, render the component) and observe real
-output. Use the project's `verify` skill or `/verify` if present. If it fails, fix and
-re-verify. Never surface a failing change as done.
+Run `/viby-code:verify` — it applies the evidence gate end to end: find the project's real
+checks (CI config is authoritative), run the **specific tests relevant to the change** by
+name, drive the actual flow for behavior changes (invoke the CLI, hit the endpoint, render
+the component), then read the output for silent-pass modes before believing a zero exit
+code. If it fails, fix the code — never the check — and re-run the same command. Never
+surface a failing change as done.
 
 ### Phase 5 — Self-review (fan out `review-cluster`, then filter)
 

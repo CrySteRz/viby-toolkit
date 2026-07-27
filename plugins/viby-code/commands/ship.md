@@ -1,5 +1,6 @@
 ---
 description: Run the full viby-code pipeline autonomously on a task — orchestrate, build, verify, self-review with the false-positive filter — and don't stop until it's verified done.
+argument-hint: [what to build, fix, or change]
 ---
 
 Take the following task and drive it all the way to a verified, self-reviewed result using
@@ -13,8 +14,9 @@ Do this:
 
 1. Invoke the `/viby-code:orchestrate` skill and follow its full pipeline (scope → explore →
    plan → implement → verify → self-review) for this task, scaling effort to its size.
-2. In the verify phase, actually exercise the change and show the evidence — do not report
-   done on faith.
+2. In the verify phase, run `/viby-code:verify` — actually exercise the change, screen the
+   output for silent-pass modes, and show the command + exit code. Do not report done on
+   faith.
 3. In the self-review phase, run `/viby-code:review-cluster` on your own diff and fix every
    **confirmed** finding (re-verifying each fix). Surface any unconfirmed findings for the
    user to judge.

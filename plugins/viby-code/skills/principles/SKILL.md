@@ -1,14 +1,18 @@
 ---
 name: principles
-description: The operating contract every viby-code skill and agent follows — accuracy rules, the fan-out law, model-routing and escalation, context discipline, evidence-gating. Read as reference. Use when you want to understand or explain how viby-code decides to fan out, route models, or verify.
-disable-model-invocation: true
+description: >
+  The operating contract every viby-code skill and agent follows — accuracy rules, the
+  fan-out law, model-routing and escalation, context discipline, evidence-gating. Load it
+  when another viby-code skill says "follow /viby-code:principles", before deciding whether
+  to fan out subagents or which model to route work to, or when explaining how viby-code
+  decides. Reference material — read it, don't "run" it.
 ---
 
 # Viby-code Operating Principles
 
 The shared contract. Every viby-code skill (`orchestrate`, `review-cluster`, `debug`,
-`migrate`, `plan`, `learn`) and agent (`scout`, `implementer`, `reviewer`, `skeptic`,
-`debugger`) is built on these. It's a reference — read it, don't "run" it.
+`migrate`, `plan`, `verify`, `learn`) and agent (`scout`, `implementer`, `reviewer`,
+`skeptic`, `debugger`) is built on these. It's a reference — read it, don't "run" it.
 
 Synthesized from what actually works in production agentic coding (Anthropic's
 context-engineering and multi-agent research, humanlayer's Advanced Context Engineering,
@@ -150,6 +154,11 @@ Claiming complete without verification is dishonesty, not efficiency.
 TDAD nuance: when you verify, run the **specific tests relevant to the change**, named
 explicitly — not a generic "do TDD" ritual. Telling an agent *which* tests to check cuts
 regressions; a vague TDD lecture makes them worse.
+
+A zero exit code is not automatically a pass — zero tests collected, an all-skip run, a
+`|| true`, or a cached result all exit 0. `/viby-code:verify` runs this gate as a
+procedure: find the real checks, scope them to the change, exercise the actual behavior,
+then screen the output for those silent-pass modes.
 
 ## 6. Adversarial verification kills false positives
 

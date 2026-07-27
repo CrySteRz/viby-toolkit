@@ -1,53 +1,102 @@
 #!/usr/bin/env python3
-"""viby-code statusline — makes the context-discipline number visible.
+"""viby-code statusline — makes the two resources that actually bind visible.
 
-Reads Claude Code's statusline JSON on stdin and prints one line:
-  <model> · ctx NN% (green<60, yellow<80, red) · cache HH% · $C.CC
-Context % is measured against the auto-compact threshold (what the 40-60%
-discipline actually cares about), not the raw window. Fully generic; never
-blocks. On any error it prints a minimal line so the statusline never breaks.
+Prints one line:
+  <model> · ctx NN% · cache NN% · 5h NN% · 7d NN% · $C.CC
 
-Wire it up (this file is not auto-registered — statuslines live in settings.json):
-  "statusLine": { "type": "command",
-                  "command": "python3 \"$HOME/.claude/plugins/cache/viby-toolkit/viby-code/<ver>/hooks/statusline.py\"" }
-Or just use `bunx ccusage statusline`. See the README telemetry section.
+  ctx    percentage of the context window in use (context_window.used_percentage,
+         which is input-only: input + cache_creation + cache_read). Colour-banded
+         green <60 / yellow <80 / red, matching the 40-60% target the toolkit aims for.
+  cache  cache-read share of input tokens — confirms the prompt cache is being reused.
+         On a subscription, cache hits are the cheapest tokens you have.
+  5h/7d  rate-limit consumption (rate_limits.five_hour / .seven_day). On a Max plan the
+         scarce resources are context and rate limit, not dollars — so these matter more
+         than the cost figure. Only present for Pro/Max, after the first API response.
+  $      client-side session cost estimate; omitted when not reported.
+
+Fully generic; never blocks. On any error it prints a minimal line so the statusline
+never breaks. Fields that are absent or null (early in a session, or right after
+/compact) are simply skipped rather than shown as 0.
+
+Wire it up (statuslines live in settings.json, not in plugin hooks.json). This form
+survives plugin version bumps by globbing the cache directory:
+
+  "statusLine": {
+    "type": "command",
+    "command": "python3 \"$(ls -d \"$HOME\"/.claude/plugins/cache/viby-toolkit/viby-code/*/hooks/statusline.py | tail -1)\""
+  }
+
+Or point it straight at your checkout: "$HOME/Projects/Personal/viby-toolkit/plugins/viby-code/hooks/statusline.py"
 """
 import sys, json
+
+DIM = "\033[2m"
+RESET = "\033[0m"
+GREEN, YELLOW, RED = "\033[32m", "\033[33m", "\033[31m"
+
+
+def band(pct, low=60, high=80):
+    """Colour a percentage: green below `low`, yellow below `high`, red beyond."""
+    colour = GREEN if pct < low else (YELLOW if pct < high else RED)
+    return colour, RESET
+
+
+def pct_of(node, key="used_percentage"):
+    """Read a percentage field, returning None when absent or null."""
+    if not isinstance(node, dict):
+        return None
+    v = node.get(key)
+    if v is None:
+        return None
+    try:
+        return round(float(v))
+    except (TypeError, ValueError):
+        return None
+
 
 def main():
     d = json.load(sys.stdin)
     model = (d.get("model") or {}).get("display_name") or (d.get("model") or {}).get("id") or "claude"
+    parts = [f"{DIM}{model}{RESET}"]
 
     cw = d.get("context_window") or {}
-    usage = cw.get("current_usage") or {}
-    inp = usage.get("input_tokens", 0) or 0
-    cc = usage.get("cache_creation_input_tokens", 0) or 0
-    cr = usage.get("cache_read_input_tokens", 0) or 0
-    ctx_tokens = inp + cc + cr
 
-    pct = cw.get("used_percentage")
+    # --- context window
+    pct = pct_of(cw)
     if pct is None:
-        cap = cw.get("context_window_size") or 200000
-        pct = (ctx_tokens * 100.0 / cap) if cap else 0
-    pct = round(pct)
+        usage = cw.get("current_usage") or {}
+        used = sum((usage.get(k) or 0) for k in
+                   ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
+        cap = cw.get("context_window_size") or 0
+        pct = round(used * 100.0 / cap) if (cap and used) else None
+    if pct is not None:
+        c, r = band(pct)
+        parts.append(f"{c}ctx {pct}%{r}")
 
-    # cache-hit share of input — validates prompt-cache reuse
+    # --- prompt-cache reuse share
+    usage = cw.get("current_usage") or {}
+    inp = usage.get("input_tokens") or 0
+    cc = usage.get("cache_creation_input_tokens") or 0
+    cr = usage.get("cache_read_input_tokens") or 0
     total_in = inp + cc + cr
-    cache_pct = round(cr * 100.0 / total_in) if total_in else 0
-
-    cost = (d.get("cost") or {}).get("total_cost_usd")
-
-    # color the context number by band (ANSI); green under 60, yellow under 80, red beyond
-    if pct < 60:   ctx = f"\033[32mctx {pct}%\033[0m"
-    elif pct < 80: ctx = f"\033[33mctx {pct}%\033[0m"
-    else:          ctx = f"\033[31mctx {pct}%\033[0m"
-
-    parts = [f"\033[2m{model}\033[0m", ctx]
     if total_in:
-        parts.append(f"\033[2mcache {cache_pct}%\033[0m")
-    if isinstance(cost, (int, float)):
-        parts.append(f"\033[2m${cost:.2f}\033[0m")
+        parts.append(f"{DIM}cache {round(cr * 100.0 / total_in)}%{RESET}")
+
+    # --- rate limits: the real ceiling on a subscription
+    rl = d.get("rate_limits") or {}
+    for label, key in (("5h", "five_hour"), ("7d", "seven_day")):
+        rpct = pct_of(rl.get(key))
+        if rpct is not None:
+            c, r = band(rpct, low=50, high=75)
+            parts.append(f"{c}{label} {rpct}%{r}")
+
+    # --- cost, last: informational on a subscription
+    cost = (d.get("cost") or {}).get("total_cost_usd")
+    if isinstance(cost, (int, float)) and cost > 0:
+        parts.append(f"{DIM}${cost:.2f}{RESET}")
+
     print(" · ".join(parts))
+
 
 if __name__ == "__main__":
     try:

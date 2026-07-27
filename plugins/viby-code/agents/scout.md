@@ -9,6 +9,7 @@ description: >
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
 model: haiku
+color: cyan
 effort: low
 maxTurns: 20
 ---
