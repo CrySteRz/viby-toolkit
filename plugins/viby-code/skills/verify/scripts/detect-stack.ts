@@ -171,7 +171,10 @@ function exists(p: string): boolean {
 
 function read(p: string): string {
   try {
-    return fs.readFileSync(p, "utf8");
+    // Strip a UTF-8 BOM: Node's "utf8" keeps it, and JSON.parse then throws on an
+    // otherwise-valid manifest. That silently dropped the file from version detection, so a
+    // real version drift went unreported because of an encoding artifact.
+    return fs.readFileSync(p, "utf8").replace(/^\uFEFF/, "");
   } catch {
     return "";
   }

@@ -63,9 +63,13 @@ paid that cost.
 
 - On approval → hand to `/viby-code:plan` (turn the design into an ordered change-list) or
   `/viby-code:orchestrate` (which will plan then build). Never jump straight to writing code.
-- If the user wants to skip design ("just build it") on something genuinely tiny, comply —
-  but for anything non-trivial, briefly note the top assumption you're making and proceed,
-  so there's still a checkpoint on record.
+- If the user wants to skip design ("just build it"), that is their call and it overrides this
+  skill — but keep the two cases distinct, because the Iron Law above still governs the second:
+  - **genuinely tiny** → comply, no ceremony.
+  - **non-trivial** → state the single decision you are guessing at and the assumption you are
+    making, in one or two sentences, and ask them to confirm just that one point. This is not
+    the full design pass; it is the minimum checkpoint the Iron Law exists to protect. If they
+    say go, go — and record the assumption in the output so it is on file.
 
 Keep the whole exchange tight. Brainstorm is thinking made visible, not a ceremony — a
 few sharp questions and a clear recommendation beat a long document.

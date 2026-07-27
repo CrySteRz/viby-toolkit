@@ -87,6 +87,17 @@ function triggerPhrases(text: string): string[] {
   return out;
 }
 
+/**
+ * Does `text` mention `name`? The name is escaped first: it comes from frontmatter, so a
+ * name containing a regex metacharacter (`a+b`, `c#`, `f.sharp`) was previously spliced raw
+ * into a RegExp — `\ba+b\b` means "one or more a, then b" and never matches the literal
+ * "a+b". That silently broke the mutual-cross-reference exemption and produced a wrong P1.
+ */
+function mentions(text: string, name: string): boolean {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\w-])${escaped}([^\\w-]|$)`).test(text);
+}
+
 function jaccard(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 || b.size === 0) return 0;
   let shared = 0;
@@ -227,8 +238,8 @@ export function checkSkills(dir: string): { skills: Skill[]; findings: Finding[]
       // confuses the pair while INCREASING their word overlap. Scoring that as shadowing
       // would penalise the fix and reward vagueness, so a mutually-referencing pair is
       // treated as already disambiguated.
-      const aNamesB = new RegExp(`\\b${b.name}\\b`).test(a.description);
-      const bNamesA = new RegExp(`\\b${a.name}\\b`).test(b.description);
+      const aNamesB = mentions(a.description, b.name);
+      const bNamesA = mentions(b.description, a.name);
       if (aNamesB && bNamesA) continue;
 
       if (sim >= SHADOW_HIGH) {

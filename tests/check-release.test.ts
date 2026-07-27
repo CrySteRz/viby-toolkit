@@ -245,3 +245,51 @@ test("a non-git directory reports isRepo=false rather than crashing", () => {
     cleanup(dir);
   }
 });
+
+test("a version is matched as a token, not a substring", () => {
+  // Regression: "12.0.1".includes("2.0") is true, so an unrelated older release silently
+  // satisfied the changelog check.
+  const dir = repo({
+    "package.json": JSON.stringify({ version: "2.0" }),
+    "CHANGELOG.md": "# Changelog\n\n## 12.0.1\n- unrelated\n",
+    ".github/workflows/ci.yml": "jobs: {}\n",
+  });
+  try {
+    assert.ok(checks(dir).includes("changelog-stale"), "2.0 is not documented by 12.0.1");
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test("every debug artifact line is reported, not only the first", () => {
+  // Regression: findIndex reported one hit per pattern per file, so a second focused test
+  // shipped silently even after the first was fixed.
+  const dir = repo({
+    "package.json": JSON.stringify({ version: "1.0.0" }),
+    "a.test.js": 'describe.only("a", () => {});\nconst x = 1;\nit.only("b", () => {});\n',
+    ".github/workflows/ci.yml": "jobs: {}\n",
+  });
+  try {
+    const f = checkRelease(dir).findings.find((x) => x.check === "debug-artifact");
+    assert.ok(f, "expected a debug-artifact finding");
+    assert.match(f.detail ?? "", /a\.test\.js:1/, "first artifact reported");
+    assert.match(f.detail ?? "", /a\.test\.js:3/, "the second artifact on line 3 must also be reported");
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test("a manifest with a UTF-8 BOM is still parsed, so drift is still caught", () => {
+  // Regression: Node keeps the BOM under "utf8", JSON.parse threw, the catch swallowed it,
+  // and the manifest silently dropped out of version detection entirely.
+  const dir = repo({
+    "package.json": "\uFEFF" + JSON.stringify({ version: "1.0.0" }),
+    "other/package.json": JSON.stringify({ version: "2.0.0" }),
+    ".github/workflows/ci.yml": "jobs: {}\n",
+  });
+  try {
+    assert.ok(checks(dir).includes("version-drift"), "a BOM must not hide a real version drift");
+  } finally {
+    cleanup(dir);
+  }
+});

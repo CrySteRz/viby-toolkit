@@ -93,6 +93,12 @@ Assign each surviving finding a confidence anchor (0/25/50/75/100 — see refere
 needs human check") so critical-but-uncertain never vanishes silently. Cross-reviewer
 agreement promotes one anchor step, but never past the grounding gate.
 
+The anchors are **evidence descriptions, not self-ratings** — this is what reconciles the gate
+with the rule that a self-reported confidence never decides anything. 75 means *the call sites
+were checked* or *the absence of a guard was confirmed*; 100 means *reproduced*. If a finding
+cannot state in one clause what was checked, it does not clear 75, however confident the
+validator sounds.
+
 ## 6. Report — survivors only, plus a coverage line
 
 Rank confirmed findings most-severe first. For each: `file:line` — the issue — the concrete

@@ -58,6 +58,7 @@ function closesOnSameLine(text: string, start: number, delim: string): boolean {
 const BLANK = "\x00"; // neutral filler: matches no pattern, preserves offsets
 const HASH_COMMENT_EXTS = new Set([".py", ".rb", ".sh", ".pl", ".r", ".yaml", ".yml"]);
 // SQL comments with `--`, and no `/`-comments (a lone `/` there is division or a path).
+const TRIPLE_QUOTE_EXTS = new Set([".py", ".pyi", ".pyx"]);
 const DASH_COMMENT_EXTS = new Set([".sql", ".hql", ".psql", ".lua", ".hs", ".ada"]);
 
 /**
@@ -77,6 +78,10 @@ export function stripNoncode(text: string, ext: string): string {
   // division operator.
   let lastSignificant = "";
   const n = text.length;
+  // `"""` / `'''` are string delimiters only in the Python family. Elsewhere three
+  // consecutive quotes are ordinary characters (an escaped quote, an empty string beside a
+  // quote, a doc example) and must not open a blanking region.
+  const tripleQuotes = TRIPLE_QUOTE_EXTS.has(ext);
   const hashComments = HASH_COMMENT_EXTS.has(ext);
   const dashComments = DASH_COMMENT_EXTS.has(ext);
   const slashComments = !hashComments && !dashComments;
@@ -116,8 +121,26 @@ export function stripNoncode(text: string, ext: string): string {
       continue;
     }
 
-    // triple-quoted strings (python)
-    if (c !== undefined && "\"'".includes(c) && text.slice(i, i + 3) === c.repeat(3) && (c === '"' || c === "'")) {
+    // Triple-quoted strings — PYTHON-FAMILY ONLY, and only when the closing delimiter
+    // actually exists.
+    //
+    // This branch used to run for every extension with no bound, which was a P0: in SQL,
+    // `DEFAULT ''''` is a legal escaped-quote literal whose first three characters match
+    // `c.repeat(3)`, so it opened a fake triple-quoted region that blanked the rest of the
+    // file. A migration containing RENAME, DROP TABLE, DROP COLUMN and an unbounded DELETE
+    // then reported a single P2. In TypeScript a stray `'''` produced a full silent pass at
+    // exit 0. Over-blanking is the dangerous direction: downstream checkers treat this
+    // output as "not real code", so blanked hazards vanish with total confidence.
+    //
+    // The single/double-quote branch below already guarded against exactly this with
+    // closesOnSameLine; the same protection simply had not been applied here.
+    if (
+      tripleQuotes &&
+      c !== undefined &&
+      (c === '"' || c === "'") &&
+      text.slice(i, i + 3) === c.repeat(3) &&
+      text.indexOf(c.repeat(3), i + 3) !== -1
+    ) {
       const delim = text.slice(i, i + 3);
       out.push(delim);
       i += 3;

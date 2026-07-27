@@ -232,7 +232,10 @@ export function checkRelease(root: string): { findings: Finding[]; versions: Map
   // ---- changelog
   const changelog = files.find((f) => /^(CHANGELOG|HISTORY|RELEASES)(\.md|\.rst|\.txt)?$/i.test(path.basename(f)));
   if (changelog !== undefined && current !== undefined) {
-    if (!read(changelog).includes(current)) {
+    // Token match, not substring: `"12.0.1".includes("2.0")` is true, so an unrelated older
+    // release silently satisfied the check for version 2.0.
+    const versionRe = new RegExp(`(^|[^0-9.])${current.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^0-9.]|$)`);
+    if (!versionRe.test(read(changelog))) {
       findings.push({
         check: "changelog-stale",
         severity: "P2",
@@ -263,8 +266,15 @@ export function checkRelease(root: string): { findings: Finding[]; versions: Map
     // own repo before the shared blanking pass was wired in.
     const text = stripNoncode(raw, path.extname(f).toLowerCase());
     for (const p of DEBUG_PATTERNS) {
-      const line = text.split("\n").findIndex((l) => p.re.test(l));
-      if (line >= 0) debugHits.push(`${r}:${line + 1} — ${p.what}`);
+      // Every matching line, not just the first: findIndex reported one hit per pattern per
+      // file, so a second focused test in the same file shipped silently even after the
+      // first was "fixed". Deduped per line so overlapping patterns don't double-report.
+      const seenLines = new Set<number>();
+      text.split("\n").forEach((l, idx) => {
+        if (!p.re.test(l) || seenLines.has(idx)) return;
+        seenLines.add(idx);
+        debugHits.push(`${r}:${idx + 1} — ${p.what}`);
+      });
     }
   }
   if (debugHits.length > 0) {
@@ -295,7 +305,10 @@ export function checkRelease(root: string): { findings: Finding[]; versions: Map
 
 function read(p: string): string {
   try {
-    return fs.readFileSync(p, "utf8");
+    // Strip a UTF-8 BOM: Node's "utf8" keeps it, and JSON.parse then throws on an
+    // otherwise-valid manifest. That silently dropped the file from version detection, so a
+    // real version drift went unreported because of an encoding artifact.
+    return fs.readFileSync(p, "utf8").replace(/^\uFEFF/, "");
   } catch {
     return "";
   }

@@ -150,9 +150,9 @@ sh "$RUN" "$SCAN" --json     # machine-readable
 ```
 
 `run.sh` picks whatever TypeScript runtime the machine has (node ≥22.6, else bun, else
-`tsx`) and no-ops silently if there is none, so this is safe to invoke anywhere. If `$VIBY`
-comes out empty, say so and fall back to reviewing the tests by hand — don't report a clean
-audit you never ran.
+`tsx`) and no-ops silently if there is none, so this is safe to invoke anywhere. If `$SCAN` or
+`$RUN` comes out empty — the plugin cache has not been updated yet — say so and fall back to
+reviewing the tests by hand. Never report a clean audit you did not actually run.
 
 Flags no-assertion tests, tautologies, over-mocking, `.only`/`.skip` left in, sleep-based
 waits, and swallowed errors — with `file:line`. Exit 1 on findings, so it can gate.

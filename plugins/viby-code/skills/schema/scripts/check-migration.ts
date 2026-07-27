@@ -91,7 +91,18 @@ const RULES: Rule[] = [
   {
     rule: "unbounded-dml",
     severity: "P1",
-    test: (l) => /^\s*(UPDATE|DELETE)\s+(?!.*\bWHERE\b)/i.test(l),
+    // Checks the whole STATEMENT, not just the opening line: ordinary SQL style puts WHERE
+    // on a later line, and the single-line version fired a false P1 on
+    //   UPDATE foo\n  SET x = 1\n  WHERE id > 100;
+    // A wrong P1 on safe, common code is the fastest way to get a linter switched off.
+    test: (line, whole) => {
+      if (!/^\s*(UPDATE|DELETE)\b/i.test(line)) return false;
+      const start = whole.indexOf(line);
+      const rest = start === -1 ? line : whole.slice(start);
+      const end = rest.indexOf(";");
+      const statement = end === -1 ? rest : rest.slice(0, end);
+      return !/\bWHERE\b/i.test(statement);
+    },
     danger: "an UPDATE/DELETE with no WHERE touches every row: one long transaction, held locks, and no way back",
     instead: "backfill in bounded batches with a WHERE on a key range, committing between batches",
   },
@@ -207,7 +218,19 @@ export function scanMigration(filePath: string): Finding[] {
   try {
     raw = fs.readFileSync(filePath, "utf8");
   } catch {
-    return [];
+    // Never report an unreadable migration as safe — see the same fix in
+    // scan-test-quality.ts. Silence here would mean "no dangerous patterns found" for a
+    // file nobody looked at, on the one class of change that cannot be undone.
+    return [
+      {
+        file: filePath,
+        line: 1,
+        rule: "unreadable",
+        severity: "P2",
+        danger: "could not read this migration, so it was NOT checked for dangerous patterns",
+        instead: "fix the permissions or path and re-run — do not treat this run as clean for it",
+      },
+    ];
   }
   const ext = path.extname(filePath).toLowerCase();
   // Match CODE, not raw text — a comment or a docstring describing a DROP COLUMN is not one.

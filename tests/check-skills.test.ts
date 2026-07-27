@@ -145,3 +145,19 @@ test("the real viby-code library is clean", () => {
     "the shipped skill library must have no shadowing or trigger collisions",
   );
 });
+
+test("a skill name containing a regex metacharacter still gets the cross-reference exemption", () => {
+  // Regression: the name was spliced unescaped into a RegExp, so the pattern for "a+b" meant
+  // "one or more a, then b" and never matched the literal name. The mutual-cross-reference
+  // exemption silently failed and the pair was reported as a P1 shadowing collision.
+  const f = findings({
+    "a+b":
+      'name: a+b\ndescription: Use when reviewing a diff before shipping, checking correctness, finding bugs and judging whether the change is safe to merge. Distinct from other.',
+    other:
+      'name: other\ndescription: Use when reviewing a diff before merging, checking correctness, finding bugs and judging whether the change is safe to ship. Distinct from a+b.',
+  });
+  assert.ok(
+    !f.some((x) => x.check === "shadowing" || x.check === "shadowing-watch"),
+    `a mutually-disambiguated pair must be exempt regardless of metacharacters, got ${JSON.stringify(f)}`,
+  );
+});

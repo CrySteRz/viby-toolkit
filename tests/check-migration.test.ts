@@ -201,3 +201,45 @@ test("every rule names a safe alternative", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a bounded multi-line UPDATE is not flagged (WHERE on a later line)", () => {
+  // Regression: unbounded-dml only inspected the opening line, so ordinary multi-line SQL
+  // style produced a false P1 — the fastest way to get a linter switched off.
+  const flagged = rules(SAFE_HEADER + "UPDATE users\nSET tier = 'free'\nWHERE id > 100;\n");
+  assert.ok(!flagged.includes("unbounded-dml"), `bounded UPDATE must not fire, got ${flagged.join()}`);
+});
+
+test("a genuinely unbounded multi-line UPDATE is still flagged", () => {
+  const flagged = rules(SAFE_HEADER + "UPDATE users\nSET tier = 'free';\n");
+  assert.ok(flagged.includes("unbounded-dml"), `got ${flagged.join()}`);
+});
+
+test("a SQL escaped-quote literal must not blank the rest of the file", () => {
+  // P0 regression: a legal escaped-quote default value began with three consecutive quotes,
+  // which matched the triple-quote branch and opened an unbounded blanking region. Four P1
+  // destructive operations became invisible and the file reported a single P2.
+  const flagged = rules(
+    "ALTER TABLE widgets ADD COLUMN q TEXT DEFAULT '''';\n" +
+      "ALTER TABLE users RENAME COLUMN email TO email_address;\n" +
+      "DROP TABLE legacy_accounts;\n" +
+      "ALTER TABLE orders DROP COLUMN status;\n",
+  );
+  for (const rule of ["rename", "drop-table", "drop-column"]) {
+    assert.ok(flagged.includes(rule), `${rule} must still be visible, got ${flagged.join()}`);
+  }
+});
+
+test("an unreadable migration is reported, never treated as safe", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mig-noperm-"));
+  try {
+    const full = path.join(dir, "migrations", "001.sql");
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, "DROP TABLE users;\n");
+    fs.chmodSync(full, 0o000);
+    const found = scanMigration(full).map((f) => f.rule);
+    fs.chmodSync(full, 0o644);
+    assert.ok(found.includes("unreadable"), `expected an unreadable finding, got ${found.join() || "none"}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -94,13 +94,26 @@ Each candidate finding is an object:
 - **pre_existing**: true if the issue was already in the code before this diff — report
   separately; don't block the current change on it.
 
-## Confidence rubric (behavioral anchors, self-applied)
+## Confidence rubric (behavioural anchors — EVIDENCE-BACKED, not self-assessed)
 
-- **0** — false positive that doesn't survive light scrutiny.
-- **25** — plausible but unverified; would need real digging.
-- **50** — likely real; some uncertainty about trigger or impact.
-- **75** — double-checked; will affect users/callers in normal usage.
-- **100** — verifiable from the code itself: compile/type error or definitive logic bug.
+`/viby-code:principles` says a self-reported confidence must never be the gate, and agents are
+measurably overconfident (some succeeding 22% of the time predict 77%). So this number is not
+an opinion the validator forms about itself — it is a **summary of what was established**, and
+each anchor names the evidence that earns it. A validator that cannot point to the evidence for
+an anchor must use the lower one.
+
+- **0** — refuted: the code does not do what the finding claims.
+- **25** — plausible but nothing was verified. No quoted line, or the quote does not support it.
+- **50** — the quoted line exists and supports the claim, but the trigger or impact is unconfirmed.
+- **75** — requires MORE than reading: the call sites were checked, or the guard's absence was
+  confirmed, or the path was traced. A "double-checked" feeling does not reach 75 — name what
+  was checked.
+- **100** — reproduced or mechanically proven: a failing assertion, a type error, an executed
+  repro. If it was checkable and you did not run it, it is not 100.
+
+**Anything at 75 or above must be able to state the evidence in one clause.** If it cannot, it
+is 50 at best. That is what keeps this a gate on evidence rather than on a number the validator
+chose for itself.
 
 **Gate:** suppress everything below **75** — EXCEPT a P0 (critical) at 50+ survives, so a
 critical-but-uncertain issue is never silently dropped (it surfaces labeled "unconfirmed").

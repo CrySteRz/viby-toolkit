@@ -293,6 +293,94 @@ def test_eventually_ready():
   ],
 
   [
+    // P0 regression: a stray triple quote in a NON-Python file used to open a fake
+    // triple-quoted region with no closing guard, blanking the rest of the file. A skipped
+    // test and a tautology both vanished and the scanner reported clean at exit 0.
+    "ts: a stray triple quote must not blank the rest of the file",
+    "triple.test.ts",
+    `
+const marker = ''';
+test.skip("skipped and asserts nothing", () => {
+  log("never runs");
+});
+test("tautology", () => {
+  expect(true).toBe(true);
+});
+`,
+    // Three findings, not two: the skipped test also asserts nothing, which is correct —
+    // the point is that NONE of them are invisible any more.
+    ["focused-or-skipped", "no-assertion", "tautology"],
+  ],
+
+  [
+    // The other half: in Python, triple quotes ARE delimiters and must still blank.
+    "py: a real docstring is still blanked",
+    "test_doc.py",
+    `
+def test_documented():
+    """Mentions DROP COLUMN and time.sleep(5) and it.skip deliberately."""
+    total = compute()
+    assert total == 42
+`,
+    [],
+  ],
+
+  [
+    // The multi-line handler form had NO coverage, despite its own comment calling it
+    // "far more common than the single-line ones".
+    "ts: multi-line empty catch is a swallowed error",
+    "multiline-catch.test.ts",
+    `
+it("handles bad input", () => {
+  try {
+    parse("garbage");
+  } catch (e) {
+  }
+  expect(state()).toBe("clean");
+});
+`,
+    ["swallowed-error"],
+  ],
+
+  [
+    // over-mocking boundary: exactly MOCK_DENSITY_MAX must NOT fire (4 > 4 is false).
+    "py: exactly four mocks is at the boundary and must not fire",
+    "test_mock_boundary.py",
+    `
+def test_checkout():
+    a = MagicMock()
+    b = MagicMock()
+    c = MagicMock()
+    d = MagicMock()
+    checkout(a, b, c, d)
+    assert result.ok
+`,
+    [],
+  ],
+
+  [
+    // ...and above the max it must still not fire when assertions outnumber the mocks.
+    "py: mock-heavy but assertion-richer must not fire",
+    "test_mock_asserts.py",
+    `
+def test_checkout():
+    a = MagicMock()
+    b = MagicMock()
+    c = MagicMock()
+    d = MagicMock()
+    e = MagicMock()
+    r = checkout(a, b, c, d, e)
+    assert r.status == "paid"
+    assert r.total == 100
+    assert r.currency == "EUR"
+    assert r.id is not None
+    assert r.receipt is not None
+    assert r.settled is True
+`,
+    [],
+  ],
+
+  [
     // Regression: a quote-free regex literal was scanned as code, so the pattern TEXT
     // `/it.skip/` was reported as a focused test.
     "ts: regex literal containing it.skip is not a focused test",
@@ -847,28 +935,32 @@ for (const [name, filename, source, expected] of CASES) {
   });
 }
 
-function runCli(args: string[]): { status: number | null; stderr: string } {
+function runCli(args: string[]): { status: number | null; stderr: string; stdout: string } {
   const result = spawnSync(
     process.execPath,
     ["--experimental-strip-types", "--disable-warning=ExperimentalWarning", SCANNER, ...args],
     { encoding: "utf8", cwd: ROOT },
   );
-  return { status: result.status, stderr: result.stderr };
+  return { status: result.status, stderr: result.stderr, stdout: result.stdout ?? "" };
 }
 
-test("self-scan of tests/ runs cleanly", () => {
+test("self-scan of tests/ is CLEAN, not merely non-crashing", () => {
+  // This previously accepted exit 1 — which means "findings were found" — while being named
+  // "runs cleanly". It would have stayed green if a real defect appeared under tests/.
   const result = runCli(["--json", path.join(ROOT, "tests")]);
-  assert.ok(
-    result.status === 0 || result.status === 1,
-    `expected exit 0 or 1, got ${result.status}: ${result.stderr.slice(0, 200)}`,
+  assert.equal(
+    result.status,
+    0,
+    `expected a clean scan (exit 0); exit ${result.status} means defects were found: ${result.stdout.slice(0, 400)}`,
   );
 });
 
-test("--all on repo runs cleanly", () => {
+test("--all on the repo is CLEAN (0) or nothing-to-scan (2) — never 1", () => {
+  // Same defect: exit 1 is a finding, not a pass. This repo dogfoods a clean suite.
   const result = runCli(["--all", "--quiet"]);
   assert.ok(
-    result.status === 0 || result.status === 1 || result.status === 2,
-    `expected exit 0, 1 or 2, got ${result.status}: ${result.stderr.slice(0, 200)}`,
+    result.status === 0 || result.status === 2,
+    `expected 0 or 2, got ${result.status} — exit 1 means real findings: ${result.stdout.slice(0, 400)}`,
   );
 });
 

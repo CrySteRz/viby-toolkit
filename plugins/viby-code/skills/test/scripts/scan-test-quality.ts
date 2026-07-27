@@ -609,6 +609,20 @@ function scanFile(filePath: string): Finding[] {
   try {
     raw = fs.readFileSync(filePath, "utf8");
   } catch {
+    // A file we could not read must NOT be reported as clean. This checker's whole claim is
+    // that "clean" means checked-and-clean; silently returning no findings turns an
+    // unreadable file into a passing one, which is the exact silent-pass mode it exists to
+    // catch elsewhere. Reproduced: chmod 000 on a file with a real defect printed
+    // "clean: 1 test file(s), no quality defects found" and exited 0.
+    findings.push(
+      makeFinding(
+        filePath,
+        1,
+        "unreadable",
+        "could not read this file, so it was NOT checked — do not treat this run as clean for it",
+        "P2",
+      ),
+    );
     return findings;
   }
 
