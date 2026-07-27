@@ -258,6 +258,37 @@ The v0.12.0 additions:
   time is *human correlation* time, which is why `observe` judges every log line by whether it
   shortens that join rather than by whether it is information.
 
+The v0.13.0 round sharpened existing doctrine instead of adding modules — three places where
+newer evidence corrected or strengthened a claim already made here:
+
+- **The failure mode near a context limit is refusal, not hallucination.**
+  ([arXiv 2607.19257](https://arxiv.org/abs/2607.19257)) Recall holds at ceiling to roughly
+  64–128k tokens then falls away sharply, and near the ceiling **refusal rates climb to 79–90%**
+  while fabrication measured **exactly zero across 5,760 absent-fact probes**. So §2 now says to
+  budget for "it declined" rather than "it invented", and to suspect context pressure when an
+  agent starts hedging on work it managed earlier. A 1M window is no exemption — degradation was
+  severe at 100k.
+- **Multi-agent failures are interface failures.** The MAST taxonomy (Cemri et al., 1,600+
+  annotated traces across 7 frameworks) attributes **~36.9% of failures to inter-agent
+  misalignment** — communication breakdown, context lost at handoff, conflicting outputs, format
+  mismatch. None of those is a reasoning failure. §3 now says to spend care on the brief and the
+  return format rather than on the agent's cleverness, and the four-part subagent contract gained
+  two rules earned in practice this week: a returned report can arrive **truncated** (treat that
+  as an interface failure and ask for a self-contained re-send — never summarise a report you
+  only partly received), and **demand negative results explicitly**, because otherwise you
+  cannot distinguish "nothing there" from "never looked".
+- **Self-review mostly manufactures confidence.** Measurements of LLM self-verification find
+  rechecks are *overwhelmingly confirmatory rather than corrective*, and the assumed
+  generation–verification gap does not reliably hold — a model is often no better at judging its
+  own output than at producing it. That is now stated in `review-cluster` as the reason its
+  fresh-context reviewer is load-bearing rather than stylistic.
+- **Instruction budgets are now measured.** The same prompt-design paper found perfect compliance
+  collapses to **zero at N=80 simultaneous instructions**, "a hard floor rather than a gradual
+  asymptote", and recommends **~40 as a redesign threshold**. A skill body is exactly a list of
+  simultaneous instructions, so `check-skills.ts` now counts directives per skill and reports the
+  heaviest. The largest here is `principles` at 32, so nothing fires — stated plainly rather than
+  manufacturing a problem, and it now guards against drift.
+
 ---
 
 ## Hooks

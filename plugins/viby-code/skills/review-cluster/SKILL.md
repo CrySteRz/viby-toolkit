@@ -24,7 +24,13 @@ reviewers (coverage) → grounding gate → validator (precision) → confidence
 
 Reviewers and validators run on **fresh context** (they never see the author's reasoning,
 which is what makes them unbiased). This directly implements `/viby-code:principles`
-§5–6. Dimensions, the finding schema, and the confidence rubric live in
+§5–6, and it is the design decision most worth defending: measurements of LLM
+self-verification find rechecks are **overwhelmingly confirmatory rather than corrective** —
+they rarely identify an error or change the outcome — and the assumed generation–verification
+gap does not reliably hold, i.e. a model is often no better at judging its own output than at
+producing it. Self-review therefore mostly manufactures confidence. A fresh context that never
+saw the reasoning is not a stylistic preference here; it is the only part of the pipeline that
+can actually disagree. Dimensions, the finding schema, and the confidence rubric live in
 `references/dimensions-and-schema.md` — read it when running a real review.
 
 ## 1. Target

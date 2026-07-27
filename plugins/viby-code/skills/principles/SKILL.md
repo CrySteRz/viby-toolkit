@@ -44,6 +44,13 @@ on output quality** (humanlayer/ACE). On a Max subscription the scarce resources
   headroom for iteration and error handling. Don't run the window to overflow — recall
   degrades as it fills ("context rot"), and auto-compaction at ~90% produces noisy
   summaries. Compact *early*, at task boundaries, on purpose.
+- **Know the shape of the degradation, because it is not what you expect.** Measured across
+  formats (arXiv 2607.19257), recall holds at ceiling to roughly 64–128k tokens and then falls
+  away sharply. And near the ceiling the dominant failure is **refusal, climbing to 79–90%** —
+  not fabrication, which measured *exactly zero* across 5,760 absent-fact probes. So budget for
+  "it declined to answer", not for "it made something up": if an agent starts refusing or
+  hedging on work it managed earlier, suspect context pressure before suspecting the prompt.
+  A 1M window does not exempt you — degradation was severe at 100k in windows many times that.
 - **Compact with a ledger, not blindly.** Before a compaction/`/clear` decision, take
   stock of what's actually in context — the durable artifacts, the files still needed,
   and the large stale tool outputs — and evict the stale bulk first (raw tool output
@@ -85,6 +92,13 @@ a year of production experience.
   tool calls. A comparison or multi-area map: 2–4 agents, ~10–15 calls each. 10+ agents
   only for a genuinely broad audit/migration. Spawning 50 subagents for a simple question
   is the classic waste.
+- **The failure is at the seams, not inside the agents.** The MAST taxonomy (Cemri et al.,
+  1,600+ annotated traces across 7 multi-agent frameworks) attributes **~36.9% of failures to
+  inter-agent misalignment** — communication breakdown, context lost during handoff,
+  conflicting outputs, format mismatch between agents. Not one of those is a reasoning failure;
+  they are all interface failures, and they are the majority category. So spend your care on the
+  brief and the return format, not on the agent's cleverness. Reconciling several agents'
+  output is where *you* introduce bugs, which is why writes stay single-threaded.
 
 ## 4. Model-routing table
 
@@ -133,6 +147,16 @@ Every subagent prompt must specify four things or it will drift/duplicate work:
 **objective**, **output format** (a schema), **tools/sources to use**, and **task
 boundaries** (its lane, and what NOT to do). Hand it lightweight references (paths,
 queries) and let it load data just-in-time; don't pre-stuff its context.
+
+Given that interface failures are the largest category above, two additions earned in practice:
+
+- **A returned report can arrive truncated** — you may receive only its tail, with the findings
+  gone. Treat that as an interface failure, not a result: ask the agent to re-send a
+  self-contained report, stating that you have none of its earlier context. Never summarise a
+  report you only partially received.
+- **Demand negative results explicitly.** Ask what the agent checked and found *clean*, not
+  only what it found. Without that you cannot tell "nothing there" from "never looked", and
+  those are very different inputs to your decision.
 
 ## 5. Evidence-gated completion (the anti-"looks done" rule)
 

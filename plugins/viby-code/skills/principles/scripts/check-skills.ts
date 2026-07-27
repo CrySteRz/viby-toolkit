@@ -34,7 +34,22 @@ export type Skill = {
   description: string;
   triggers: string[]; // quoted phrases a user might literally type
   modelInvocable: boolean;
+  directives: number; // simultaneous instructions the body asks the model to honour
 };
+
+/**
+ * Instruction-count thresholds, measured rather than guessed.
+ *
+ * "Prompt Design at Scale" (arXiv 2607.19257) found perfect response rates collapse to ZERO
+ * by N=80 simultaneous instructions for every model tested, regardless of format — "a hard
+ * floor rather than a gradual asymptote" — and recommends treating ~40 as a REDESIGN
+ * threshold rather than a tuning point.
+ *
+ * A skill body is exactly a list of simultaneous instructions, so this applies directly. For
+ * reference, the largest skill in this repo sits at 32.
+ */
+const DIRECTIVES_REDESIGN = 40;
+const DIRECTIVES_FLOOR = 80;
 
 /**
  * Words that carry no routing signal. Without stripping these, every description looks
@@ -123,11 +138,20 @@ export function loadSkills(dir: string): Skill[] {
     }
     const fm = frontmatter(text);
     const description = [yamlField(fm, "description"), yamlField(fm, "when_to_use")].filter(Boolean).join(" ");
+    // A directive is one instruction the model must honour simultaneously: a bullet or a
+    // numbered step. Prose sentences are context; bullets are the instruction budget.
+    const bodyStart = text.indexOf("\n---", 3);
+    const body = bodyStart === -1 ? text : text.slice(bodyStart + 4);
+    let directives = 0;
+    for (const line of body.split("\n")) {
+      if (/^\s*[-*]\s+\S/.test(line) || /^\s*\d+\.\s+\S/.test(line)) directives += 1;
+    }
     out.push({
       name: yamlField(fm, "name") || entry,
       description,
       triggers: triggerPhrases(description),
       modelInvocable: !/^disable-model-invocation:\s*true/m.test(fm),
+      directives,
     });
   }
   return out;
@@ -159,6 +183,23 @@ export function checkSkills(dir: string): { skills: Skill[]; findings: Finding[]
         severity: "P1",
         skills: [s.name],
         message: "no description, so the model has nothing to route on — it will effectively never be chosen",
+      });
+    }
+    if (s.directives >= DIRECTIVES_FLOOR) {
+      findings.push({
+        check: "instruction-overload",
+        severity: "P1",
+        skills: [s.name],
+        message: `${s.directives} directives — at N=80 simultaneous instructions, perfect compliance measured zero for every model tested, regardless of format`,
+        detail: "split it into a focused skill plus an on-demand reference file, as review-cluster does",
+      });
+    } else if (s.directives >= DIRECTIVES_REDESIGN) {
+      findings.push({
+        check: "instruction-heavy",
+        severity: "P2",
+        skills: [s.name],
+        message: `${s.directives} directives — past ~40, treat this as a redesign threshold rather than something to tune`,
+        detail: "move the reference material into references/ and keep the skill body to the decisions",
       });
     }
     // Claude Code truncates description + when_to_use at 1,536 chars in the listing.
@@ -264,6 +305,13 @@ function main(): number {
           ? "in the range where a ~8-14% selection drop was measured"
           : "in the range where a 14-21% selection drop was measured — consider retrieval-based pre-filtering";
     console.log(`library size is ${note}.`);
+    const heaviest = [...skills].sort((a, b) => b.directives - a.directives)[0];
+    if (heaviest !== undefined) {
+      console.log(
+        `heaviest skill: ${heaviest.name} at ${heaviest.directives} directives ` +
+          `(redesign at ${DIRECTIVES_REDESIGN}, compliance floor at ${DIRECTIVES_FLOOR}).`,
+      );
+    }
     console.log(
       "Overlap matters more than count: the measured degradation is driven by shadowing, while\n" +
         "the cost of the extra context was indistinguishable from zero (arXiv 2605.24050).",
