@@ -34,6 +34,8 @@ TypeScript with zero runtime dependencies and no build step — see
 | `/viby-code:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
 | `/viby-code:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
 | `/viby-code:release` | **The version number is a promise.** Decide major/minor/patch from the public-surface diff, never from the size of the change — a review of 97 studies found 67% of Maven artifacts violate SemVer, and that detection handles syntactic breaks well but behavioural ones poorly. Ships `check-release.ts`: version drift across manifests, dirty tree, unpushed commits, tag collisions, stale changelog, debug artifacts left in. |
+| `/viby-code:observe` | **Instrument for the person reading it at 3am.** Log decisions and outcomes, never arrivals; structured fields, not sentences; correlation keys on every event. High cardinality is the point for logs and traces, and the cost trap for metric labels. Alert on symptoms, not causes — and verify the instrumentation by triggering the path and reading the real output. |
+| `/viby-code:api` | **Design the contract, because you cannot take it back.** Write the caller's code first, design inward from their use case rather than outward from the storage schema, and settle errors, pagination, idempotency and limits at design time — each is a breaking change if retrofitted. Expand-then-contract for evolution; diff the surface to decide if a change is breaking. |
 | `/viby-code:learn` | Records a reusable lesson (gotcha, build quirk, rejected finding, known past risk, "never compact X") to Claude's native project memory — the compounding loop, both suppressing false positives and raising recall on known risks. |
 | `/viby-code:handoff` | Serializes live task state (goal, decisions, next step) so a fresh session resumes mid-task without re-deriving it. Ephemeral, distinct from `learn`. |
 | `/viby-code:worktrees` | Isolates work (parallel implementers, risky experiments) — detect existing isolation first, prefer the native worktree tool, never fight the harness. |
@@ -231,6 +233,31 @@ The v0.11.0 additions, chosen by cost-of-error rather than by frequency:
   from a single unverified source. It is cited nowhere — that is exactly the kind of multiplier
   this section exists to discard.*
 
+The v0.12.0 additions:
+
+- **Skill libraries degrade by OVERLAP, not by size — and this corrects an earlier assumption
+  here.** "More Skills, Worse Agents?" ([arXiv 2605.24050](https://arxiv.org/abs/2605.24050))
+  measured pass rate falling up to **21% at 202 skills** (~8% at 52, ~14% at 102), with
+  right-skill invocation dropping from **88% to 53%**. The mechanism is **skill shadowing**: a
+  description that semantically overlaps another's hides it from selection, like variable
+  shadowing. Critically, the cost of the extra *context* was **"statistically indistinguishable
+  from zero"** — so the v0.10.0 note about trimming the always-on preamble was right about the
+  redundancy and wrong about the reason. The paper's own recommended mitigation is *description
+  disambiguation*, so that is now executable: `check-skills.ts` measures pairwise description
+  similarity, flags shared literal trigger phrases, and treats a mutually cross-referencing pair
+  as already disambiguated — because "distinct from X" lowers real confusion while raising word
+  overlap, and a metric that penalised the fix would reward vagueness.
+  Its first thresholds were picked by feel (0.38/0.50) against a metric whose real-world maximum
+  is ~0.13, so it could never have fired; recalibrated against the measured distribution
+  (median 2.1%, most-adjacent legitimate pair 13%) it caught `migrate`/`refactor` drifting
+  together on the first honest run, which is now fixed in both descriptions.
+- **`observe` and `api`** fill the last two named gaps. Both are explicitly labelled **doctrine,
+  not research**: the observability searches returned vendor material (including a "50-70% MTTR
+  reduction" figure that is cited nowhere here), and the API-design searches returned no 2026
+  research at all. The one genuinely useful framing kept from that reading is that most incident
+  time is *human correlation* time, which is why `observe` judges every log line by whether it
+  shortens that join rather than by whether it is information.
+
 ---
 
 ## Hooks
@@ -358,6 +385,7 @@ plugins/viby-code/
   skills/verify/scripts/detect-stack.ts      # language-agnostic toolchain detector
   skills/release/scripts/check-release.ts    # release pre-flight
   skills/schema/scripts/check-migration.ts   # migration safety linter
+  skills/principles/scripts/check-skills.ts  # shadowing / trigger-collision check
   lib/strip-noncode.ts                      # shared: match code, never raw text
   agents/<name>.md                   # the subagents (model routing in frontmatter)
   commands/ship.md                   # the autonomous entry command

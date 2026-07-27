@@ -11,7 +11,7 @@ description: >
 # Viby-code Operating Principles
 
 The shared contract. Every viby-code skill (`orchestrate`, `review-cluster`, `debug`,
-`migrate`, `refactor`, `plan`, `verify`, `test`, `explore`, `secure`, `perf`, `release`, `schema`, `incident`, `learn`) and agent (`scout`, `implementer`, `reviewer`,
+`migrate`, `refactor`, `plan`, `verify`, `test`, `explore`, `secure`, `perf`, `release`, `schema`, `incident`, `observe`, `api`, `learn`) and agent (`scout`, `implementer`, `reviewer`,
 `skeptic`, `debugger`) is built on these. It's a reference — read it, don't "run" it.
 
 Synthesized from what actually works in production agentic coding (Anthropic's
@@ -186,7 +186,29 @@ When you solve something non-obvious, or the user rejects a review finding as un
 sessions don't re-research it or re-flag it. This is the compound-engineering loop,
 adapted to Claude's native memory so it's portable and needs no extra infrastructure.
 
-## 8. Portability & secrets
+## 8. Skill libraries degrade by OVERLAP, not by size
+
+Adding a skill is not free, but the cost is not where intuition puts it. Measured over a
+growing skill library (arXiv 2605.24050), pass rate fell up to 21% at 202 skills — and the
+mechanism was **skill shadowing**: a skill whose description semantically overlaps another's
+hides it from selection, exactly like variable shadowing. The fraction of runs invoking the
+right skill fell from 88% to 53%. Meanwhile the cost of the extra *context* was
+"statistically indistinguishable from zero".
+
+So the rule is not "few skills". It is **distinguishable descriptions**:
+
+- Every description says what the skill is for **and what it is not for**, naming the sibling
+  to use instead. A mutual cross-reference is the disambiguation.
+- No two skills claim the same literal trigger phrase.
+- Check it mechanically rather than by eye —
+  `skills/principles/scripts/check-skills.ts` measures pairwise similarity and flags trigger
+  collisions. It is part of the repo's own pre-push gate.
+
+This also corrects a tempting mistake: trimming an always-on preamble is worth doing for
+redundancy, but *not* on the theory that its tokens degrade selection. They do not measurably.
+Overlapping descriptions do.
+
+## 9. Portability & secrets
 
 This toolkit syncs across work and personal machines via a private Git marketplace.
 - **Never hardcode secrets, tokens, internal hostnames, or client names** anywhere here.

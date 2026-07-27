@@ -1,6 +1,6 @@
 {
   "name": "viby-toolkit",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "description": "Personal Claude Code toolkit — accuracy-first engineering workflows, in TypeScript with zero runtime dependencies",
   "type": "module",
@@ -15,7 +15,8 @@
     "scan": "node --experimental-strip-types --disable-warning=ExperimentalWarning plugins/viby-code/skills/test/scripts/scan-test-quality.ts",
     "detect": "node --experimental-strip-types --disable-warning=ExperimentalWarning plugins/viby-code/skills/verify/scripts/detect-stack.ts",
     "preflight": "node --experimental-strip-types --disable-warning=ExperimentalWarning plugins/viby-code/skills/release/scripts/check-release.ts",
-    "migration": "node --experimental-strip-types --disable-warning=ExperimentalWarning plugins/viby-code/skills/schema/scripts/check-migration.ts"
+    "migration": "node --experimental-strip-types --disable-warning=ExperimentalWarning plugins/viby-code/skills/schema/scripts/check-migration.ts",
+    "skills": "node --experimental-strip-types --disable-warning=ExperimentalWarning plugins/viby-code/skills/principles/scripts/check-skills.ts"
   },
   "//": "devDependencies are for type-checking ONLY. Nothing here is needed to run the plugin — the hooks and scripts use node: builtins exclusively, so a fresh clone works with no npm install. Run `npm install` only when you want `npm run typecheck`.",
   "devDependencies": {

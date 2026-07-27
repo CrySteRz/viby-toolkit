@@ -4,7 +4,8 @@ description: >
   Use for a change that is mechanical but wide — a rename, an API/library upgrade, a
   framework version bump, a pattern migration, or any sweep touching many files. Use when
   the user says "rename X everywhere", "migrate", "upgrade", "replace all", "codemod", or
-  the edit is repetitive across the codebase.
+  the edit is repetitive across the codebase. Distinct from refactor, which restructures ONE
+  area without changing behaviour, and from schema, which changes a database.
 ---
 
 # Migrate (wide, mechanical, verified)
