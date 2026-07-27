@@ -11,6 +11,8 @@ description: >
 
 For restructuring one area rather than sweeping many files, use `/viby-code:refactor`; for a
 change whose point is a measured speedup, `/viby-code:perf`.
+For a database schema or data change, use `/viby-code:schema` — data mistakes are not
+recoverable by editing code.
 
 ```
 IRON LAW: No batch is done until it is verified. No migration is done until a fresh

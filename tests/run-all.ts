@@ -66,6 +66,12 @@ const CHECKS: Check[] = [
     minPassing: 15,
   },
   {
+    name: "migration-linter contract",
+    cmd: [...NODE_RUNNER, "--test", "tests/check-migration.test.ts"],
+    ok: new Set([0]),
+    minPassing: 15,
+  },
+  {
     name: "stack-detector contract",
     cmd: [...NODE_RUNNER, "--test", "tests/detect-stack.test.ts"],
     ok: new Set([0]),

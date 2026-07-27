@@ -28,6 +28,8 @@ TypeScript with zero runtime dependencies and no build step — see
 | `/viby-code:test` | **QA and test design, with a scanner.** Picks the test level deliberately, insists every new test is *seen failing for the right reason* before it's trusted, and enforces mocking discipline (coding agents over-mock measurably more than humans). Ships an executable auditor — `scan-test-quality.ts` finds no-assertion tests, tautologies, over-mocking, `.only`/`.skip` left in, sleep-waits and swallowed errors, with `file:line`. |
 | `/viby-code:perf` | **Measure, or it didn't happen.** Baseline → profile → one change → re-measure, with correctness as a gate. Exists because a 2026 study of 407 performance PRs found agents pick statistically indistinguishable optimisations to humans but validate them far less: 45.7% vs 63.6%, and 67.2% of validated agent PRs reasoned statically instead of benchmarking. The detector reports the repo's bench command and which profilers are actually installed. |
 | `/viby-code:refactor` | **Behaviour-preserving, and proven so.** Name the invariant, find what pins it, add characterization tests if nothing does, then transform in small verified steps. The same tests must pass before and after, unchanged. Never mixed with a behaviour change in one diff. |
+| `/viby-code:schema` | **The one change you cannot undo.** Every schema change must deploy while the OLD code still runs and be reversible without data loss — expand, migrate, contract, never rename in place. Ships `check-migration.ts`: index without `CONCURRENTLY`, `NOT NULL` without a default, type changes, renames, unbounded `UPDATE`, constraints without `NOT VALID`, DDL mixed with a backfill, missing `lock_timeout`, no rollback. Every rule names the safe alternative. |
+| `/viby-code:incident` | **Stop the bleeding, then find out why.** Deliberately inverts `debug`: reversible mitigation *before* diagnosis, because users are losing service while you investigate — rollback, then flag, then shed load, then clear the blockage. Preserve evidence before mitigation destroys it. Never ship a speculative fix to production under pressure. Hands back to `debug` once service is restored. |
 | `/viby-code:debug` | Root-cause debugging by hypothesis and evidence — reproduce (as a failing test, routed to the strong model) → localize → confirm → fix → verify. No speculative patching. |
 | `/viby-code:migrate` | Wide mechanical changes (renames, upgrades, pattern sweeps): discover every site → transform in batches → verify each → final zero-remaining sweep. |
 | `/viby-code:plan` | Turns an agreed idea into an ordered, file-anchored change-list with the risky step and verification strategy called out. Plan doubles as a durable checkpoint. |
@@ -207,6 +209,28 @@ The v0.10.0 additions:
   for discovery, so that list bought nothing. Now ~291 tokens of pure contract — evidence
   gate, fan-out law, one routing rule — and it no longer grows when a skill is added.
 
+The v0.11.0 additions, chosen by cost-of-error rather than by frequency:
+
+- **Schema changes are the rare unrecoverable mistake.** A code error is fixed by editing code;
+  a dropped column takes its data with it, and a lock on a hot table is an outage while it
+  runs. `check-migration.ts` encodes the short list of operations behind most migration
+  incidents, and each rule names the safe alternative — "don't" without "instead" gets ignored
+  under deadline. The engine behaviour it relies on (ACCESS EXCLUSIVE locks, table rewrites,
+  `CONCURRENTLY`, `NOT VALID`) is documented PostgreSQL/MySQL semantics rather than a research
+  finding, and it is presented that way: every message says *check this against your engine*.
+  Sources here were practitioner guides, not studies — stated plainly rather than dressed up as
+  evidence.
+- **Incidents invert the debugging rule, on purpose.** `/viby-code:debug` forbids a fix without
+  a confirmed root cause, which is right when you have time and wrong when users are losing
+  service. `/viby-code:incident` puts reversible mitigation first (rollback → flag → shed load
+  → clear the blockage), insists on preserving evidence *before* mitigation destroys it, and
+  forbids shipping a speculative code change to production under pressure. It then hands back
+  to `debug` for the real root-cause pass. The two skills disagree about ordering by design,
+  and each says so.
+  *Search results for this one offered a "92.1% root-cause accuracy, 82% MTTD reduction" claim
+  from a single unverified source. It is cited nowhere — that is exactly the kind of multiplier
+  this section exists to discard.*
+
 ---
 
 ## Hooks
@@ -333,6 +357,7 @@ plugins/viby-code/
   skills/test/scripts/scan-test-quality.ts   # executable test auditor
   skills/verify/scripts/detect-stack.ts      # language-agnostic toolchain detector
   skills/release/scripts/check-release.ts    # release pre-flight
+  skills/schema/scripts/check-migration.ts   # migration safety linter
   lib/strip-noncode.ts                      # shared: match code, never raw text
   agents/<name>.md                   # the subagents (model routing in frontmatter)
   commands/ship.md                   # the autonomous entry command

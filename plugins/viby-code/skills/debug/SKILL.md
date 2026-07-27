@@ -8,6 +8,11 @@ description: >
 
 # Debug (root-cause, evidence-driven)
 
+**If it is broken in production right now, start with `/viby-code:incident` instead.** That
+skill deliberately inverts the rule below — reversible mitigation before diagnosis, because
+users are losing service while you investigate — and then hands back here for the real
+root-cause pass once service is restored.
+
 ```
 IRON LAW: NO FIX WITHOUT A CONFIRMED ROOT CAUSE.
           A symptom fix is a failure. Systematic is faster than thrashing.

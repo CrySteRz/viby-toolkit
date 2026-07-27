@@ -57,6 +57,8 @@ function closesOnSameLine(text: string, start: number, delim: string): boolean {
 
 const BLANK = "\x00"; // neutral filler: matches no pattern, preserves offsets
 const HASH_COMMENT_EXTS = new Set([".py", ".rb", ".sh", ".pl", ".r", ".yaml", ".yml"]);
+// SQL comments with `--`, and no `/`-comments (a lone `/` there is division or a path).
+const DASH_COMMENT_EXTS = new Set([".sql", ".hql", ".psql", ".lua", ".hs", ".ada"]);
 
 /**
  * Blank out string-literal contents and comments, preserving line and column offsets.
@@ -76,11 +78,19 @@ export function stripNoncode(text: string, ext: string): string {
   let lastSignificant = "";
   const n = text.length;
   const hashComments = HASH_COMMENT_EXTS.has(ext);
-  const slashComments = !hashComments;
+  const dashComments = DASH_COMMENT_EXTS.has(ext);
+  const slashComments = !hashComments && !dashComments;
   while (i < n) {
     const c = text[i];
 
     // line comments
+    if (dashComments && c === "-" && text[i + 1] === "-") {
+      while (i < n && text[i] !== "\n") {
+        out.push(BLANK);
+        i += 1;
+      }
+      continue;
+    }
     if (hashComments && c === "#") {
       while (i < n && text[i] !== "\n") {
         out.push(BLANK);
