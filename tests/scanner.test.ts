@@ -293,6 +293,171 @@ def test_eventually_ready():
   ],
 
   [
+    // Regression: a quote-free regex literal was scanned as code, so the pattern TEXT
+    // `/it.skip/` was reported as a focused test.
+    "ts: regex literal containing it.skip is not a focused test",
+    "regex3.test.ts",
+    `
+it("finds the text", () => {
+  expect(screen.getByText(/it.skip/)).toBeTruthy();
+});
+`,
+    [],
+  ],
+
+  [
+    "ts: division is not mistaken for a regex literal",
+    "div.test.ts",
+    `
+it("computes a ratio", () => {
+  const ratio = width / height / 2;
+  expect(ratio).toBeCloseTo(0.5);
+});
+`,
+    [],
+  ],
+
+  [
+    // ava's assertion family matched nothing at all before.
+    "ts: ava t.is() counts as an assertion",
+    "ava.test.ts",
+    `
+test("adds", (t) => {
+  const total = compute();
+  const other = compute2();
+  t.is(total, 3);
+});
+`,
+    [],
+  ],
+
+  [
+    // A chain split across lines: no line holds `expect(`, so recognition depended on the
+    // matcher whitelist, which missed toStrictEqual. 9 of vite's 14 findings were this.
+    "ts: multi-line expect.poll chain counts as an assertion",
+    "poll.test.ts",
+    `
+test("eventually matches", async () => {
+  const allResult = build();
+  await expect
+    .poll(async () => JSON.parse(await page.textContent(".result")))
+    .toStrictEqual(allResult);
+});
+`,
+    [],
+  ],
+
+  [
+    // `try { x(); expect.unreachable() } catch {}` is a manual raise-assertion.
+    "ts: expect.unreachable + empty catch is not a swallowed error",
+    "unreach.test.ts",
+    `
+test("throws on bad input", async () => {
+  try {
+    await load("virtual:test");
+    expect.unreachable();
+  } catch {}
+  expect(spy.lastCall[0]).toContain("failed");
+});
+`,
+    [],
+  ],
+
+  [
+    // python equivalent: the `else: self.fail(...)` branch IS the assertion.
+    "py: except/pass with else/fail is a raise-assertion, not a swallow",
+    "test_raises.py",
+    `
+def test_join_rejects_ints():
+    try:
+        "".join([0])
+    except TypeError:
+        pass
+    else:
+        self.fail("''.join([0]) did not raise TypeError")
+`,
+    [],
+  ],
+
+  [
+    "py: draining a generator to StopIteration is not a swallowed error",
+    "test_drain.py",
+    `
+def test_generator_exhausts():
+    g = make_gen()
+    try:
+        while True:
+            g.send(None)
+    except StopIteration:
+        pass
+    assert g.closed
+`,
+    [],
+  ],
+
+  [
+    // A zero-delay timer is a deterministic tick flush, not an arbitrary wait.
+    "ts: zero-delay setTimeout tick-flush is not a sleep-wait",
+    "tick.test.ts",
+    `
+it("flushes effects", async () => {
+  mount(App);
+  await new Promise((r) => setTimeout(r));
+  expect(container.innerHTML).toBe("<div>ok</div>");
+});
+`,
+    [],
+  ],
+
+  [
+    "ts: a real delayed wait is still flagged",
+    "realwait.test.ts",
+    `
+it("becomes ready", async () => {
+  startServer();
+  await new Promise((r) => setTimeout(r, 2000));
+  expect(isReady()).toBe(true);
+});
+`,
+    ["sleep-wait"],
+  ],
+
+  [
+    // `.mock.calls` INSPECTS a spy inside an assertion; counting it as mocking made a
+    // carefully-asserted single-spy test look over-mocked.
+    "ts: spy introspection is not mock density",
+    "spy.test.ts",
+    `
+test("records every error", () => {
+  const onError = vi.fn();
+  doThing(onError);
+  expect(onError.mock.calls[0]).toEqual(["a"]);
+  expect(onError.mock.calls[1]).toEqual(["b"]);
+  expect(onError.mock.calls[2]).toEqual(["c"]);
+  expect(onError.mock.calls[3]).toEqual(["d"]);
+  expect(onError.mock.calls[4]).toEqual(["e"]);
+});
+`,
+    [],
+  ],
+
+  [
+    // `check = self.check_match` — an alias whose own name says nothing about asserting.
+    "py: custom-named alias to an asserting helper is recognised",
+    "test_alias2.py",
+    `
+def check_match(self, pattern, text):
+    assert fnmatch(text, pattern)
+
+def test_range():
+    check = self.check_match
+    check("[a-z]", "q")
+    check("[!a-z]", "0")
+`,
+    [],
+  ],
+
+  [
     // `eq = self.assertEqual` then `eq(a, b)` — the assertion-alias idiom. Without this,
     // every test in suites that use it (CPython does, throughout) looks assertion-free.
     "py: assertion bound to a local alias counts as an assertion",

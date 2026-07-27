@@ -45,10 +45,13 @@ or client-identifying details (this knowledge may sync across machines).
 
 ## How
 
-Use the standard Claude memory layout for this project:
-1. Write the lesson as a single focused memory file with frontmatter (`type`:
-   `project` for work/goals/gotchas, `reference` for external pointers, `feedback` for a
-   rejected-finding preference — include **Why** and **How to apply**).
+Use the memory layout the harness actually defines — check your own memory instructions for
+the exact schema before writing, since it is the authority and this is a summary:
+1. Write the lesson as a single focused file whose frontmatter carries `name`,
+   `description`, and the type nested under `metadata` (`metadata.type`, **not** a
+   top-level `type:`) — `project` for work/goals/gotchas, `reference` for external
+   pointers, `feedback` for a rejected-finding preference (include **Why** and
+   **How to apply**), `user` for who the user is.
 2. Add a one-line pointer to `MEMORY.md` (the index loaded each session): `- [Title](file.md) — hook`.
 3. Before writing, check for an existing memory that already covers it — **update that
    file** instead of duplicating. Delete memories that turn out to be wrong.

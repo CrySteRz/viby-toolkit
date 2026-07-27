@@ -39,6 +39,10 @@ const NAME_PATTERNS: RegExp[] = [
   /(^|\/)test_[^/]+\.py$/,
   /(^|\/)[^/]+_test\.py$/,
   /\.(test|spec)\.[jt]sx?$/,
+  // Cypress's own convention. Without it, a repo using idiomatic Cypress layout produced
+  // zero findings — not because it was clean, but because every file was invisible.
+  /\.cy\.[jt]sx?$/,
+  /(^|\/)cypress\/(e2e|integration|component)\/.*\.[jt]sx?$/,
   /(^|\/)[^/]+_test\.go$/,
   /(^|\/)[^/]*Tests?\.(java|kt|cs)$/,
   /(^|\/)[^/]+_spec\.rb$/,
@@ -49,6 +53,11 @@ const DIR_PATTERNS: RegExp[] = [/(^|\/)(tests?|specs?|__tests__)\/.*\.(py|[jt]sx
 // Support code that lives under a test directory but contains no tests. Applied ONLY
 // to the directory rule, so `tests/utils/parse_test.go` still counts on its filename.
 const DIR_DISQUALIFY = /(^|\/)(scripts?|fixtures?|helpers?|utils?|mocks?|__mocks__|__snapshots__|testdata|factories)\//;
+// Support FILES that live in a test directory but contain no tests of their own — shared
+// browser/DOM helpers, setup files, and config. Measured against real suites, these were a
+// steady false-positive source: a polling utility's timeout guard is not a flaky test.
+const SUPPORT_FILE =
+  /(^|\/)([\w.-]*[Uu]tils?|[\w.-]*[Hh]elpers?|setup(Tests?)?|test-setup|globalSetup|\w+\.config|conftest|serve|commonTests|fixtures?|testServer)\.[jt]sx?$/;
 
 const SKIP_DIRS = new Set([
   ".git", "node_modules", "venv", ".venv", "dist", "build", "target",
@@ -57,6 +66,7 @@ const SKIP_DIRS = new Set([
 
 export function isTestFile(p0: string): boolean {
   const p = p0.split(path.sep).join("/");
+  if (SUPPORT_FILE.test(p)) return false;
   if (NAME_PATTERNS.some((pat) => pat.test(p))) return true;
   if (DIR_PATTERNS.some((pat) => pat.test(p)) && !DIR_DISQUALIFY.test(p)) return true;
   return false;
@@ -137,7 +147,19 @@ const ASSERT = new RegExp(
     /\bshould\b/.source,
     /\brequire\.\w+\s*\(/.source,
     /\bt\.(?:Error|Fatal|Errorf|Fatalf)\s*\(/.source,
-    /\.(?:toBe|toEqual|toMatch|toHave\w*|toThrow|toContain|toBeCalled\w*)\b/.source,
+    // ava: `t.is(...)`, `t.deepEqual(...)`, `t.throws(...)` — an entire framework's
+    // assertion family that matched nothing at all.
+    /\bt\.(?:is|not|true|false|deepEqual|notDeepEqual|like|throws\w*|notThrows\w*|regex|notRegex|pass|fail|snapshot)\s*\(/.source,
+    // Any `.toSomething(` matcher, plus the resolves/rejects modifiers. The old fixed list
+    // (toBe|toEqual|toMatch|toHave*|toThrow|toContain|toBeCalled*) missed toStrictEqual,
+    // toBeTruthy, toBeVisible, toBeCloseTo, toMatchObject, toMatchSnapshot and more. That
+    // list is the ONLY thing that can recognise an assertion chain split across lines, so
+    // every gap in it became a false `no-assertion` — 9 of vite's 14 came from exactly this.
+    /\.to[A-Z]\w*\s*\(/.source,
+    /\.(?:resolves|rejects)\b/.source,
+    // `expect.poll(...)`, `expect.soft(...)`, `expect.unreachable()` — `expect` not
+    // immediately followed by `(`, so the plain `expect\s*\(` alternative cannot see it.
+    /\bexpect\s*\.\s*\w+/.source,
     /\bassert_\w+/.source,
     /\bXCTAssert\w*\s*\(/.source,
     /\bpytest\.raises\s*\(/.source, // expecting a raise IS an assertion
@@ -163,12 +185,41 @@ const ASSERT = new RegExp(
 const ASSERT_ALIAS_BINDING =
   /^\s*(\w+)\s*=\s*(?:self\.|cls\.|this\.)?(\w*(?:[aA]ssert|[eE]xpect)\w*|fail)\s*$/;
 
+/**
+ * A name bound to ANY method reference or partial application, e.g. `check = self.check_match`
+ * or `raises = partial(self.assertRaises, ValueError)`. Only counted as an assertion alias
+ * when the target is independently known to assert, so this cannot excuse an arbitrary call.
+ * Measured on CPython, custom-named aliases like `check = self.check_match` were a distinct
+ * false-positive class the assert/expect-named pattern above could never catch.
+ */
+const GENERIC_ALIAS_BINDING = /^\s*(\w+)\s*=\s*(?:partial\s*\(\s*)?(?:self\.|cls\.|this\.)?(\w+)/;
+
+/**
+ * `except X: pass` paired with an `else:` branch that fails — the manual raise-assertion
+ * idiom (`try: bad() / except ValueError: pass / else: self.fail("no raise")`). The `pass`
+ * is the SUCCESS path and the `else` is the assertion, so this is the opposite of a
+ * swallowed failure. On CPython this single pattern accounted for a third of all
+ * swallowed-error findings, and a 12-sample audit found zero true positives overall.
+ */
+const RAISE_ASSERTION_ELSE = /^\s*else\s*:/;
+const FAIL_CALL = /\b(?:self\.fail|pytest\.fail|fail)\s*\(/;
+
+/**
+ * The JS equivalent: `try { await x(); expect.unreachable() } catch {}` asserts that the
+ * call throws, then checks the error's effects after the block. The empty catch is the
+ * success path, not a discarded failure.
+ */
+const UNREACHABLE_ASSERTION = /\b(?:expect\s*\.\s*unreachable|assert\s*\.\s*fail|fail)\s*\(/;
+
 const MOCK = new RegExp(
   [
     /\bMock\w*\s*\(/.source,
     /\bMagicMock\b/.source,
     /\bAsyncMock\b/.source,
-    /\bmock\.\w+/.source,
+    // `mock.patch(...)` etc. — but NOT `.mock.calls` / `.mock.results`, which INSPECT a
+    // mock inside an assertion. Counting those as mocking inflated the mock density of
+    // tests that were, in fact, asserting carefully on a single spy.
+    /\bmock\.(?!calls\b|results\b|instances\b|lastCall\b|invocationCallOrder\b)\w+/.source,
     /\bpatch\s*\(/.source,
     /@patch\b/.source,
     /\bjest\.(?:mock|fn|spyOn)\b/.source,
@@ -236,6 +287,19 @@ const SLEEP_WAIT_HARD = new RegExp(
 // A bare timer call, which fake timers DO make deterministic — so it is excused when the
 // file installs them.
 const SLEEP_WAIT_SOFT = /\b(?:setTimeout|setInterval)\s*\(/;
+
+/**
+ * Timer uses that are NOT arbitrary waits, measured against real TypeScript suites where
+ * they accounted for most of the `sleep-wait` findings:
+ *
+ *  - `await new Promise(r => setTimeout(r))` / `setTimeout(r, 0)` — a macrotask "tick
+ *    flush". Deterministic, idiomatic, and the opposite of a flaky sleep: there is no
+ *    duration to race against.
+ *  - a `setTimeout` whose callback rejects or throws — that is a timeout *guard* wrapping a
+ *    poll loop, i.e. exactly the pattern this check is supposed to recommend.
+ */
+const TICK_FLUSH = /\b(?:setTimeout|setImmediate)\s*\(\s*[^,()]*(?:\([^)]*\)\s*=>\s*[^,]*)?\s*(?:,\s*0\s*)?\)/;
+const TIMEOUT_GUARD = /\b(?:reject|throw)\b/;
 const FAKE_TIMERS = /\b(useFakeTimers|sinon\.useFakeTimers|vi\.useFakeTimers|freeze_time|freezegun)\b/;
 
 // Single-line forms: `except ValueError: pass`, `catch (e) {}`.
@@ -274,6 +338,33 @@ const CALL_NAME = /\b(\w+)\s*\(/g;
  * Does an unescaped `delim` close on the same line, starting after position `start`?
  * Used to distinguish a real string literal from a stray quote inside a regex literal.
  */
+/**
+ * A `/` begins a regex literal only where a VALUE is expected. After an identifier, a
+ * closing paren/bracket, or a number, it is division. This is the standard disambiguation
+ * heuristic; it does not need to be perfect, only to avoid eating real code.
+ */
+function regexCanStartHere(prev: string): boolean {
+  if (prev === "") return true;
+  return "(,=:[!&|?{};+-*%<>~^\n".includes(prev) || /\s/.test(prev);
+}
+
+/** Index of the closing `/` of a regex literal starting at `start`, or -1. */
+function findRegexEnd(text: string, start: number): number {
+  let inClass = false;
+  for (let j = start + 1; j < text.length; j += 1) {
+    const ch = text[j];
+    if (ch === undefined || ch === "\n") return -1; // regex literals never span lines
+    if (ch === "\\") {
+      j += 1;
+      continue;
+    }
+    if (ch === "[") inClass = true;
+    else if (ch === "]") inClass = false;
+    else if (ch === "/" && !inClass) return j;
+  }
+  return -1;
+}
+
 function closesOnSameLine(text: string, start: number, delim: string): boolean {
   for (let j = start + 1; j < text.length; j += 1) {
     const ch = text[j];
@@ -303,6 +394,9 @@ const HASH_COMMENT_EXTS = new Set([".py", ".rb", ".sh", ".pl", ".r", ".yaml", ".
 function stripNoncode(text: string, ext: string): string {
   const out: string[] = [];
   let i = 0;
+  // Previous non-whitespace character of real code, used to tell a regex literal from a
+  // division operator.
+  let lastSignificant = "";
   const n = text.length;
   const hashComments = HASH_COMMENT_EXTS.has(ext);
   const slashComments = !hashComments;
@@ -371,6 +465,23 @@ function stripNoncode(text: string, ext: string): string {
       continue;
     }
 
+    // Regex literal bodies. `expect(screen.getByText(/it.skip/)).toBeTruthy()` was reported
+    // as a focused-test finding because the pattern text was scanned as if it were code.
+    // A `/` starts a regex only where a value is expected, which the previous significant
+    // character tells us — otherwise it is division. Character classes are tracked so a
+    // `/` inside `[...]` does not end the literal early.
+    if (slashComments && c === "/" && regexCanStartHere(lastSignificant)) {
+      const close = findRegexEnd(text, i);
+      if (close > i) {
+        out.push("/");
+        for (let k = i + 1; k < close; k += 1) out.push(BLANK);
+        out.push("/");
+        i = close + 1;
+        lastSignificant = "/";
+        continue;
+      }
+    }
+
     // single/double quoted strings.
     //
     // Only enter string mode when a matching delimiter actually closes on THIS line.
@@ -406,15 +517,21 @@ function stripNoncode(text: string, ext: string): string {
       continue;
     }
 
+    if (c !== undefined && !/\s/.test(c)) lastSignificant = c;
+    else if (c === "\n") lastSignificant = "\n";
     out.push(c ?? "");
     i += 1;
   }
   return out.join("");
 }
 
-// Exception types used to probe for optional capabilities; `except ImportError: pass` is
-// a compatibility idiom, not a swallowed test failure.
-const COMPAT_EXCEPTIONS = /\b(AttributeError|ImportError|ModuleNotFoundError|NotImplementedError|SkipTest)\b/;
+// Capability probes AND loop-termination sentinels. `except ImportError: pass` is a
+// compatibility idiom; `except StopIteration: pass` after draining a generator, or
+// `except Empty: pass` draining a queue, is how those loops are DOCUMENTED to end. Measured
+// on CPython, "drain until exhausted" was one of the largest remaining false-positive
+// classes for this check.
+const COMPAT_EXCEPTIONS =
+  /\b(AttributeError|ImportError|ModuleNotFoundError|NotImplementedError|SkipTest|StopIteration|StopAsyncIteration|Empty|EOFError|BlockingIOError|BrokenPipeError|ConnectionResetError)\b/;
 
 const MOCK_DENSITY_MAX = 4; // mock/stub calls in one test before it tests mocks
 const NO_ASSERTION_MIN_BODY = 2; // code lines a test needs before "no assertion" is meaningful
@@ -597,8 +714,28 @@ function scanFile(filePath: string): Finding[] {
       }
     }
   }
+
+  // Second alias pass, now that we know which locals assert: a name bound to an asserting
+  // method or a partial of one counts as an assertion alias even when its own name says
+  // nothing (`check = self.check_match`, `raises = partial(self.assertRaises, ValueError)`).
+  // Requiring the target to provably assert is what makes this safe.
+  for (const line of lines) {
+    const m = GENERIC_ALIAS_BINDING.exec(line);
+    const alias = m?.[1];
+    const target = m?.[2];
+    if (alias === undefined || target === undefined) continue;
+    if (assertingLocals.has(target) || /(?:[aA]ssert|[eE]xpect)/.test(target) || target === "fail") {
+      assertAliases.add(alias);
+    }
+  }
+
   function delegatesToLocal(text: string): boolean {
     for (const m of text.matchAll(CALL_NAME)) {
+      if (m[1] !== undefined && assertingLocals.has(m[1])) return true;
+    }
+    // A helper can also be PASSED rather than called — `test.each(cases)(name, assertThing)`
+    // hands the asserting function to the runner, so it never appears with parentheses.
+    for (const m of text.matchAll(/\b(\w+)\b/g)) {
       if (m[1] !== undefined && assertingLocals.has(m[1])) return true;
     }
     return false;
@@ -646,18 +783,53 @@ function scanFile(filePath: string): Finding[] {
         break;
       }
     }
-    if (swallowed && inTest.has(i) && !COMPAT_EXCEPTIONS.test(text)) {
+    // The manual raise-assertion idiom, in both dialects:
+    //   python: try/except X: pass  +  else: self.fail("did not raise")
+    //   js:     try { x(); expect.unreachable() } catch {}
+    // In both, the swallowing branch is the SUCCESS path and the assertion is elsewhere.
+    let raiseAssertion = false;
+    for (let j = i + 1; j < Math.min(lines.length, i + 10); j += 1) {
+      const nxt = lines[j] ?? "";
+      if (RAISE_ASSERTION_ELSE.test(nxt)) {
+        for (let k = j; k < Math.min(lines.length, j + 4); k += 1) {
+          if (FAIL_CALL.test(lines[k] ?? "")) {
+            raiseAssertion = true;
+            break;
+          }
+        }
+        break;
+      }
+    }
+    // Look BACKWARD for the js form: the assertion sits inside the try, above the catch.
+    if (!raiseAssertion) {
+      for (let j = Math.max(0, i - 6); j < i; j += 1) {
+        if (UNREACHABLE_ASSERTION.test(lines[j] ?? "")) {
+          raiseAssertion = true;
+          break;
+        }
+      }
+    }
+    if (swallowed && inTest.has(i) && !COMPAT_EXCEPTIONS.test(text) && !raiseAssertion) {
       findings.push(
         makeFinding(
           filePath,
           i + 1,
           "swallowed-error",
-          "exception discarded — the failure this test exists to catch is thrown away",
-          "P1",
+          "exception discarded — check whether the failure this test exists to catch is " +
+            "being thrown away (lowest-confidence check: many languages have legitimate " +
+            "swallow idioms, so confirm before changing anything)",
+          // Deliberately P2, not P1: a 12-sample audit against CPython found zero true
+          // positives before the raise-assertion and drain-sentinel exclusions were added.
+          // The check earns its place on empty `catch {}` in JS, but it is the least
+          // trustworthy finding this scanner emits and should not read as high-confidence.
+          "P2",
         ),
       );
     }
-    if (SLEEP_WAIT_HARD.test(text) || (SLEEP_WAIT_SOFT.test(text) && !hasFakeTimers)) {
+    const timerIsBenign = TICK_FLUSH.test(text) || TIMEOUT_GUARD.test(text);
+    const realWait = SLEEP_WAIT_HARD.test(text) && !TICK_FLUSH.test(text);
+    const softWait = SLEEP_WAIT_SOFT.test(text) && !hasFakeTimers && !timerIsBenign;
+    if (realWait || softWait) {
       findings.push(
         makeFinding(
           filePath,
@@ -681,7 +853,13 @@ function scanFile(filePath: string): Finding[] {
     // often a deliberate "just don't raise" smoke test, so require some substance;
     // and a call into a local helper may be carrying the assertion.
     const delegates = real.some(([i, t]) => i !== start && delegatesToLocal(t));
-    if (asserts.length === 0 && !delegates && real.length > NO_ASSERTION_MIN_BODY) {
+    // A body that is entirely a string literal is a doctest: the assertion mechanism is
+    // doctest's own output comparison, and `stripNoncode` has (correctly) blanked it to
+    // filler, so there is no code here to judge either way.
+    const doctestOnly =
+      real.length > 1 &&
+      real.slice(1).every(([, t]) => t.trim() === "" || /^[\s\x00"'`]*$/.test(t));
+    if (asserts.length === 0 && !delegates && !doctestOnly && real.length > NO_ASSERTION_MIN_BODY) {
       findings.push(
         makeFinding(
           filePath,

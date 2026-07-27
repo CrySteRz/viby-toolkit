@@ -154,10 +154,29 @@ sh "$RUN" "$SCAN" --json     # machine-readable
 comes out empty, say so and fall back to reviewing the tests by hand — don't report a clean
 audit you never ran.
 
-Flags no-assertion tests, tautologies, assertion roulette, over-mocking, `.only`/`.skip`
-left in, sleep-based waits, and swallowed errors — with `file:line`. Exit 1 on findings, so
-it can gate. Every finding is a text heuristic: **confirm against the code before changing
-anything**, exactly as the review cluster's grounding gate requires.
+Flags no-assertion tests, tautologies, over-mocking, `.only`/`.skip` left in, sleep-based
+waits, and swallowed errors — with `file:line`. Exit 1 on findings, so it can gate.
+
+**Trust the checks unequally — these are measured numbers, not guesses.** Audited against
+real suites (CPython's ~1,100 files, plus vuejs/core and vitejs/vite):
+
+| Check | Confidence | Notes |
+|---|---|---|
+| `tautology`, `focused-or-skipped` | **high** | clean in every sample; act on these directly |
+| `over-mocking`, `sleep-wait` | medium | real signal, but judgement calls — a zero-delay `setTimeout` tick-flush and a poll's timeout guard are excluded as legitimate |
+| `no-assertion` | medium | ~50% of a sample were assertions the scanner could not see; the classes below explain most of it |
+| `swallowed-error` | **lowest** | 0 of 12 sampled were real on Python. Kept because empty `catch {}` in JS is a genuine smell; treat every hit as a question |
+
+**Known blind spots — a clean scan is not proof.** The scanner reads one file at a time and
+matches text, so it cannot see: assertions in a **base class or mixin in another file**
+(the largest single cause of false `no-assertion` — one pair of files accounted for ~10% of
+all findings on CPython); assertions inside a **context manager's `__exit__`**; assertions
+in a **native extension** or an external script; and **JSX text nodes**, which are not a
+string context, so prose inside `<div>…</div>` mentioning `it.skip` can still be flagged.
+
+So: every finding is a heuristic. **Confirm against the code before changing anything**,
+exactly as the review cluster's grounding gate requires — and never report a clean scan as
+evidence that the tests are good, only that these specific defects were not found.
 
 Then judge the suite on signal, not size:
 
