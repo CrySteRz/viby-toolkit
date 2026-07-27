@@ -289,29 +289,41 @@ viby-code`).
 
 ### Verify before pushing
 
-The toolkit holds itself to its own evidence gate — the hooks are executable code, so they
-have tests. Run all three checks:
+The toolkit holds itself to its own evidence gate — the hooks and scripts are executable
+code, so they have contract tests. One command runs everything:
 
 ```bash
-npm run check                     # the gate: every check, one verdict
+npm run check                     # the gate: 8 checks, one verdict
 ```
 
 Which runs:
 
 ```bash
-claude plugin validate .          # manifests + skill/agent frontmatter
+claude plugin validate .          # manifests + skill/agent frontmatter (local only)
 npm test                          # every tests/*.test.ts via the built-in node:test runner
 #   statusline.test.ts  — payload shapes incl. the documented null cases
 #   scanner.test.ts     — test-quality checks + file classification
-npm run typecheck                 # tsc --noEmit (fetched on demand; skipped when offline)
+npm run typecheck                 # tsc --noEmit (dev-only dep; skipped without node_modules)
+npm run refs                      # every cross-reference resolves — see below
 # + scanner self-audit, SessionStart JSON validity, and a runner-shim probe
 ```
 
+The same gate runs in CI on every push (`.github/workflows/check.yml`), because the other
+machines auto-update from this repo's default branch — a broken push propagates.
+
+**`npm run refs` catches a class nothing else can.** Two shipped bugs were neither syntax
+errors, type errors, nor failing tests — they were *instructions Claude could not follow*:
+a keystone skill marked `disable-model-invocation` (making it user-only while nine skills
+told Claude to load it), and a script path built from `CLAUDE_PLUGIN_ROOT`, which is set for
+hooks but empty in a skill body. The check verifies every `/viby-code:<name>` resolves to a
+skill that exists *and is model-invocable*, that referenced agents and scripts exist, and
+that no skill body expands a hook-only variable.
+
 These are specifications, not smoke tests. Both halves of each contract are pinned: every
-catastrophic command that must be denied **and** every piece of routine work that must be
-allowed; every smell that must be flagged **and** every healthy test that must not be. If
-you add a rule, add cases for both — a guard that blocks real work gets switched off, and a
-scanner that flags good tests gets ignored. Either way it then protects nothing.
+smell that must be flagged **and** every healthy test that must not be. If you add a rule,
+add cases for both — a scanner that flags good tests gets ignored, and then it protects
+nothing. Each suite also declares a `minPassing` count in `tests/run-all.ts`, because
+`node --test` exits 0 for a file whose tests assert nothing.
 
 The must-allow half earns its keep: the test scanner flagged 23 false positives on its own
 fixtures until it learned to blank string literals before matching, then flagged them again

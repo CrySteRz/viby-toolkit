@@ -1,0 +1,64 @@
+name: check
+
+# The other machines auto-update from this repo's default branch, so a broken push
+# propagates. This runs the same gate as `npm run check` locally, on every push.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 22.6 is the floor: below it, `--experimental-strip-types` does not exist and
+      # nothing executable in this repo can run. Pinned to 22.x rather than `latest` so a
+      # future Node release cannot quietly change type-stripping behaviour under us.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      # Dev-only dependencies (typescript, @types/node) exist solely for the typecheck.
+      # Nothing here is needed to RUN the plugin.
+      - run: npm ci
+
+      # Proves the zero-dependency claim: every hook and script must work from a bare
+      # checkout, using only node: builtins. Runs before anything creates node_modules
+      # side effects, and would fail loudly if an import of a package crept in.
+      - name: statusline runs with no node_modules on PATH
+        run: |
+          echo '{"model":{"display_name":"CI"},"context_window":{"used_percentage":42}}' \
+            | node --experimental-strip-types --disable-warning=ExperimentalWarning \
+                plugins/viby-code/hooks/statusline.ts
+
+      - name: runner shim resolves a runtime
+        run: |
+          printf 'console.log("SHIM_OK");\n' > /tmp/sentinel.ts
+          out=$(sh plugins/viby-code/hooks/run.sh /tmp/sentinel.ts)
+          echo "$out"
+          test "$out" = "SHIM_OK"
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: contract tests
+        run: npm test
+
+      - name: scanner self-audit
+        run: npm run scan -- --all
+
+      - name: SessionStart emits valid JSON
+        run: sh plugins/viby-code/hooks/session-start.sh | node -e "JSON.parse(require('fs').readFileSync(0,'utf8'))"
+
+      # Every /viby-code:<name> reference must resolve to a skill that exists AND is
+      # model-invocable. Two shipped bugs were exactly this: a keystone skill made
+      # user-only, and a script path built from a hook-only env var.
+      - name: cross-references resolve
+        run: node --experimental-strip-types --disable-warning=ExperimentalWarning tests/check-references.ts
+
+      # The plugin manifests are validated by the Claude Code CLI, which isn't available
+      # here. Kept as a local-only step in `npm run check`.

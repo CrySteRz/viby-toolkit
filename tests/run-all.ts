@@ -76,6 +76,13 @@ const CHECKS: Check[] = [
     skipUnless: () => existsSync(join(ROOT, "node_modules", ".bin", "tsc")),
     skipNote: "run `npm install` to enable typecheck (dev-only dependency)",
   },
+  // Catches the class of bug no other check can see: an instruction that points at a skill
+  // Claude cannot invoke, or a path built from a variable that is empty in this context.
+  {
+    name: "cross-references resolve",
+    cmd: [...NODE_RUNNER, "tests/check-references.ts"],
+    ok: new Set([0]),
+  },
   {
     name: "SessionStart emits valid JSON",
     cmd: [

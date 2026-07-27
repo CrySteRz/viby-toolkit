@@ -26,6 +26,30 @@ if ! command -v claude >/dev/null 2>&1; then
   exit 1
 fi
 
+# 3. Warn (do NOT fail) if no TypeScript runtime is present. The skills, agents and
+# prompts are plain markdown and work regardless; only the executable extras — the
+# statusline and the test-quality scanner — need a runtime. Silence here would mean
+# installing a toolkit whose scanner never runs and never says why.
+runtime=""
+if command -v node >/dev/null 2>&1; then
+  node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
+  node_minor=$(node -p 'process.versions.node.split(".")[1]' 2>/dev/null || echo 0)
+  if [ "$node_major" -gt 22 ] 2>/dev/null || { [ "$node_major" -eq 22 ] && [ "$node_minor" -ge 6 ]; } 2>/dev/null; then
+    runtime="node $(node --version)"
+  fi
+fi
+if [ -z "$runtime" ] && command -v bun >/dev/null 2>&1; then
+  runtime="bun $(bun --version)"
+fi
+if [ -z "$runtime" ]; then
+  echo "⚠ No TypeScript runtime found (need Node >= 22.6, or bun)."
+  echo "  Skills, agents and commands will work fine — they're plain markdown."
+  echo "  The statusline and the /viby-code:test scanner will silently no-op until you"
+  echo "  install one. Everything else installs normally; continuing."
+else
+  echo "  ✓ TypeScript runtime: $runtime"
+fi
+
 echo "→ Installing $PLUGIN from: $ROOT"
 
 # 3. Register (or refresh) the LOCAL marketplace — points at this folder, no network.
