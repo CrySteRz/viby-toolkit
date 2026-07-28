@@ -89,6 +89,12 @@ const CHECKS: Check[] = [
     ok: new Set([0]),
     minPassing: 18,
   },
+  {
+    name: "api-surface-differ contract",
+    cmd: [...NODE_RUNNER, "--test", "tests/check-api-surface.test.ts"],
+    ok: new Set([0]),
+    minPassing: 20,
+  },
   // The toolkit's own test files must survive its own auditor. 0 = clean, 2 = nothing
   // to scan; 1 (findings) is a failure here because we dogfood a clean suite.
   {

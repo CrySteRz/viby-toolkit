@@ -70,6 +70,22 @@ Then look specifically at what a **consumer** can observe — not at your intern
 
 For a library, list the exported surface before and after and diff **that**, rather than
 reading the whole change. It is faster and it is what the version number actually describes.
+Compute it rather than eyeballing it:
+
+```bash
+SURFACE=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/api/scripts/check-api-surface.ts 2>/dev/null | tail -1)
+RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+sh "$RUN" "$SURFACE" --base "$(git describe --tags --abbrev=0)" src   # exit 1 = breaking
+```
+
+It reports added / removed / re-signatured exports for TS/JS, Python, Go and Rust, tells a
+positional parameter rename (P2) from a real signature change (P1), and lists any
+`export *` barrel it could not follow instead of pretending the surface is complete.
+
+**Its verdict is a floor, not the answer.** It sees syntax; the list above is mostly about
+behaviour, and a function whose signature held while its meaning changed is a major break the
+tool will call a patch. So: if it says major, it is major. If it says minor or patch, you
+still owe the behavioural read.
 
 ## 3. Choose the number, and be willing to say major
 

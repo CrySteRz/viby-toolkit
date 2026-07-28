@@ -90,7 +90,17 @@ Assume you will be wrong about something. Make being wrong cheap:
 - **Test it as a consumer would**, from outside, including the error cases and the limits —
   the internals passing their unit tests says nothing about the surface being right.
 - **Diff the surface** before and after a change. That diff, not the size of the diff in the
-  implementation, is what tells you whether this is breaking.
+  implementation, is what tells you whether this is breaking — and it is mechanical, so run it:
+
+  ```bash
+  SURFACE=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/api/scripts/check-api-surface.ts 2>/dev/null | tail -1)
+  RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+  sh "$RUN" "$SURFACE" --base main src        # added / removed / re-signatured exports
+  ```
+
+  Treat a clean result as *no syntactic break found*, not as *compatible*: the defaults,
+  nullability, ordering and error-contract changes in step 4 are invisible to it, and those are
+  where the quiet breaks live.
 
 ## Output
 

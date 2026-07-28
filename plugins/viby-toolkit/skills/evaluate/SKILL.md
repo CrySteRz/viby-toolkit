@@ -39,6 +39,13 @@ after the first run is picked to be one the front-runner passes. If you cannot s
 ground truth for anything the tool is supposed to do, stop — you have no way to tell
 adoption from theatre.
 
+**Make the oracle executable if you can** — a fixture plus an assertion, not a paragraph. A
+written-down ground truth gets compared by eye once; a test compares it on every change, and
+it is what catches the case where *your own reasoning* about the approach was wrong rather
+than the candidate. This is not a formality: the first real use of this skill in this repo
+refuted its author's design assumption, and it was the executable fixtures that did it
+(`docs/decisions/2026-07-28-api-surface-extraction.md`).
+
 Also record the **baseline**: what it costs to do this the way you do it today. Measure it,
 don't estimate by feel:
 

@@ -1,5 +1,68 @@
 # Changelog
 
+## 2.2.0
+
+Closes the three items that were still open: the missing checker, the unvalidatable claim, and
+`evaluate` never having been run on a real decision. **This is the first release whose version
+number was decided by a tool rather than by eye** — `check-api-surface.ts --base v2.1.0` reports
+five added exports and nothing removed, so: minor.
+
+### New — `check-api-surface.ts` (the missing half of `release`)
+
+`release` says the version number is a promise about the public surface, and then asked for a
+judgement it gave no tool for. This computes the input: added / removed / re-signatured exports
+between two git refs, for TS/JS, Python, Go and Rust.
+
+- Tells a **positional parameter rename (P2)** from a **real signature change (P1)** — calling a
+  rename "MAJOR" is how a differ gets switched off, and then it protects nothing.
+- Respects each language's own visibility rule: Python `_private` and an explicit `__all__`, Go
+  capitalisation, Rust `pub`. `export { a as b }` records the **alias**, since that is what a
+  caller imports.
+- **Reports every `export * from` barrel it could not follow** instead of silently excluding it.
+  Following a re-export needs module resolution, so this has the same blind spot as a
+  tree-sitter code graph — and a surface report that quietly omits part of the surface is worse
+  than no report, because it gets trusted.
+- Prints on every run that it sees **syntax only**: a signature that held while its meaning
+  changed is a major break it will call a patch. A `major` verdict is authoritative; a
+  `minor`/`patch` still owes the behavioural read. Wired into `release` §2 and `api` §5.
+- 20 contract cases; 14 gates now.
+
+### New — `tests/routing-probes.md`, the one test that cannot be automated
+
+30 prompts written the way work actually arrives, each paired with the skill that should fire,
+plus a scoring rubric (≥80% right, zero repeat mis-routes on the same pair) and what to do with
+each failure mode. It is user-in-the-loop by construction: only the human can see which skill
+loaded, and asking the model to self-report its own routing is precisely the self-assessment
+this toolkit treats as a weak signal. Three probes are deliberately ambiguous, including one
+where `none` is the correct answer.
+
+This closes a gap that was **mechanically impossible to test until now**: the installed plugin
+sat stale at 0.3.2 for the whole of development, so the descriptions under test were never the
+descriptions installed. The results table ships empty and honest — until it has rows, live
+routing remains unverified and the limitations section keeps saying so.
+
+### New — the first real `evaluate` run
+
+`docs/decisions/2026-07-28-api-surface-extraction.md` is the skill applied to the decision the
+differ itself required (regex over blanked code vs the TS Compiler API vs diffing export lines),
+not a hypothetical. It doubles as the worked example the skill lacked.
+
+**It refuted its author.** The design assumption was that extracting on blanked code is strictly
+correct, per this repo's rule *decide on parsed code, never raw text*. Two constructs carry their
+value **inside** a string literal — a re-export's module path and Python's `__all__` — which the
+blanking pass erases: the barrel path came out as ten NUL bytes, and `__all__` produced an
+**empty surface**, which would have reported every symbol as removed. The rule needed splitting,
+not abandoning: **decide WHERE from the blanked code, read WHAT from the raw text at the same
+offset** — which works only because the blanking pass preserves offsets, a property that was
+incidental and is now a commented contract. Both bugs were caught by tests written from the
+oracle before the fix.
+
+### Changed
+
+- **`evaluate`** — make the oracle **executable** where you can (fixture + assertion, not a
+  paragraph). Added because the run above only caught the refutation thanks to executable
+  fixtures, and that should be a step rather than a lucky habit.
+
 ## 2.1.0
 
 The four patterns from the source spikes that 1.1.0 left on the table — audited and named
@@ -174,7 +237,8 @@ All five report `unknown` rather than guessing, and exit `0` clean / `1` finding
 
 ### Known limitations
 
-- Live skill routing is unvalidated (above).
+- Live skill routing is unvalidated (above). As of 2.2.0 there is a way to test it —
+  `tests/routing-probes.md` — but its results table is still empty, so the claim stands.
 - No mechanical check catches a skill body that contradicts its own Iron Law; one such
   contradiction was found by hand, and a second by review.
 - `swallowed-error` is the least trustworthy check — 0 of 12 sampled were real on CPython
