@@ -4,8 +4,9 @@ description: >
   Use when writing prose a human will read — "write the README", "document this", "write the PR
   description", "release notes", "write it up for the client", "an ADR for this decision", "explain
   this to the team", "the docs are out of date". Writes for a specific reader with a specific next
-  action. Distinct from /viby-toolkit:study, which researches an open question, and from
-  /viby-toolkit:handoff, which serialises live state for a session rather than for a person.
+  action. Distinct from /viby-toolkit:study, which researches an open question, from
+  /viby-toolkit:handoff, which serialises live state for a session rather than for a person, and from
+  /viby-toolkit:brain, which curates what the agent remembers rather than what a human reads.
 ---
 
 # Docs (write for one reader with one next action)

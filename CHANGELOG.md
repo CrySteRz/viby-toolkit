@@ -1,5 +1,65 @@
 # Changelog
 
+## 2.12.0
+
+New module: **`/viby-toolkit:brain`** — the memory system as an architecture with maintenance, rather
+than a place `learn` writes to. 31 skills, 14 checkers, 22 gates. Researched 2026-07-29; sources in
+`skills/brain/references/methods.md`.
+
+### The taxonomy, and what it revealed about this library
+
+The agent ecosystem converged on the taxonomy cognitive science has used for decades — **episodic /
+semantic / procedural** — and mapping it onto what already existed here was the clarifying part:
+`handoff` is episodic, `learn` is semantic, and **the skills are procedural memory**. Two consequences
+are now doctrine: editing a skill is a memory operation (so it belongs to `extend`), and **most things
+people want to "remember" are episodic** — which is the single biggest cause of a store full of things
+that used to be true.
+
+### Three findings that shaped the rules
+
+- **Retrieval failure is where the errors are.** Across LongMemEval, LoCoMo, STALE and PersonaMem,
+  answer errors concentrate in cases where retrieval failed; retrieval succeeding while the answer is
+  still wrong accounts for only **5.8–13.7%**. So the lever is findability — naming, indexing, entry
+  size — not richer entries. An entry nobody retrieves has no effect at all.
+- **Staleness is the hard, under-measured failure.** A benchmark exists for exactly the question "can
+  agents know when their memories are no longer valid?", and the gap it names is recognising that a
+  previously valid memory has been **rendered obsolete by a structurally related but differently
+  worded observation**. In a coding project a useful slice of that is mechanical: the memory cites a
+  path that no longer exists.
+- **Poisoning is defended with provenance.** The proposed mechanism is reliability-conditional
+  updating with a **provenance cap** — an entry's influence bounded by how well it is sourced. You
+  cannot cap what is not recorded, so provenance, date and outcome are now mandatory per entry. And
+  storing what the user *said* as though it were established is its own benchmarked failure
+  (sycophantic memory).
+
+### New — `check-memory.ts` (15 contract cases)
+
+Audits a store: stale path references, undated entries, entries with no provenance, hearsay recorded
+as fact, entries missing from `MEMORY.md` (and index links pointing at nothing), near-duplicate
+topics, and entries that have grown into documents.
+
+**Benchmarked on five real memory stores, 53 entries — and the benchmark corrected it twice.**
+
+1. The first run reported **23 stale references**. Almost all were false: a store's relative paths
+   belong to *its* project, and every store had been resolved against one repo root. Now
+   self-calibrating — if nothing in a file resolves, it reports `root-unknown` instead of inventing
+   findings. 23 → 6.
+2. Those 6 included two in this repo's own memory that were *also* root artifacts: a memory about a
+   project legitimately cites paths from the repo root, a package subdirectory and home. Fixed by
+   trying the root and two ancestors. 6 → 0 false.
+
+Real signals across the five stores: **24 undated, 34 without provenance**, 4 entries missing from
+their index, 1 duplicate pair — i.e. exactly the two fields the poisoning defence requires are the
+two the existing store mostly lacked.
+
+### Acted on its findings here
+
+This repo's own memory entry was **1,641 words** — a document, not a memory, which drags the whole
+thing into context on any partial match. Split into a core entry (560 words) and a linked inventory,
+both indexed; the undated entry now carries when and how it was established. The inventory is *still*
+flagged as oversized and is **kept deliberately, with the reason recorded in the entry**: it is a
+lookup table retrieved on purpose, and the rule is right for narrative memories and wrong for an index.
+
 ## 2.11.0
 
 A second, deeper pass over the ecosystem — this time the famous *planning* frameworks (BMAD, the
