@@ -167,3 +167,32 @@ test("an empty store is nothing-to-check, not clean", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("same-project notes on the same day are NOT duplicates", () => {
+  // Measured on a real store: under a `project_<name>_<topic>_<date>` convention the shared project
+  // and date tokens dominated the comparison, so two genuinely different notes looked identical.
+  const dir = store({
+    "MEMORY.md": "- [a](project_acme_audit_2026-04-27.md)\n- [b](project_acme_qa_discovery_2026-04-27.md)\n",
+    "project_acme_audit_2026-04-27.md": GOOD,
+    "project_acme_qa_discovery_2026-04-27.md": GOOD,
+  });
+  try {
+    const f = auditStore(dir, os.tmpdir()).findings.map((x) => x.check);
+    assert.ok(!f.includes("duplicate-topic"), `an audit and a QA discovery are different notes: ${f.join()}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("but genuinely duplicated topics are still caught", () => {
+  const dir = store({
+    "MEMORY.md": "- [a](project_acme_deploy_window_2026-04-27.md)\n- [b](project_acme_deploy_schedule_window.md)\n",
+    "project_acme_deploy_window_2026-04-27.md": GOOD,
+    "project_acme_deploy_schedule_window.md": GOOD,
+  });
+  try {
+    assert.ok(auditStore(dir, os.tmpdir()).findings.some((x) => x.check === "duplicate-topic"));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

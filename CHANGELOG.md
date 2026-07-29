@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.13.0
+
+`observe` gets its executable half, and the memory stores get repaired. 15 checkers, 23 gates.
+
+### New — `check-logging.ts` (17 contract cases)
+
+`observe` was pure doctrine. Its P1 is the part that is not a style question at all: **personal data
+or a credential reaching the logs**, and whole request/user objects being logged, where whatever the
+object contains next month goes with it. A log line is the least access-controlled artifact a team
+produces — it fans out to aggregators, alerting, screenshots and third-party dashboards, and it is
+retained long after the request is gone. Nothing errors when an email address lands in it.
+
+Then the existing doctrine, made mechanical: interpolated messages with no structured fields, a
+`catch` that logs without the caught error (the stack is the whole value of the line at 3am),
+arrival logs, identifier-shaped values used as **metric labels** — the cost trap `observe` already
+warned about — logs in tight loops, and files with several events and no correlation key.
+
+**Benchmarked on this repo and three real ones, and it was wrong twice before it was right.**
+
+- **44 findings on this repo across 17 files, every one false.** They were checkers printing their
+  own results in a loop: a CLI's stdout *is* its interface, not telemetry, and a CLI has no request
+  to correlate. Rules that are meaningless in a command-line tool are now skipped there — PII rules
+  still apply, because printing a secret is a disclosure wherever it happens. 44 → 0.
+- **The single `sensitive-in-log` on a real payments codebase was also false**, and worth being
+  precise about: it was a **Stripe checkout session id** — a resource identifier that debugging a
+  payment requires, not an auth credential. `sessionId` is no longer treated as sensitive;
+  `session_token`, `session_secret` and cookies still are. Conflating a resource id with a credential
+  is exactly how a rule teaches its reader to ignore it.
+
+And the same shape as five previous defects, met a sixth time: two rules read *inside* the string
+literal — the interpolation markers of an unstructured message, the word "entering" in an arrival log
+— which the blanking pass removes. Resolved the documented way: locate on parsed code, read the value
+from the raw line, and only offer the raw line to a rule when the *blanked* line proves it is live
+code. Comments and fixtures stay inert.
+
+### Repaired the memory stores it audited last release
+
+Acting on v2.12.0's findings across five real stores: **4 entries were missing from their index** and
+have been indexed using their own frontmatter descriptions as hooks — by the retrieval finding, an
+unindexed entry effectively does not exist. All five stores are now free of findability defects.
+
+And the reported duplicate pair turned out to be **another false positive in the checker**: under a
+`project_<name>_<topic>_<date>` naming convention the shared project and date tokens dominate the
+comparison, so two genuinely different notes about the same project on the same day looked identical.
+Now compares only the distinguishing tokens.
+
 ## 2.12.0
 
 New module: **`/viby-toolkit:brain`** — the memory system as an architecture with maintenance, rather

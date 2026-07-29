@@ -48,6 +48,12 @@ const PROVENANCE =
 /** A claim that rests only on assertion. Sycophantic memory is storing what was said as if true. */
 const HEARSAY = /\b(the user (said|says|thinks|believes|mentioned)|apparently|I think|probably|seems? like|assume[ds]?)\b/i;
 
+/**
+ * Filename tokens that carry no topic: naming-convention prefixes, dates, and the project label that
+ * every entry in a store shares. Including them made same-project notes look like duplicates.
+ */
+const NOISE_TOKEN = new Set(["project", "feedback", "note", "notes", "memory", "user", "client", "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]);
+
 /** A path reference worth resolving: backticked, has a slash, has an extension. */
 const PATH_REF = /`([~\w./-]*\/[\w.-]+\.[a-z]{1,5})(?::\d+)?`/gi;
 /** Placeholders that are illustrations, not references. */
@@ -239,8 +245,18 @@ export function auditStore(dir: string, root: string): { findings: Finding[]; en
       const a = entries[i];
       const b = entries[j];
       if (a === undefined || b === undefined) continue;
-      const ta = new Set(a.replace(/\.md$/, "").split(/[-_]/).filter((w) => w.length > 2));
-      const tb = new Set(b.replace(/\.md$/, "").split(/[-_]/).filter((w) => w.length > 2));
+      // Compare only the DISTINGUISHING tokens. Under a `project_<name>_<topic>_<date>` naming
+      // convention the project and date tokens dominate, so two genuinely different notes about the
+      // same project on the same day looked like duplicates — measured on a real store.
+      const distinguishing = (n: string): Set<string> =>
+        new Set(
+          n
+            .replace(/\.md$/, "")
+            .split(/[-_]/)
+            .filter((w) => w.length > 2 && !/^\d+$/.test(w) && !/^20\d{2}$/.test(w) && !NOISE_TOKEN.has(w.toLowerCase())),
+        );
+      const ta = distinguishing(a);
+      const tb = distinguishing(b);
       if (ta.size === 0 || tb.size === 0) continue;
       const shared = [...ta].filter((w) => tb.has(w)).length;
       const ratio = shared / Math.min(ta.size, tb.size);

@@ -28,6 +28,27 @@ line them up. So the question for every log line and every metric is not "is thi
 information?" but **"does this shorten that correlation?"** Instrumentation that cannot be
 joined to anything else is decoration.
 
+## 0. Audit what is already there before adding more
+
+```bash
+LOG=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/observe/scripts/check-logging.ts 2>/dev/null | tail -1)
+RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+sh "$RUN" "$LOG" src/
+```
+
+P1 is the part that is not a style question: **personal data or a credential reaching the logs**, and
+whole request/user objects being logged, where whatever the object contains next month goes with it. A
+log line is the least access-controlled artifact a team produces — it fans out to aggregators,
+alerting, screenshots and third-party dashboards, and it is retained long after the request.
+
+Then the doctrine below, made mechanical: interpolated messages with no structured fields, a `catch`
+that logs without the caught error, arrival logs, identifier-shaped values used as **metric labels**
+(the documented cost trap), logs in tight loops, and files with several log calls and no correlation
+key. Tests and CLI output are excluded — a command-line tool's stdout is its interface, not telemetry.
+
+It reads field *names*, so it cannot know that a variable called `data` holds an email address, and it
+cannot tell whether your aggregator redacts. A clean run is not a privacy review.
+
 ## 1. Decide what question you are trying to answer
 
 Instrument backwards from the question, never forwards from the code:
