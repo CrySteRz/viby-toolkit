@@ -1,7 +1,7 @@
 # Routing probes — the one test that cannot be automated
 
 Every other check in this repo verifies code. **This one verifies the thing the code cannot
-reach: whether the 22 skill descriptions actually fire on the prompts they claim.**
+reach: whether the 30 skill descriptions actually fire on the prompts they claim.**
 
 `check-skills.ts` measures pairwise description similarity and flags trigger collisions. That
 is a *proxy* — and by this repo's own doctrine a proxy is not the thing. Nothing here has ever
@@ -12,7 +12,7 @@ plugin is current — so this test is now possible for the first time.
 
 ## The 10-minute version
 
-If the full 30 is never going to happen, run **these ten**. They cover the pairs most likely to
+If the full set is never going to happen, run **these ten**. They cover the pairs most likely to
 collide and the three skills that had no lexical hook at all before v2.5.0, so a miss here is
 worth more than a miss anywhere else. One fresh session each, `/clear` between:
 
@@ -45,7 +45,7 @@ treats as a weak signal. So:
 3. Note which skill loaded — right / wrong / none.
 4. `/clear` between probes. A loaded skill biases the next selection.
 
-You do not need to run all 30 in one sitting. Ten probes across three sessions beats a
+You do not need to run them all in one sitting. Ten probes across three sessions beats a
 one-off sweep, because the failures that matter are the ones that recur.
 
 ## Scoring
@@ -100,13 +100,17 @@ that only fires when you name it is a slash command, not a skill.
 | 31 | "the page is blank after my change, check the UI" | `ui` |
 | 32 | "does this look right on mobile?" | `ui` |
 | 33 | "add a skill to the toolkit for handling database seeds" | `extend` |
+| 34 | "the client wants a KPI dashboard, what should we track" | `kpi` |
+| 35 | "our dashboard revenue doesn't match what finance says" | `analytics` |
+| 36 | "write the README for this repo" | `docs` |
+| 37 | "dependabot opened 30 PRs, deal with them" | `deps` |
 
 ## What to do with the results
 
 - **A `wrong` result** → edit the *loser's* description to name the winner as the sibling to
   use instead, and vice versa. A mutual cross-reference is the disambiguation; `check-skills.ts`
   exempts mutually-referencing pairs from shadowing for exactly this reason.
-- **A `none` on probes 1–27** → the description is missing the phrasing a real user reaches
+- **A `none` on an explicit probe** → the description is missing the phrasing a real user reaches
   for. Add the phrasing, not more explanation.
 - **Anything learned** → `/viby-toolkit:learn`, so the next round starts from the last one.
 - Record the run below. An empty results table means this claim is still unverified, and the

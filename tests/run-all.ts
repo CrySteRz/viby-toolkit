@@ -102,6 +102,12 @@ const CHECKS: Check[] = [
     minPassing: 28,
   },
   {
+    name: "analytics-sql contract",
+    cmd: [...NODE_RUNNER, "--test", "tests/check-analytics-sql.test.ts"],
+    ok: new Set([0]),
+    minPassing: 25,
+  },
+  {
     name: "test-drift contract",
     cmd: [...NODE_RUNNER, "--test", "tests/check-test-drift.test.ts"],
     ok: new Set([0]),

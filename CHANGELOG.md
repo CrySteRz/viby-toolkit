@@ -1,5 +1,83 @@
 # Changelog
 
+## 2.7.0
+
+Four new skills — two for the client KPI-dashboard work, two closing named gaps — and one new
+checker. 30 skills, 10 checkers, 18 gates, 259 contract cases. Researched 2026-07-29; sources and
+their strength labelled in `skills/kpi/references/methods.md`, including an explicit note that most
+of the metric-design evidence is **practitioner consensus, not measurement**.
+
+### `/viby-toolkit:kpi` — define the number before anyone builds it
+
+The client dashboard failure sequence is predictable: definitions never written down → two
+dashboards disagree → nobody trusts either → the dashboard becomes a screenshot in a deck. All of it
+is decided before any code.
+
+- **Every KPI names the decision it serves.** If nobody would act differently on the answer, it is
+  decoration — a footnote, not a tile. The question that saves the engagement: *"when this number is
+  bad, what happens next?"*
+- **One north star, dozens of KPIs, a guardrail on each.** KPIs answer "is the engine running", the
+  north star answers "are we going the right way". And the rule that earns its place: *"every KPI
+  should have at least one counter-metric — if a target can improve while harm increases, it's
+  incomplete."* Because when a measure becomes a target it ceases to be a good measure — "reduce
+  average handling time" works until it rewards hanging up on customers. Write down the laziest way
+  to game it; that sentence usually writes the guardrail.
+- **The metric contract**: name and the client's aliases, question, formula with exclusions, grain,
+  time basis *and timezone*, window and comparison, filters, owner, guardrail, target. In git, not
+  in a BI tool's description field — because definition drift is what actually destroys trust:
+  "each definition is technically correct in isolation; collectively, they erode trust."
+- **Dashboard as questions**: the question in the chart title, every figure carrying a comparison
+  (a number with no baseline is not information), refresh time and timezone on the page, no dual
+  axes, and a drill-down path for every tile.
+
+### `/viby-toolkit:analytics` — a number is not done until it reconciles
+
+- Implement **once**, in the transformation layer, layered so the grain is explicit at each step —
+  most "the totals don't add up" bugs are an undeclared grain change.
+- Prove in three layers: **unit tests on hand-built fixtures** (boundary timestamp, NULL, refund,
+  duplicate, one-to-many), **rules the data must obey** (PK uniqueness, not-null on the grain key,
+  ranges — a conversion rate above 1 is a bug), and **reconciliation against an independent source**
+  with the residual delta explained, because an unexplained delta is where trust dies.
+- Then guard against silence: **freshness** checks catch the failure where "a source stops updating
+  but the pipeline keeps running without errors", **volume** checks catch abnormal shrink or growth.
+- The traps a linter can't see are named too: identity stitching, late/out-of-order data and the
+  restatement policy, event vs ingest time, soft-deleted rows, mixed currency, and whether history
+  shows what a dimension *was* or what it *is*.
+
+### New — `check-analytics-sql.ts` (25 contract cases)
+
+Eleven patterns that return a plausible **wrong** number instead of an error: `BETWEEN` on time
+(closed at both ends, so monthly figures stop summing to the annual one), `COUNT(*)` after a
+fan-out join, division with no `NULLIF`, `DATE_TRUNC` without a timezone, `= NULL`, float money,
+`NOW()` in a definition, plain `UNION` de-duplicating, `SELECT *`, `DISTINCT` papering over a
+fan-out, unbounded fact-table scans. Every rule names the safe alternative.
+
+**Precision measured on real client code, and it mattered.** First run on a real 62-file data repo:
+**126 findings, 117 of them one rule** — `now-in-definition` at 93% of the total, every one
+legitimate, because `NOW()` in a migration default or a dated backfill is correct SQL. `= NULL` was
+also firing on `SET col = NULL`, which is assignment, not comparison. Both narrowed; the same repo
+now yields **8**. The fixtures had agreed with their author, which is exactly why the doctrine says
+validate against a large real corpus.
+
+Also found by its own tests: `\b` placed *after* `NOW()` can never match, because `)` is not a word
+character — the rule had silently never fired.
+
+### Gaps closed
+
+- **`/viby-toolkit:docs`** — write for one reader with one next action. Seven genres with their
+  reader and next action, and a refusal to mix them; run every command from a clean state; document
+  the failure mode with the verbatim error. An ADR's value is entirely the alternatives rejected.
+- **`/viby-toolkit:deps`** — one dependency per change, breaking changes of every major crossed read
+  before code is touched, queue sorted by *why* not by staleness. Thirty bot PRs are not thirty
+  tasks. A dependency you cannot upgrade is a recorded decision with an unsticking condition.
+- **Data correctness** is now `analytics`; the **build-phase instrumentation** gap remains open and
+  is the one I did not close.
+
+### Also
+
+Five probes added (37 total, all ranking first). `deps` and `migrate` landed in the shadowing-watch
+band on arrival — fixed the documented way, by making their cross-reference mutual.
+
 ## 2.6.0
 
 The four gaps from the last review, closed — three of them fully, the fourth reduced to a

@@ -5,7 +5,9 @@ description: >
   framework version bump, a pattern migration, or any sweep touching many files. Use when
   the user says "rename X everywhere", "migrate", "upgrade", "replace all", "codemod", or
   the edit is repetitive across the codebase. Distinct from refactor, which restructures ONE
-  area without changing behaviour, and from schema, which changes a database.
+  area without changing behaviour, from schema, which changes a database, and from
+  /viby-toolkit:deps, which moves the dependency version itself — come here for the wide code
+  sweep that a version bump then demands.
 ---
 
 # Migrate (wide, mechanical, verified)
