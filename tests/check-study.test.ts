@@ -318,3 +318,17 @@ test("an unreadable file is reported, never silently treated as clean", () => {
   assert.ok(parsed.findings.some((f) => f.check === "unreadable"), p.stdout);
   assert.equal(p.status, 1);
 });
+
+test("a figure in a section reporting the document's OWN benchmark needs no external citation", () => {
+  // Largest false-positive class, found by running this on two real human-written research docs:
+  // 28 of 34 unsourced-figure findings were in a section headed "Benchmarked on our own repo",
+  // where every number WAS the author's measurement. Demanding a citation for your own result is
+  // wrong, and it trains the reader to ignore the check.
+  const f = checks("\n## Benchmarked on our own repo\n\nThe index resolved 0 of the 2 cross-app importers, and the query cost 380 tokens.\n");
+  assert.ok(!f.includes("unsourced-figure"), `self-measured sections are self-sourced: ${f.join()}`);
+});
+
+test("a figure in an ordinary section still needs a citation", () => {
+  const f = checks("\n## Background\n\nThe best model reaches 41.58% on this task.\n");
+  assert.ok(f.includes("unsourced-figure"), "the must-flag half of the same rule");
+});

@@ -57,6 +57,15 @@ const HEDGES = [
 const NOT_MEASURED_HEADING = /\b(not |un)(verified|tested|measured|proven)|limitation|open question|caveat|unknown|future work/i;
 const MEASURED_HEADING = /\b(measur|benchmark|result|finding|verified|tested|experiment|data)/i;
 
+/**
+ * A section reporting the document's OWN measurement. Figures there need no external citation —
+ * the document IS the source. Demanding one is wrong, and it is the largest false-positive class
+ * this checker had: run against two real human-written research documents it produced 34
+ * unsourced-figure findings, 28 of them in a section headed "Benchmarked on our own repo" whose
+ * every number was the author's own measured result.
+ */
+const SELF_MEASURED = /\bbenchmark(ed)?\b|\bwe (?:ran|measured|tested|built|stood up)\b|\bour own (?:repo|code|data|machine)\b|\bmeasured (?:here|locally|on|against)\b|\btest run\b|\bresults? \d|\bon (?:this|our) repo\b/i;
+
 function presentedAsMeasured(heading: string): boolean {
   return MEASURED_HEADING.test(heading) && !NOT_MEASURED_HEADING.test(heading);
 }
@@ -172,6 +181,8 @@ export function checkStudy(text: string, mode: Mode = "study"): Finding[] {
 
   // ---- per-line checks
   let currentHeading = "";
+  /** The heading plus the first few lines under it — where a section declares its own benchmark. */
+  let sectionHead = "";
   /** The last ordinary sentence before a list or table — its citation covers the block it
    *  introduces. Without this, "All three from [source]:" followed by three bullets reports
    *  three unsourced figures, which trains the reader to ignore the check. */
@@ -200,6 +211,7 @@ export function checkStudy(text: string, mode: Mode = "study"): Finding[] {
     if (inCode[i] === true) continue;
     if (/^\s*#{1,6}\s+/.test(line)) {
       currentHeading = line;
+      sectionHead = line;
       introLine = "";
       introEnd = -99;
       prevPara = "";
@@ -207,6 +219,7 @@ export function checkStudy(text: string, mode: Mode = "study"): Finding[] {
       continue;
     }
 
+    if (sectionHead.length < 600) sectionHead += "\n" + line;
     const urls = [...line.matchAll(URL_RE)].map((m) => m[0]);
     for (const u of urls) {
       urlCount += 1;
@@ -254,8 +267,10 @@ export function checkStudy(text: string, mode: Mode = "study"): Finding[] {
       if (undatedCitations === 1) firstUndated = i + 1;
     }
 
+    const selfMeasured = SELF_MEASURED.test(currentHeading) || SELF_MEASURED.test(near) || SELF_MEASURED.test(sectionHead);
     if (
       FIGURE.test(blankDates(line)) &&
+      !selfMeasured &&
       !HAS_URL.test(near) &&
       !/\[[^\]]+\]\([^)]+\)|\barXiv\b|\bDOI\b|\bfetched\b|\bmeasured (?:here|locally|on)\b|\bref\b|\[\^?\d+\]|§/i.test(near)
     ) {

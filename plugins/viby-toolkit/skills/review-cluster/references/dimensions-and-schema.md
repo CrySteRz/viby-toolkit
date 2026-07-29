@@ -45,7 +45,8 @@ skill metadata.
 - **performance** — only on hot paths: N+1, work in loops, blocking I/O, allocations. A
   performance *claim* in the diff needs a measurement: agent-authored performance PRs
   validate by static reasoning 67.2% of the time and report benchmarks only 25% of the time
-  (vs 49% for humans), so treat an unmeasured "this is faster" as unverified. Route real work
+  (vs 49% for humans — [arXiv 2512.21757](https://arxiv.org/abs/2512.21757)), so treat an
+  unmeasured "this is faster" as unverified. Route real work
   to `/viby-toolkit:perf`.
 
 **Reviewing a refactor?** Models judge refactorings by surface features — they show a
@@ -97,7 +98,8 @@ Each candidate finding is an object:
 ## Confidence rubric (behavioural anchors — EVIDENCE-BACKED, not self-assessed)
 
 `/viby-toolkit:principles` says a self-reported confidence must never be the gate, and agents are
-measurably overconfident (some succeeding 22% of the time predict 77%). So this number is not
+measurably overconfident — some succeeding 22% of the time predict 77% success
+([arXiv 2602.06948](https://arxiv.org/abs/2602.06948)). So this number is not
 an opinion the validator forms about itself — it is a **summary of what was established**, and
 each anchor names the evidence that earns it. A validator that cannot point to the evidence for
 an anchor must use the lower one.

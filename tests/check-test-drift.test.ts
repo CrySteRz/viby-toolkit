@@ -301,3 +301,27 @@ test("CLI: the report states that counts are not proof of preserved behaviour", 
     cleanup(dir);
   }
 });
+
+test("a moved test file is P3 when the suite grew on both counts, P2 otherwise", () => {
+  // Measured on a real 30-commit range: 4 renames produced 4 P2 findings, none of them a problem.
+  // "The net is bigger than it was" is strong evidence nothing was lost.
+  const grown = repo(
+    { "a.test.ts": TWO_TESTS },
+    { "a.test.ts": null, "tests/a.test.ts": TWO_TESTS + 'test("extra", () => {\n  expect(1).toBe(1);\n});\n' },
+  );
+  try {
+    const hit = checkTestDrift(grown, "HEAD", [grown]).findings.find((f) => f.check === "test-file-moved");
+    assert.ok(hit, "the move is still reported");
+    assert.equal(hit.severity, "P3", "but at P3, because the suite grew");
+  } finally {
+    cleanup(grown);
+  }
+
+  const flat = repo({ "a.test.ts": TWO_TESTS }, { "a.test.ts": null, "tests/a.test.ts": TWO_TESTS });
+  try {
+    const hit = checkTestDrift(flat, "HEAD", [flat]).findings.find((f) => f.check === "test-file-moved");
+    assert.equal(hit?.severity, "P2", "a move with no growth stays P2 — confirm it really moved");
+  } finally {
+    cleanup(flat);
+  }
+});

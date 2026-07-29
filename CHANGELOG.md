@@ -1,5 +1,66 @@
 # Changelog
 
+## 2.8.0
+
+**Benchmarked every checker that had never met code outside this repo.** Five of them hadn't.
+Four defects found, all of them the kind only real data exposes.
+
+### The estimator's accuracy claim was false, and is now measured
+
+`measure-read-cost.ts` claimed "±15% on ordinary source" — reasoned, never verified. Installed
+`tiktoken` in a throwaway venv and ran **400 real files** (TypeScript, TSX, SQL, YAML, JSON,
+Markdown, shell, from four working repositories) through `cl100k_base` as ground truth.
+
+The claim was wrong: **33% of files fell outside ±15%**, and every ratio was biased low —
+systematically over-estimating by ~9%. Recalibrated from the measurement (code 3.6→3.95, prose
+4.0→4.25, data 3.1→3.55, plus a `.sql` override at 4.15, since SQL tokenises far looser than
+general code and was over-estimated by 16%):
+
+| kind | median error | p90 \|error\| | within ±15% |
+|---|---|---|---|
+| code | −1.1% | 13.5% | 93% |
+| prose | +0.1% | 5.4% | 100% |
+| data (yaml/json) | 0.0% | 39.7% | 68% |
+| **overall** | **−0.5%** (was +8.8%) | 17.5% | **85%** (was 67%) |
+
+The documented claim is now the measured table, and per-file JSON/YAML carries its own caveat —
+the errors cancel across a set, so use it on a directory, not on one config file.
+
+**The ground-truth test taught something better than it was written to check.** Four hand-written
+fixtures were meant to pin the calibration; they all failed, because **synthetic text tokenises
+nothing like real files** — clean repeated prose measured 5.2 chars/token (23% looser than real
+markdown, which carries links, code spans and punctuation) and a dense hand-written SQL snippet
+measured 3.3 (20% tighter than real `.sql`). So the test now pins the *constants* against their
+recorded calibration and pins the lesson itself: **never re-derive these from fixtures you wrote,
+because fixtures agree with their author.**
+
+### `check-study.ts`: 38 → 21 findings on real research documents
+
+Run against two genuinely human-written research documents, it produced 38 findings — and **28 of
+the 34 `unsourced-figure` hits were in a section headed "Benchmarked on our own repo"**, where every
+number *was* the author's own measurement. Demanding an external citation for your own result is
+wrong. It now recognises a self-measurement section and attributes figures there to the document
+itself. The remaining findings look real, including a genuine missing "what would change my mind".
+
+Then it caught two unsourced research figures in **this repo's own** reference file, which are now
+cited.
+
+### `check-test-drift.ts`: a rename is not a regression
+
+On a real 30-commit range it correctly read the suite as grown (116 → 140 tests, 173 → 265
+assertions) but reported 4 P2 findings for 4 renamed files. A move is now **P3 when the suite grew
+on both counts** — "the net is bigger than it was" is strong evidence nothing was lost — and stays
+P2 when it didn't.
+
+### Clean on first contact
+
+- **`check-release.ts`** on four real repos: every finding true (real dirty trees, real missing CI),
+  no noise, no crashes.
+- **`check-api-surface.ts`** on real history: correct additive-MINOR verdicts with real symbols.
+- **`check-skills.ts`** on *other people's* skill libraries — three shipped official plugins — where
+  it found real shadowing pairs and a **duplicate trigger phrase between two skills of the same
+  published plugin**. Strong evidence it isn't merely tuned to the library it was written for.
+
 ## 2.7.0
 
 Four new skills — two for the client KPI-dashboard work, two closing named gaps — and one new
