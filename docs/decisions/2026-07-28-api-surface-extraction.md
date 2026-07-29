@@ -2,7 +2,11 @@
 
 > Status: **measured on this repo** (2026-07-28, commit `27f342c`) · 3 candidates, 2 measured
 > directly, 1 rejected on a stated bar without being run · oracle = 4 fixture files with a
-> hand-established surface · **1 claim from my own design sketch refuted by the run**.
+> hand-established surface · **1 claim from my own design sketch refuted by the run** · evidence
+> is a **local measurement, no external citations** — stopping rule: *exhaustion*, three
+> approaches are the whole viable population for a zero-dependency TypeScript checker · what
+> would change the answer: a fixture where regex-over-blanked-code loses to a text diff, or the
+> zero-runtime-dependency constraint being lifted.
 
 This is `/viby-toolkit:evaluate` run on a real decision — the one the differ itself required —
 rather than on a hypothetical. It is also the skill's first live use, so its own failure modes

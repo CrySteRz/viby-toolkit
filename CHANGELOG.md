@@ -1,5 +1,95 @@
 # Changelog
 
+## 2.3.0
+
+New module: **`/viby-toolkit:study`** — you bring an idea, it produces the protocol first
+(question, competing answers, the observation that would exclude one, the stopping rule) for
+approval, then the study document. Version decided by the tool again: five added exports,
+nothing removed → minor.
+
+Researched 2026-07-29 across nine sources, of which four were fetched and read directly and the
+rest are search-summaries — labelled individually in `skills/study/references/methods.md`,
+including one **fetch failure recorded rather than hidden** (the Garousi MLR paper: PDF returned
+unparseable binary, abstract page had no criteria, so only its definition is cited).
+
+### The finding that shaped the whole module
+
+Deep-research citations keep **link validity above 94%** and topical **relevance above 80%**
+while achieving only **39–77% factual accuracy** — the cited page exists, is on-topic, and does
+not say what it was cited for ([arXiv 2605.06635](https://arxiv.org/html/2605.06635), fetched).
+Reported citation-hallucination rates across deployed models run **11–57%**.
+
+So checking that a link resolves is nearly worthless as verification, and the Iron Law is: every
+claim carries the **quoted sentence** that supports it, with the date it was fetched. That is the
+same grounding gate `review-cluster` already applies to code findings, pointed at prose.
+
+### What the skill is built on
+
+- **Decision before study** — value-of-information reasoning: perfect information is worth only
+  what it changes, so if every answer implies the same action, don't run the study. Depth scales
+  to the cost of being wrong.
+- **PICOC** (Kitchenham & Charters) to turn an idea into an answerable question. Comparison and
+  Context are the two people skip, and the two that make an answer transferable to *your* case.
+- **Protocol before searching**, preregistration-style — and the framing that makes it usable:
+  *a protocol is not a promise to follow it, it is a promise to be transparent about where you
+  deviated*, with an explicit Exploratory section. This is the anti-HARKing device: a hypothesis
+  formed after the evidence but presented as the motivation is how false conclusions get shipped.
+- **Strong inference** (Platt 1964, on Chamberlin 1890): list 2–4 competing answers, then design
+  the observation that **excludes** one. If no finding could exclude anything, it isn't a study
+  design. Chamberlin's stated motive is the reason it's in there — you fall in love with a
+  favourite hypothesis and fit all evidence to it, which feels exactly like doing research.
+- **Search on several angles, then snowball** (backward through references, forward through
+  citers), and **stop by a rule you named**: saturation, effort-bounded (state the N), or
+  exhaustion. "I got tired" is effort-bounded — label it that way.
+- **One query that argues the opposite**, because leading phrasing skews retrieval and pulls a
+  model toward the stance it was handed.
+- **AACODS** for source appraisal (Authority, Accuracy, Coverage, Objectivity, Date,
+  Significance) — built for grey literature, which is where engineering knowledge actually lives.
+  Then **GRADE**'s four transferable downgrade domains, with **indirectness** promoted to the big
+  one: a number measured on someone else's stack is the default situation, not an edge case.
+- **Vendor numbers are a claim about a different question.** Documented gap: best systems ~14%
+  Precision@1 on an independent benchmark versus 98%+ claimed by vendors on nominally the same
+  task. A vendor figure is a hypothesis to reproduce, never a result to cite.
+- **Audit the trajectory, not the answer** (PING: propagation, intent, noise-induced, grounding).
+  A mis-framed sub-question reaches the conclusion looking clean.
+- **Sources rot** — 38% of 2013 pages gone, 25% of pages that existed 2013–2023 gone, 54% of
+  Wikipedia pages carrying a dead reference — so quote and date-stamp at fetch time.
+
+### New — `check-study.ts` (28 contract cases, 15 gates)
+
+Audits a research document's form: unsourced figures, hedged language inside a section presented
+as measured, missing status line / falsifier / stopping rule / evidence labels, single-domain
+sourcing, undated citations. It deliberately does **not** score quality — LLM-defined rubrics
+misalign with expert judgement, are coarse, and push the judge onto unverifiable knowledge — and
+it prints on every run that it checks **form, not truth**, since it cannot tell whether a quote
+is real, which is the check that matters most.
+
+Two design decisions worth recording:
+
+- **Mode is inferred from path and title, never from the document's own fields.** A study missing
+  its status line must not thereby opt out of the other checks — one absent field disarming the
+  gates meant to catch it is a defect class this repo has shipped once already.
+- **In a table, every row carries its own source.** Strict on purpose: that rule caught a
+  genuinely unsourced row in this release's own evidence table, which whole-table attribution
+  would have passed.
+
+### Found by running it on its own documents
+
+Five real defects, four in the checker and one in the prose:
+
+1. A `/g` regex used with `.test()` — `lastIndex` advances between calls, so the same input
+   alternates true and false.
+2. `2026` is a four-digit number, so **every date-stamped citation tripped the unsourced-figure
+   check** — the checker punished the exact habit it exists to encourage.
+3. Mode inference was **backwards**: the reference file was held to the full study contract
+   because its title contains the word "study", while the real decision record got the weaker
+   audit.
+4. Blank lines were treated as *starting* a block, so no paragraph after a blank line was ever
+   recognised as a block start and "the sentence introducing this list" never resolved — every
+   properly-introduced list of figures reported one finding per bullet.
+5. The intro sentence then persisted document-wide, so one early URL silently sourced every list
+   and table below it. Now bounded to the block directly beneath it.
+
 ## 2.2.0
 
 Closes the three items that were still open: the missing checker, the unvalidatable claim, and

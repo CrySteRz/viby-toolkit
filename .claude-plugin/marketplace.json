@@ -12,7 +12,7 @@
       "name": "viby-toolkit",
       "source": "./plugins/viby-toolkit",
       "description": "Orchestrator + brainstorm gate + grounded review cluster with false-positive filter + evidence-gated verification + test design and QA auditing + debugging + migration + compounding-memory for any stack. TypeScript, zero dependencies.",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "author": {
         "name": "Ionut-Marian Blidaru"
       },

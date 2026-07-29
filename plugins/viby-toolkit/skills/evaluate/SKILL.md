@@ -7,7 +7,8 @@ description: >
   this actually save us anything". Produces a decision record measured against a case whose
   answer you already know, with the rejections and the back-out path recorded. Distinct from
   brainstorm, which decides WHAT to build, and plan, which decides HOW to build it — this
-  decides what to ADOPT, including "nothing".
+  decides what to ADOPT, including "nothing". Distinct from /viby-toolkit:study, which answers an
+  open question from external evidence — start there when there is no shortlist yet.
 ---
 
 # Evaluate (measure it on a case you already know the answer to)
