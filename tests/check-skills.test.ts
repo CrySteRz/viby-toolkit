@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkListingBudget, checkSkills, listingBudgetChars, loadSkills } from "../plugins/viby-toolkit/skills/principles/scripts/check-skills.ts";
+import { checkListingBudget, checkProgressiveDisclosure, checkSkills, listingBudgetChars, loadSkills } from "../plugins/viby-toolkit/skills/principles/scripts/check-skills.ts";
 
 function library(skills: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skills-"));
@@ -164,7 +164,7 @@ test("the listing budget matches the constants in the Claude Code binary, not th
 });
 
 test("a description past the 1,536-char per-skill cap is a P1, because the tail is silently cut", () => {
-  const long = { name: "x", description: "y".repeat(1_600), triggers: [], modelInvocable: true, directives: 0 };
+  const long = { name: "x", description: "y".repeat(1_600), triggers: [], modelInvocable: true, directives: 0, bodyLines: 1, bodyWords: 1, hasReferences: false };
   const f = checkListingBudget([long]);
   assert.ok(f.some((x) => x.check === "description-over-cap" && x.severity === "P1"), "over-cap must be P1");
 });
@@ -182,5 +182,22 @@ test("a skill name containing a regex metacharacter still gets the cross-referen
   assert.ok(
     !f.some((x) => x.check === "shadowing" || x.check === "shadowing-watch"),
     `a mutually-disambiguated pair must be exempt regardless of metacharacters, got ${JSON.stringify(f)}`,
+  );
+});
+
+test("progressive disclosure: a 500+ line body is P2, and references/ excuses a long-but-split one", () => {
+  // Anthropic's stated limit, fetched 2026-07-29: "Keep the SKILL.md body under 500 lines."
+  const base = { name: "x", description: "d", triggers: [], modelInvocable: true, directives: 0 };
+  const huge = { ...base, bodyLines: 620, bodyWords: 5_000, hasReferences: true };
+  assert.ok(
+    checkProgressiveDisclosure([huge]).some((f) => f.check === "body-over-500-lines"),
+    "past 500 lines is a finding even when references/ exists — the BODY is what loads",
+  );
+  const split = { ...base, bodyLines: 200, bodyWords: 2_500, hasReferences: true };
+  assert.deepEqual(checkProgressiveDisclosure([split]), [], "a long body that HAS been split is fine");
+  const unsplit = { ...base, bodyLines: 200, bodyWords: 2_500, hasReferences: false };
+  assert.ok(
+    checkProgressiveDisclosure([unsplit]).some((f) => f.check === "no-progressive-disclosure"),
+    "long and unsplit is worth a nudge",
   );
 });

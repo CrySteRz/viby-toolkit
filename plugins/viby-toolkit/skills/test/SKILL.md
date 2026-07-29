@@ -155,34 +155,12 @@ reviewing the tests by hand. Never report a clean audit you did not actually run
 Flags no-assertion tests, tautologies, over-mocking, `.only`/`.skip` left in, sleep-based
 waits, and swallowed errors — with `file:line`. Exit 1 on findings, so it can gate.
 
-**Trust the checks unequally — these are measured numbers, not guesses.** Audited against
-real suites (CPython's ~1,100 files, plus vuejs/core and vitejs/vite):
-
-| Check | Confidence | Notes |
-|---|---|---|
-| `tautology`, `focused-or-skipped` | **high** | clean in every sample; act on these directly |
-| `over-mocking`, `sleep-wait` | medium | real signal, but judgement calls — a zero-delay `setTimeout` tick-flush and a poll's timeout guard are excluded as legitimate |
-| `no-assertion` | medium | it now follows delegation into base classes and mixins in other files, which was the largest false-positive source; the remaining classes are below |
-| `swallowed-error` | **lowest** | 0 of 12 sampled were real on Python. Kept because empty `catch {}` in JS is a genuine smell; treat every hit as a question |
-
-**Known blind spots — a clean scan is not proof.** The scanner matches text, so it cannot
-see: assertions inside a **context manager's `__exit__`**; assertions in a **native
-extension** or an external script; and **JSX text nodes**, which are not a string context,
-so prose inside `<div>…</div>` mentioning `it.skip` can still be flagged.
-
-**Cross-file delegation is handled, with limits.** It resolves relative imports, dotted
-Python package paths, and shared-infrastructure modules in the same directory, then indexes
-which of their declarations provably assert — so `self.checkParam(...)` asserting via a
-mixin in another module is recognised. Two deliberate constraints: imported names count
-**only when called through a receiver** (`self.x()`, `this.x()`, `cls.x()`), since that is
-how inherited helpers are always invoked and the restriction stops a generically-named
-shared helper from excusing unrelated calls; and resolution stops at 12 related files per
-scanned file. A helper reached some other way — a deep package alias, a dynamic import, a
-base class installed at runtime — still won't resolve.
-
-So: every finding is a heuristic. **Confirm against the code before changing anything**,
-exactly as the review cluster's grounding gate requires — and never report a clean scan as
-evidence that the tests are good, only that these specific defects were not found.
+**Every finding is a heuristic, and they are not equally reliable.** `tautology` and
+`focused-or-skipped` were clean in every sample and can be acted on directly; `swallowed-error`
+was 0-for-12 on Python and is only ever a question. The measured confidence per check, the known
+blind spots, and the limits of its cross-file delegation are in
+`references/scanner-confidence.md` — read it before acting on a finding, and never report a
+clean scan as evidence that the tests are good, only that these defects were not found.
 
 Then judge the suite on signal, not size:
 

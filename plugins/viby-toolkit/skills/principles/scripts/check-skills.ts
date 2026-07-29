@@ -35,6 +35,9 @@ export type Skill = {
   triggers: string[]; // quoted phrases a user might literally type
   modelInvocable: boolean;
   directives: number; // simultaneous instructions the body asks the model to honour
+  bodyLines: number;
+  bodyWords: number;
+  hasReferences: boolean;
 };
 
 /**
@@ -157,7 +160,18 @@ export function loadSkills(dir: string): Skill[] {
     for (const line of body.split("\n")) {
       if (/^\s*[-*]\s+\S/.test(line) || /^\s*\d+\.\s+\S/.test(line)) directives += 1;
     }
+    const bodyLines = body.split("\n").length;
+    const bodyWords = body.split(/\s+/).filter(Boolean).length;
+    let hasReferences = false;
+    try {
+      hasReferences = fs.readdirSync(path.join(dir, entry, "references")).some((f) => f.endsWith(".md"));
+    } catch {
+      hasReferences = false;
+    }
     out.push({
+      bodyLines,
+      bodyWords,
+      hasReferences,
       name: yamlField(fm, "name") || entry,
       description,
       triggers: triggerPhrases(description),
@@ -305,9 +319,45 @@ export function checkListingBudget(skills: Skill[], contextTokens = 200_000): Fi
   return findings;
 }
 
+/**
+ * Progressive disclosure. Anthropic's own guidance, fetched 2026-07-29: "Keep the SKILL.md body under
+ * 500 lines for optimal performance. If your content exceeds this, split it into separate files using
+ * the progressive disclosure patterns" — and, on nesting: "Claude may partially read files when
+ * they're referenced from other referenced files… Keep references one level deep from SKILL.md."
+ *
+ * The word threshold is the softer signal and it is P3 on purpose: a long body is only a problem if
+ * none of it has been moved out, and what counts as "too long" depends on how often the skill loads.
+ */
+const BODY_LINES_MAX = 500;
+const BODY_WORDS_WATCH = 1_800;
+
+export function checkProgressiveDisclosure(skills: Skill[]): Finding[] {
+  const findings: Finding[] = [];
+  for (const s of skills) {
+    if (s.bodyLines > BODY_LINES_MAX) {
+      findings.push({
+        check: "body-over-500-lines",
+        severity: "P2",
+        skills: [s.name],
+        message: `${s.bodyLines} lines — past Anthropic's stated ${BODY_LINES_MAX}-line limit for a SKILL.md body`,
+        detail: "move the sections only needed at point of use into references/, one level deep",
+      });
+    } else if (s.bodyWords > BODY_WORDS_WATCH && !s.hasReferences) {
+      findings.push({
+        check: "no-progressive-disclosure",
+        severity: "P3",
+        skills: [s.name],
+        message: `${s.bodyWords} words in one body with no references/ — every word loads whenever the skill fires`,
+        detail: "split the parts a reader only needs once they are acting on that section",
+      });
+    }
+  }
+  return findings;
+}
+
 export function checkSkills(dir: string): { skills: Skill[]; findings: Finding[] } {
   const skills = loadSkills(dir);
-  const findings: Finding[] = [...checkListingBudget(skills)];
+  const findings: Finding[] = [...checkListingBudget(skills), ...checkProgressiveDisclosure(skills)];
 
   for (const s of skills) {
     if (s.description.trim() === "") {

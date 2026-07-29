@@ -159,3 +159,45 @@ train/test split and 3 repetitions per query. **Use that instead of hand-rolling
 3. Anthropic publishes **no routing-accuracy curve versus skill count**. The docs assert 100+ skills
    work and give no number, so "measure it yourself" is the actual state of the art — and the
    listing-budget mechanism, not description wording, is the first thing to measure.
+
+---
+
+## Follow-through: the progressive-disclosure sweep
+
+Done the same day, against the guidance quoted above.
+
+| Skill | body before | after | cut | loaded by N siblings |
+|---|---|---|---|---|
+| `principles` | 2,774 w / 267 l | **1,248 w / 133 l** | **−55%** | **29 of 30** |
+| `study` | 1,795 w / 179 l | 1,358 w / 138 l | −24% | 2 |
+| `test` | 1,906 w / 201 l | 1,651 w / 179 l | −13% | 11 |
+| `evaluate` | 1,820 w / 183 l | 1,643 w / 166 l | −10% | 6 |
+| `adopt` | 1,777 w / 183 l | 1,668 w / 172 l | −6% | 2 |
+
+`principles` was the whole point: it is loaded by 29 of the 30 other skills, so it was the worst
+words-per-load ratio in the library by a wide margin. It is now the laws only, with a routing table at
+the top pointing at six one-level-deep reference files that carry the evidence and the operational
+detail. **Section numbers §1–§10 were preserved deliberately** — siblings cite `§9` six times, `§3`
+three times, `§5` twice, plus `§2` and `§8`, and renumbering would have silently broken every one.
+
+The design rule applied throughout: **an agent that reads only the SKILL.md must still behave
+correctly.** References carry the *why*, the measured numbers and the worked procedure — never the
+rule itself. So `references/the-fan-out-law.md` holds the Co-Coder counter-evidence and the MAST
+figure; the law itself stays in the body.
+
+New reference files: `context-discipline.md`, `the-fan-out-law.md`, `evidence-gate.md`,
+`skill-library-design.md`, `authored-vs-derived.md` (principles), `scanner-confidence.md` (test),
+`gates-and-decision-record.md` (evaluate), `appraisal-and-verification.md` (study),
+`mikado-steps.md` (adopt). All 15 reference files across the library are pointed at from their own
+SKILL.md — verified, no orphans — and all are one level deep, per: "Claude may partially read files
+when they're referenced from other referenced files… Keep references one level deep from SKILL.md."
+
+Gated so it cannot regress, in `check-skills.ts`:
+
+- **P2 `body-over-500-lines`** — Anthropic's stated limit. Max in the library is now 179, so this is a
+  guard against future growth rather than a to-do list. It fires *even when* `references/` exists,
+  because the body is what loads.
+- **P3 `no-progressive-disclosure`** — over 1,800 words with no `references/` at all.
+
+Still unsplit and worth watching: `orchestrate` (1,237 w), `secure` (1,212 w), `analytics` (1,180 w) —
+each under the watch threshold, none loaded often enough to be urgent.
