@@ -124,6 +124,14 @@ const CHECKS: Check[] = [
     skipUnless: () => existsSync(join(ROOT, "node_modules", ".bin", "tsc")),
     skipNote: "run `npm install` to enable typecheck (dev-only dependency)",
   },
+  // Every routing probe's intended skill must rank first on lexical overlap. A PROXY for live
+  // routing, not a substitute — but it catches a description that omits the phrasing a user
+  // actually reaches for, which is invisible by eye and the most likely cause of a mis-route.
+  {
+    name: "routing probes rank correctly",
+    cmd: [...NODE_RUNNER, "tests/score-routing-probes.ts"],
+    ok: new Set([0]),
+  },
   // Catches the class of bug no other check can see: an instruction that points at a skill
   // Claude cannot invoke, or a path built from a variable that is empty in this context.
   {

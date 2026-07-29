@@ -3,10 +3,10 @@ name: brainstorm
 description: >
   Use when WHAT to build isn't settled — a fuzzy idea, a vague goal, or several possible
   directions. Use when the user says "I want to build", "I'm thinking about", "should we",
-  "help me figure out what". Do NOT use when there's already a clear, well-specified
-  ticket/spec with unambiguous scope — go straight to /viby-toolkit:plan (the how) or
-  /viby-toolkit:orchestrate. This gate is about deciding WHAT, not planning HOW, and not which
-  existing tool to adopt (that is /viby-toolkit:evaluate).
+  "help me figure out what". Skip it entirely once the WHAT is settled — then go straight to
+  /viby-toolkit:plan (the how) or /viby-toolkit:orchestrate (build it). This gate is about
+  deciding WHAT, not planning HOW, and not which existing tool to adopt (that is
+  /viby-toolkit:evaluate).
 ---
 
 # Brainstorm (design-before-code gate)

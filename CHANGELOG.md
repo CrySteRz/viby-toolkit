@@ -1,5 +1,54 @@
 # Changelog
 
+## 2.5.0
+
+Nine skill descriptions fixed, and a new pre-screen that found the problems. **Live routing is
+still unverified** — `tests/routing-probes.md` still needs a human in fresh sessions — but the
+descriptions are measurably better than they were, and one structural defect is gone.
+
+### New — `tests/score-routing-probes.ts` (gate 17)
+
+Scores all 30 routing probes against the shipped descriptions by IDF-weighted, length-normalised
+word overlap. It is **a proxy and says so on every run**: real dispatch is a model reading the whole
+listing, not word overlap, so this neither passes nor fails the routing claim. What it does catch is
+the defect most likely to cause a mis-route and hardest to see by eye — a description that omits the
+phrasing a user actually reaches for. The contract is "every probe's intended skill ranks first";
+thin margins are advisory, since several probes are deliberately ambiguous.
+
+**First run: 13 of 30 probes mis-ranked, and four skills scored zero on their own probe** —
+`explore` had no hook for "where does X actually happen", `verify` none for "is this ready to ship",
+`observe` none for "we can't tell what's happening", `test` none for "write tests for this module".
+
+### The structural finding
+
+**`brainstorm`'s description named the case where it must NOT fire** — "a clear, well-specified
+ticket/spec" — which made it a lexical magnet for exactly those requests: it beat `orchestrate` on
+`orchestrate`'s own probe ("build the CSV export from the ticket — spec is clear") by 5×. A negative
+condition attracts the requests it is meant to repel. It is now phrased as "skip it entirely once
+the WHAT is settled", and the specifying words moved to `orchestrate`, where they belong.
+
+### Changed
+
+Missing user phrasings added to `explore`, `verify`, `test`, `observe`, `handoff`, `worktrees`,
+`debug`, `plan` and `learn`; `brainstorm` and `orchestrate` rebalanced as above. All 30 probes now
+rank correctly.
+
+### And the predicted side effect, caught by the repo's own gate
+
+Adding trigger phrases raises description overlap, which *is* the shadowing mechanism — so the
+skill-library check immediately flagged `test`+`verify` as newly confusable. Fixed the way the
+doctrine says: their cross-reference was one-sided, and one-sided is not enough, so `verify` now
+names `test` back ("designs and writes tests — this runs the project's real checks"). That both
+clears the exemption and genuinely disambiguates the pair.
+
+### Two limits worth keeping in view
+
+- Probes naming a specific product (#22, "Playwright") have no lexical hook in any description and
+  are reported as **proxy-blind**, not as defects. Stuffing product names into descriptions to
+  satisfy the script would make the library worse.
+- A green pre-screen is not a passing routing test. The results table in `routing-probes.md` is
+  still empty.
+
 ## 2.4.0
 
 New module: **`/viby-toolkit:adopt`** — taking on code you did not write and do not trust yet,

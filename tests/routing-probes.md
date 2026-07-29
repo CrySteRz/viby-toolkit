@@ -90,4 +90,26 @@ that only fires when you name it is a slash command, not a skill.
 
 | Date | Probes run | right | wrong (which skill fired) | none | Notes |
 |---|---|---|---|---|---|
-| — | — | — | — | — | not yet run |
+| — | — | — | — | — | **the live test has not been run** |
+
+### Lexical pre-screen (a proxy, not this test)
+
+`tests/score-routing-probes.ts` scores every probe against the shipped descriptions by
+IDF-weighted, length-normalised word overlap. It cannot tell you what will fire — real dispatch is
+a model reading the whole listing — but it finds the defect most likely to cause a mis-route: a
+description that omits the phrasing a user actually reaches for.
+
+Run 2026-07-29, before any live probing: **13 of 30 probes mis-ranked**, and four skills scored
+**zero** on their own probe — `explore` had no hook for "where does X actually happen",
+`verify` none for "is this ready to ship", `observe` none for "we can't tell what's happening",
+`test` none for "write tests for this module". One structural finding: `brainstorm`'s description
+named the case where it must *not* fire ("a clear, well-specified ticket/spec"), which made it a
+lexical magnet for exactly those requests and beat `orchestrate` on its own probe. After adding the
+missing phrasings and rewriting that negative condition, all 30 rank correctly with no new
+shadowing. The check is now part of `npm run check`.
+
+Two limits, stated so a green pre-screen is not mistaken for a passing routing test: probes naming
+a specific product (#22, "Playwright") have no lexical hook in any description and are reported as
+**proxy-blind** rather than as defects — stuffing product names into descriptions to satisfy the
+script would make the library worse. And thin margins are advisory only, because several probes are
+deliberately ambiguous.

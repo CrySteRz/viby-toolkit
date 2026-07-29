@@ -3,7 +3,8 @@ name: debug
 description: >
   Use when something is broken, failing, throwing, crashing, flaky, or behaving wrong and
   the cause isn't obvious. Use when the user says "why is this failing", "debug this",
-  "it's broken", "this test is flaky", "root cause", or pastes an error/stack trace.
+  "it's broken", "this test is flaky", "it passes locally but fails in CI", "root cause", or
+  pastes an error/stack trace.
 ---
 
 # Debug (root-cause, evidence-driven)

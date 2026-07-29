@@ -3,8 +3,9 @@ name: orchestrate
 description: >
   Use for any feature, fix, or change worth doing carefully — anything touching more than
   a file or two, ambiguous, or multi-step. Use when the user says "build", "implement",
-  "add", "ship", "create", "refactor" something substantial, or hands you a task that
-  needs planning before coding. For a one-line change, skip this and just do it.
+  "add", "ship", "create", "refactor" something substantial, or hands you a well-specified
+  ticket whose scope is already clear and just needs building. For a one-line change, skip
+  this and just do it.
 ---
 
 # Orchestrate

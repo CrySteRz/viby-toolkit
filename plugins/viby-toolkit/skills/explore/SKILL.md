@@ -2,7 +2,8 @@
 name: explore
 description: >
   Use when meeting an unfamiliar codebase or an unfamiliar corner of a known one — "what is
-  this repo", "how does X work here", "where does Y live", "walk me through this", "I just
+  this repo", "how does X work here", "where does Y live", "where does the auth check actually
+  happen in here", "walk me through this", "I just
   cloned this", "help me get oriented", "where should this change go". Also the research
   phase of /viby-toolkit:orchestrate when the area is genuinely unknown. Builds a durable map
   instead of a one-off answer.
