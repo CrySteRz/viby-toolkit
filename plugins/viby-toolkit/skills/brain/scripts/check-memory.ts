@@ -257,9 +257,11 @@ export function auditStore(dir: string, root: string): { findings: Finding[]; en
         );
       const ta = distinguishing(a);
       const tb = distinguishing(b);
-      if (ta.size === 0 || tb.size === 0) continue;
+      // A name with one distinguishing token cannot be judged a duplicate: `auth.md` vs
+      // `auth-token-refresh-race.md` shared exactly one token and scored 1.0 under min().
+      if (ta.size < 2 || tb.size < 2) continue;
       const shared = [...ta].filter((w) => tb.has(w)).length;
-      const ratio = shared / Math.min(ta.size, tb.size);
+      const ratio = shared / Math.max(ta.size, tb.size);
       if (ratio >= 0.75) {
         findings.push({
           file: `${a} + ${b}`,

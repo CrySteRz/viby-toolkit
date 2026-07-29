@@ -196,3 +196,17 @@ test("but genuinely duplicated topics are still caught", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a single-token filename is not a duplicate of a longer, specific one", () => {
+  // Reviewer finding (P2): min() made `auth.md` score 1.0 against `auth-token-refresh-race.md`.
+  const dir = store({
+    "MEMORY.md": "- [a](auth.md)\n- [b](auth-token-refresh-race.md)\n",
+    "auth.md": GOOD,
+    "auth-token-refresh-race.md": GOOD,
+  });
+  try {
+    assert.ok(!auditStore(dir, os.tmpdir()).findings.some((x) => x.check === "duplicate-topic"));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

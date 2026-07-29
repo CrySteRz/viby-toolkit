@@ -55,7 +55,12 @@ function resolves(ref: string, root: string, docDir: string, index: Set<string>)
   if (ref.startsWith("~/")) return fs.existsSync(path.join(process.env.HOME ?? "", ref.slice(2)));
   if (ref.startsWith("/")) return fs.existsSync(ref);
   if ([path.join(root, ref), path.join(docDir, ref)].some((p) => fs.existsSync(p))) return true;
-  const needle = "/" + ref.replace(/^\.\//, "");
+  // Suffix matching needs enough path to be distinctive. `scripts/helper.ts` ends the same way in
+  // every skill's own scripts dir, so a one-segment reference matched a sibling's file and a genuinely
+  // stale path was reported as resolved — a silent false negative in the check's core purpose.
+  const rel = ref.replace(/^\.\//, "");
+  if (rel.split("/").length < 3) return false;
+  const needle = "/" + rel;
   for (const p of index) if (p.endsWith(needle)) return true;
   return false;
 }
@@ -88,6 +93,9 @@ function fileIndex(root: string): Set<string> {
 
 function anchorsOf(text: string): Set<string> {
   const out = new Set<string>();
+  // Renderers disambiguate repeated headings as `#config`, `#config-1`, `#config-2`. Emitting only
+  // the bare slug reported those valid links as dead anchors.
+  const seen = new Map<string, number>();
   for (const m of text.matchAll(/^#{1,6}\s+(.+)$/gm)) {
     const slug = (m[1] ?? "")
       .toLowerCase()
@@ -95,7 +103,10 @@ function anchorsOf(text: string): Set<string> {
       .replace(/[^\w\s-]/g, "")
       .trim()
       .replace(/\s+/g, "-");
-    if (slug !== "") out.add(slug);
+    if (slug === "") continue;
+    const n = seen.get(slug) ?? 0;
+    seen.set(slug, n + 1);
+    out.add(n === 0 ? slug : `${slug}-${n}`);
   }
   return out;
 }
@@ -103,7 +114,9 @@ function anchorsOf(text: string): Set<string> {
 export function auditDoc(file: string, text: string, root: string, scripts: Set<string>, index: Set<string> = new Set()): Finding[] {
   const findings: Finding[] = [];
   const lines = text.split("\n");
-  const docDir = path.dirname(path.resolve(file));
+  // `file` arrives repo-relative, so resolving it against the process CWD pointed docDir at an
+  // unrelated directory — which silently changed which references resolved. Anchor it to the root.
+  const docDir = path.dirname(path.isAbsolute(file) ? file : path.resolve(root, file));
 
   // Self-calibrating, exactly as in check-memory: if NOTHING resolves, the root is wrong rather than
   // the document being entirely stale. A comparison that could not happen must not read as findings.

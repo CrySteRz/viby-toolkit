@@ -157,3 +157,31 @@ test("an external URL is never treated as a path or a link to resolve", () => {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("a one-segment reference does not resolve against an unrelated sibling directory", () => {
+  // Reviewer finding (P1): `scripts/helper.ts` ends the same way in every skill's own scripts dir, so
+  // suffix matching reported a genuinely stale path as resolved — a silent false negative.
+  const root = repo({
+    "skills/brain/README.md": "See `real/deep/module.ts` and `scripts/helper.ts`.\n",
+    "real/deep/module.ts": "x",
+    "skills/docs/scripts/helper.ts": "x",
+  });
+  try {
+    assert.ok(rules(root, "skills/brain/README.md").includes("stale-path"), "the sibling's file must not count");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a repeated heading's disambiguated anchor is valid", () => {
+  // Reviewer finding (P2): renderers expose the second `## Config` as `#config-1`.
+  const root = repo({
+    "README.md": "See [a](docs/g.md#config) and [b](docs/g.md#config-1).\n",
+    "docs/g.md": "# Doc\n\n## Config\n\nx\n\n## Config\n\ny\n",
+  });
+  try {
+    assert.deepEqual(rules(root, "README.md"), []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

@@ -99,7 +99,7 @@ const CHECKS: Check[] = [
     name: "docs-auditor contract",
     cmd: [...NODE_RUNNER, "--test", "tests/check-docs.test.ts"],
     ok: new Set([0]),
-    minPassing: 12,
+    minPassing: 14,
   },
   {
     name: "logging-auditor contract",
@@ -111,7 +111,7 @@ const CHECKS: Check[] = [
     name: "memory-auditor contract",
     cmd: [...NODE_RUNNER, "--test", "tests/check-memory.test.ts"],
     ok: new Set([0]),
-    minPassing: 17,
+    minPassing: 18,
   },
   {
     name: "plan-validator contract",
