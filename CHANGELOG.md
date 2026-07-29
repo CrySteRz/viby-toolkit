@@ -1,5 +1,44 @@
 # Changelog
 
+## 2.9.0
+
+**The last named gap is closed: the build phase now has an executable half.** Deciding and proving
+had checkers; writing code had prose. 11 checkers, 19 gates, ~287 contract cases.
+
+### New — `check-diff-hygiene.ts` (22 contract cases)
+
+Audits the artifact the build phase actually produces — the diff — for what makes a change hard to
+review or unsafe to land, none of which a compiler or a test run objects to. Diff-scoped on purpose:
+it judges what you are *adding*, not what the file already contained.
+
+- **P1**: a merge conflict marker being committed; a credential-shaped line (narrow, high-confidence
+  patterns only — `/viby-toolkit:secure` is the real pass); and **over 1,000 changed lines**.
+- **P2**: debug prints being added; formatting churn mixed into a behavioural change so the real
+  diff is unreadable; source changed with no test touched; a lockfile moving without its manifest.
+- **P3**: new TODO/FIXME; commented-out code.
+
+**Size is a finding, not a style opinion.** The largest study of code review — SmartBear at Cisco,
+2,500 reviews over 3.2 million lines — found detection is best at **200–400 changed lines** and
+falls from ~87% under 100 lines to **~28% past 1,000**. A 2,000-line diff is not a bigger review; it
+is an unreviewed one.
+
+### Benchmarked on real repositories before shipping, and it mattered twice
+
+Run across four real repositories at three commit ranges each:
+
+- **Clean on three of four single commits** — the property that decides whether anyone leaves it
+  switched on — and proportionate on wide ranges, with no rule flooding.
+- **False positive #1: every one of the 20 `debug-added` hits was wrong.** They were all
+  `console.log` progress output in CLI, migration and seed scripts. A script's stdout *is* its
+  interface. Now exempt by path, and all 20 disappeared while every real finding stayed.
+- **False positive #2, found dogfooding it on this repo:** `commented-out-code` fired on six
+  `SKILL.md` files at once, because `#` is a heading in Markdown. Comment-shaped rules now run on
+  source files only — while a credential or a conflict marker is still checked in *every* file type,
+  since a leaked key in a README is still a leaked key.
+
+The one finding left on this repo's own recent history is `unreviewable-size` at 2,000 added lines
+across 31 files, which is a fair judgement of the commits that built this release.
+
 ## 2.8.0
 
 **Benchmarked every checker that had never met code outside this repo.** Five of them hadn't.

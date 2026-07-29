@@ -20,7 +20,7 @@ TypeScript with zero runtime dependencies and no build step — see
 | Skill | What it does |
 |---|---|
 | `/viby-toolkit:brainstorm` | **Design-before-code gate.** Decides WHAT to build (and whether it's the right thing) with an Iron-Law hold on any implementation until you approve the design. Runs before plan/orchestrate for anything whose shape isn't settled. |
-| `/viby-toolkit:orchestrate` | Drives a task end-to-end: scope → research → plan → implement → verify → self-review. Fans out cheap scouts for discovery, keeps writes single-threaded, keeps main context clean. |
+| `/viby-toolkit:orchestrate` | Drives a task end-to-end: scope → research → plan → implement → verify → self-review. Ships `check-diff-hygiene.ts`, which audits the artifact the build phase produces: conflict markers and credentials being committed, debug prints and formatting churn mixed into a behavioural change, new TODOs and commented-out code — and **size**, because the largest study of code review found detection is best at 200–400 changed lines and falls to ~28% past 1,000, so a 2,000-line diff is not a bigger review but an unreviewed one. Fans out cheap scouts for discovery, keeps writes single-threaded, keeps main context clean. |
 | `/viby-toolkit:review-cluster` | **Review cluster + false-positive filter.** Parallel per-dimension reviewers (incl. an adversarial chaos-engineer dimension) find candidates; a grounding gate drops anything that can't quote its own line; one fresh-context validator per finding confirms real/introduced/not-already-handled; a confidence gate suppresses below-threshold. Reports the full kill count. |
 | `/viby-toolkit:explore` | **Understand an unfamiliar codebase.** Detects the stack mechanically first (languages, package manager, monorepo tool, real build/test commands with their source), then fans out scouts on specific questions, traces one path end to end, and writes a durable map. Scouts each language separately in a polyglot repo and names the cross-language seams. |
 | `/viby-toolkit:secure` | **Security pass, ordered by what actually goes wrong.** Credentials first (99.6% of critical findings in a 2026 study of 4,022 agent-assisted PRs), then supply chain and CI (82.3% by volume), then code surfaces judged by reachability. Confirms each candidate secret, because that study's own labelling was ~73% false positives. |
@@ -523,6 +523,7 @@ plugins/viby-toolkit/
   skills/study/scripts/check-study.ts        # research-document auditor (form, not truth)
   skills/adopt/scripts/check-test-drift.ts   # did the safety net shrink between two refs?
   skills/analytics/scripts/check-analytics-sql.ts # SQL that returns a plausible WRONG number
+  skills/orchestrate/scripts/check-diff-hygiene.ts # is this diff reviewable and safe to land?
   lib/strip-noncode.ts                      # shared: match code, never raw text
   agents/<name>.md                   # the subagents (model routing in frontmatter)
   commands/ship.md                   # the autonomous entry command

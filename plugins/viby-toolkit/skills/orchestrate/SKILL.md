@@ -112,6 +112,29 @@ Run `/viby-toolkit:review-cluster` on your own diff — a fresh-context reviewer
 code it just wrote. It fans out dimension reviewers and the adversarial `skeptic` filter
 so only confirmed issues survive. Fix confirmed findings; re-verify anything you change.
 
+### Phase 5b — Check the diff is reviewable, before asking anyone to review it
+
+The build phase produces a diff, and a diff can be correct and still unlandable. Audit the
+artifact, not just the behaviour:
+
+```bash
+HYG=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/orchestrate/scripts/check-diff-hygiene.ts 2>/dev/null | tail -1)
+RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+sh "$RUN" "$HYG"                      # working tree + staged
+sh "$RUN" "$HYG" --base main          # the whole branch
+```
+
+It flags a conflict marker or a credential being committed (P1), debug prints and formatting
+churn mixed into a behavioural change (P2), new TODOs and commented-out code (P3) — and
+**size**, which is the one people rationalise. The largest study of code review found detection
+is best at 200–400 changed lines and falls to roughly **28% past 1,000**: a 2,000-line diff is
+not a bigger review, it is an unreviewed one. If you cannot split it, say so in the description
+and point the reviewer at the risky part.
+
+**Split in the order a reviewer can follow**: mechanical and formatting-only changes in their own
+commit, then structural moves, then anything touching behaviour. Never mix them — an unreviewable
+diff is where inherited bugs hide.
+
 ### Phase 6 — Compound (when something was non-obvious)
 
 If you learned something reusable (a non-obvious gotcha, a build quirk, a pattern this
