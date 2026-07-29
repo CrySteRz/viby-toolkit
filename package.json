@@ -1,6 +1,6 @@
 {
   "name": "viby-toolkit",
-  "version": "2.13.0",
+  "version": "2.14.0",
   "private": true,
   "description": "Personal Claude Code toolkit — accuracy-first engineering workflows, in TypeScript with zero runtime dependencies",
   "type": "module",

@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.14.0
+
+`docs` gets its executable half. 16 checkers, 24 gates — every skill that has a mechanically
+checkable claim now has a checker behind it.
+
+### New — `check-docs.ts` (12 contract cases)
+
+`docs` says every command, path and claim must be one you actually ran, because a wrong command in a
+README costs more than ten missing pages — a stale doc is *trusted*. This automates the checkable
+part: documented paths that do not exist, `npm run` scripts that are not defined, dead relative links,
+and dead anchors (a heading that was renamed).
+
+**76 findings on this repo's own docs, and every single one was wrong.** Three distinct bugs, each
+worth the fix:
+
+- **`make` matched English prose** — "make it readable", "make a decision" — 48 times. Only explicit
+  run-forms (`npm run`, `pnpm run`, `yarn run`, `bun run`, `make -C dir target`) count now.
+- **A regex flag in backticks looked like a path.** `` `/g` `` starts with a slash, so it resolved as
+  an absolute path and failed. A reference now needs a real segment before the slash and an extension.
+- **28 "stale" paths were real files one directory deeper.** Guessing a base directory cannot work: a
+  document legitimately cites paths relative to the repo root, a package subdirectory, or its own
+  folder. Resolution is now by **suffix against an index of the repo's real files** — the same
+  self-calibration `check-memory.ts` needed, arrived at from the same failure.
+
+After the fixes: this repo is clean, and on four real repositories two are clean while a docs-heavy
+one surfaced **84 genuine problems** — dead links to transcript files that no longer exist, a renamed
+heading, and references to paths that live in a sibling repository. Exactly the class where a reader
+follows a link, finds nothing, and stops trusting the rest.
+
 ## 2.13.0
 
 `observe` gets its executable half, and the memory stores get repaired. 15 checkers, 23 gates.
