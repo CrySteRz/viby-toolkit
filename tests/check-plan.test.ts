@@ -164,3 +164,22 @@ test("CLI: a conflicting plan exits 1", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("P1 regression: a title beginning \"Verify:\" does not satisfy the verify field", () => {
+  // The FIELD regex was anchored on ^, so a task whose TITLE started with "Verify:" populated
+  // task.verify from its own title and suppressed the no-verify finding — the check reported a
+  // verification that did not exist.
+  const p = plan("- [ ] T1 — Verify: end-to-end auth flow works · files: src/auth.ts · deps: —");
+  assert.equal(parseTasks(p)[0]?.verify, "", "a title is not a verification step");
+  assert.ok(checks(p).includes("no-verify"), "no-verify must still fire");
+});
+
+test("P1 regression: case-variant paths are the same file on a case-insensitive filesystem", () => {
+  // Raw string keys made src/Auth.ts and src/auth.ts two entries, so two tasks writing the SAME
+  // file were reported as disjoint — the one conclusion this check exists to refuse.
+  const p = plan(
+    "- [ ] T1 — add the guard · files: src/Auth.ts · verify: npm test · deps: —",
+    "- [ ] T2 — add the session · files: ./src/auth.ts · verify: npm test · deps: —",
+  );
+  assert.ok(checks(p).includes("unpartitioned-file"), "case/./ variants must collide");
+});

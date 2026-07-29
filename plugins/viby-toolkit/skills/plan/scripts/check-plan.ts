@@ -54,7 +54,11 @@ export function parseTasks(text: string): Task[] {
     const [, box, id, rest] = m;
     if (id === undefined || rest === undefined) continue;
     const task: Task = { id, title: rest.split(/[·|]/)[0]?.trim() ?? "", files: [], verify: "", deps: [], done: box !== " ", line: i + 1 };
-    for (const f of rest.matchAll(FIELD)) {
+    // Fields live AFTER the first separator. Anchoring on `^` let a task titled
+    // "Verify: end-to-end auth flow works" populate `task.verify` from its own title and suppress
+    // the no-verify P1 — the check reported a verification that did not exist.
+    const sepAt = rest.search(/[·|]/);
+    for (const f of (sepAt === -1 ? "" : rest.slice(sepAt)).matchAll(FIELD)) {
       const key = (f[1] ?? "").toLowerCase();
       const val = (f[2] ?? "").trim();
       if (key === "files") task.files = val.split(/[,\s]+/).filter((v) => v !== "" && v !== "—" && v !== "-");
@@ -133,15 +137,19 @@ export function checkPlan(text: string): { tasks: Task[]; findings: Finding[] } 
 
   // THE check: two tasks that could run at the same time must not own the same file. This is the
   // partition `principles` §3 demands before any parallel write, made mechanical.
-  const owners = new Map<string, Task[]>();
+  // Key on a normalised path. Raw strings made `src/Auth.ts` and `src/auth.ts` two entries, so on
+  // a case-insensitive filesystem — including this machine's — two tasks writing the SAME file were
+  // reported as disjoint, which is the one conclusion this check exists to refuse.
+  const norm = (f: string) => f.replace(/^\.\//, "").replace(/\/+/g, "/").toLowerCase();
+  const owners = new Map<string, { display: string; list: Task[] }>();
   for (const t of tasks) {
     for (const f of t.files) {
-      const list = owners.get(f) ?? [];
-      list.push(t);
-      owners.set(f, list);
+      const entry = owners.get(norm(f)) ?? { display: f, list: [] };
+      entry.list.push(t);
+      owners.set(norm(f), entry);
     }
   }
-  for (const [file, list] of owners) {
+  for (const [, { display: file, list }] of owners) {
     if (list.length < 2) continue;
     for (let i = 0; i < list.length; i += 1) {
       for (let j = i + 1; j < list.length; j += 1) {

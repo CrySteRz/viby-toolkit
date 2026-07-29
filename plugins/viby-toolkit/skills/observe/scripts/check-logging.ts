@@ -72,11 +72,27 @@ function isCliContext(file: string, code: string): boolean {
   );
 }
 
+/**
+ * A logging library's OWN implementation. Measured false positive: every finding in a 2,000-file
+ * real corpus landed inside a file named `logger.mjs`/`logger.mts`, on lines like
+ * `logger.debug(event, { ...context, error: serializeErrorForLog(error) })`. Forwarding whatever the
+ * caller passed IS a logger's job — flagging it is like telling a database driver not to run SQL.
+ * The rules about HOW you call a logger are meaningless in the thing being called.
+ */
+function isLoggerImplementation(file: string, code: string): boolean {
+  const base = file.split("/").pop() ?? "";
+  if (/^(logger|logging|log)\.[cm]?[jt]sx?$/i.test(base) || /(^|\/)logging\//i.test(file)) return true;
+  // Or it defines the logger rather than using one: a level table plus a level-keyed dispatch.
+  return /\b(LOG_?LEVELS?|LEVEL_INDEX|logLevel)\b/.test(code) && /\b(createLogger|makeLogger|getLogger)\b/.test(code);
+}
+
 type Rule = {
   rule: string;
   severity: "P1" | "P2" | "P3";
   /** False for rules that are meaningless in a command-line tool. */
   appliesInCli?: boolean;
+  /** False for rules that are meaningless inside a logging library's own implementation. */
+  appliesInLoggerImpl?: boolean;
   /**
    * True for rules whose signal lives INSIDE the string literal — the interpolation markers of an
    * unstructured message, the word "entering" in an arrival log. Blanking removes exactly that, so
@@ -101,6 +117,7 @@ export const RULES: Rule[] = [
   },
   {
     rule: "whole-object-in-log",
+    appliesInLoggerImpl: false,
     severity: "P1",
     test: (l) => LOG_CALL.test(l) && WHOLE_OBJECT.test(l),
     problem:
@@ -109,6 +126,7 @@ export const RULES: Rule[] = [
   },
   {
     rule: "unstructured-log",
+    appliesInLoggerImpl: false,
     appliesInCli: false,
     usesRaw: true,
     severity: "P2",
@@ -179,17 +197,42 @@ export function scanFile(file: string, raw?: string): Finding[] {
   }
   const code = stripNoncode(text, path.extname(file).toLowerCase());
   const cli = isCliContext(file, code);
+  const loggerImpl = isLoggerImplementation(file, code);
   const lines = code.split("\n");
   const rawLines = text.split("\n");
   const findings: Finding[] = [];
+  // Raw-reading rules test the whole log CALL, not a physical line. Every one of them begins with
+  // `LOG_CALL.test(l)`, so a call whose message sat on a continuation line matched nothing — and a
+  // long message is exactly the message that gets wrapped. Join each call onto its opening line and
+  // mark the continuation lines consumed, so the finding still lands at the call site and once only.
+  const callText = new Map<number, string>();
+  const consumed = new Set<number>();
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!LOG_CALL.test(lines[i] ?? "")) continue;
+    let depth = 0;
+    for (let j = i; j < Math.min(lines.length, i + 12); j += 1) {
+      const blanked = lines[j] ?? "";
+      depth += (blanked.match(/\(/g) ?? []).length - (blanked.match(/\)/g) ?? []).length;
+      if (j > i) consumed.add(j);
+      if (depth <= 0) {
+        if (j > i) callText.set(i, rawLines.slice(i, j + 1).join(" "));
+        break;
+      }
+    }
+  }
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
     if (line.trim() === "") continue;
     for (const r of RULES) {
       if (cli && r.appliesInCli === false) continue;
+      if (loggerImpl && r.appliesInLoggerImpl === false) continue;
       // A raw-reading rule only sees the line if the blanked line proves it is live code.
+      // A log call spanning several lines put its message on a line with no `logger.` on it, so
+      // gating on the physical line silently dropped every finding for the multi-line form — which
+      // is the form long messages actually take. `inLogCall` stays true until the call's parens close.
+      if (r.usesRaw === true && consumed.has(i)) continue;
       if (r.usesRaw === true && !LOG_CALL.test(line)) continue;
-      const subject = r.usesRaw === true ? rawLines[i] ?? "" : line;
+      const subject = r.usesRaw === true ? callText.get(i) ?? rawLines[i] ?? "" : line;
       if (r.test(subject, code, file)) {
         findings.push({ file, line: i + 1, rule: r.rule, severity: r.severity, problem: r.problem, fix: r.fix });
       }
@@ -197,7 +240,8 @@ export function scanFile(file: string, raw?: string): Finding[] {
   }
   // File-level: several log calls and nothing to stitch them together with.
   const logCalls = lines.filter((l) => LOG_CALL.test(l)).length;
-  if (!cli && logCalls >= 3 && !/\b(request[_-]?id|correlation[_-]?id|trace[_-]?id|span[_-]?id|requestId|correlationId|traceId|reqId)\b/i.test(code)) {
+  // Same exemption: a logger implementation has no request to correlate — the caller supplies that.
+  if (!cli && !loggerImpl && logCalls >= 3 && !/\b(request[_-]?id|correlation[_-]?id|trace[_-]?id|span[_-]?id|requestId|correlationId|traceId|reqId)\b/i.test(code)) {
     findings.push({
       file,
       line: 1,

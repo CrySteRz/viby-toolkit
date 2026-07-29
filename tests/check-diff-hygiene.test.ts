@@ -226,3 +226,10 @@ test("but a credential or a conflict marker matters in ANY file type", () => {
   assert.ok(checks(diffOf("README.md", ["export AWS_KEY=AKIAIOSFODNN7EXAMPLE"])).includes("secret-shaped"));
   assert.ok(checks(diffOf("config.yaml", ["<<<<<<< HEAD"])).includes("conflict-marker"));
 });
+
+test("P2 regression: one removed line cannot excuse two added copies of it", () => {
+  // pendingRemovals was not consumed, so a single removal satisfied unlimited added lines and a file
+  // that genuinely duplicated a line was classified as pure formatting churn.
+  const p = parseDiff(diffOf("src/a.ts", ["const a = 1;", "const a = 1;"], ["const a  =  1;"]));
+  assert.equal(p[0]?.whitespaceOnly, 1, "only the first added copy pairs with the one removal");
+});

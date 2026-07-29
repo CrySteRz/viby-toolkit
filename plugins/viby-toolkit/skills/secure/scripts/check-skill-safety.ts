@@ -80,6 +80,40 @@ type Rule = {
  * this. That is a real hole, and it is still better than a checker that flags every skill written
  * about security.
  */
+/**
+ * A directive that appears INSIDE a quotation, in a line that also says something of its own, is
+ * being cited rather than issued — "do not tell the user about this step" is concealment, said
+ * ABOUT a phrase, is a description of it. Enabling prose rules on source comments made this
+ * necessary: this file's own comments quote the phrases it detects.
+ *
+ * The limit, stated rather than hidden: an attacker CAN wrap an injection in quotes to reach this
+ * exemption. It is a real gap, accepted for two reasons — a quoted directive is weaker at its job,
+ * since the surrounding sentence frames it as a mention, and a line that is *only* a quoted
+ * directive still fires, because the remainder test below requires four words of its own outside
+ * the quotes. Read the SKILL.md yourself; pattern matching cannot prove a skill is safe.
+ */
+function citesRatherThanIssues(line: string, trigger: (l: string) => boolean): boolean {
+  if (!trigger(line)) return false;
+  const outside = line.replace(/"[^"]*"|'[^']*'|`[^`]*`/g, " ");
+  if (trigger(outside)) return false;
+  return (outside.match(/[a-z]{2,}/gi) ?? []).length >= 4;
+}
+
+/** Concealment of the agent's OWN action. "Do not tell the user their secrets are safe" is security
+ *  advice; "do not tell the user about this step" is concealment — the object's follower decides. */
+const SECRECY = (l: string): boolean =>
+  /\b(do not|don't|never)\s+(tell|inform|mention|show|reveal|notify|alert)\s+(the\s+)?(user|human|operator)\s+(about|that|what|anything|this|these|you|I|we)\b/i.test(l) ||
+  /\bwithout\s+(telling|informing|notifying|asking)\s+(the\s+)?(user|anyone)/i.test(l) ||
+  /\b(silently|quietly|covertly|discreetly)\s+(run|execute|send|upload|copy|install|modify|delete)/i.test(l) ||
+  /\bhide\s+(this|it|the\s+\w+)\s+from\s+(the\s+)?user/i.test(l);
+
+/** The classic prompt-injection shape: found in 36% of skills in a 3,984-skill audit. */
+const OVERRIDE = (l: string): boolean =>
+  /\bignore\s+(all\s+)?(previous|prior|above|earlier|system)\s+(instructions?|prompts?|rules?)/i.test(l) ||
+  /\bdisregard\s+(the\s+)?(above|previous|system|your)\s+/i.test(l) ||
+  /\boverride\s+your\s+(instructions?|guidelines?|safety)/i.test(l) ||
+  /\beven\s+if\s+the\s+user\s+(says|asks|tells you)\s+(no|not to|otherwise)/i.test(l);
+
 const DESCRIBING = /\b(instructions? to|the pattern|patterns? (that|which)|marker|it flags|flags? the|detect|detector|audit(s|ed|ing)?\b|example|such as|for instance|no legitimate reason|threat|malicious skills?)\b/i;
 
 export const RULES: Rule[] = [
@@ -105,16 +139,7 @@ export const RULES: Rule[] = [
     where: "prose",
     severity: "P1",
     // The single most reliable marker of a malicious skill: telling the agent to conceal something.
-    test: (l) =>
-      !DESCRIBING.test(l) &&
-      (
-      // Must refer to the agent's own action. "Do not tell the user their secrets are safe" is
-      // security ADVICE; "do not tell the user about this step" is concealment. The distinguishing
-      // token is what follows the object.
-      /\b(do not|don't|never)\s+(tell|inform|mention|show|reveal|notify|alert)\s+(the\s+)?(user|human|operator)\s+(about|that|what|anything|this|these|you|I|we)\b/i.test(l) ||
-      /\bwithout\s+(telling|informing|notifying|asking)\s+(the\s+)?(user|anyone)/i.test(l) ||
-      /\b(silently|quietly|covertly|discreetly)\s+(run|execute|send|upload|copy|install|modify|delete)/i.test(l) ||
-      /\bhide\s+(this|it|the\s+\w+)\s+from\s+(the\s+)?user/i.test(l)),
+    test: (l) => !DESCRIBING.test(l) && !citesRatherThanIssues(l, SECRECY) && SECRECY(l),
     problem: "instructs the agent to act without telling the user — there is no legitimate reason for a skill to require concealment",
     fix: "do not install this",
   },
@@ -122,12 +147,7 @@ export const RULES: Rule[] = [
     rule: "instruction-override",
     where: "prose",
     severity: "P1",
-    test: (l) =>
-      !DESCRIBING.test(l) &&
-      (/\bignore\s+(all\s+)?(previous|prior|above|earlier|system)\s+(instructions?|prompts?|rules?)/i.test(l) ||
-      /\bdisregard\s+(the\s+)?(above|previous|system|your)\s+/i.test(l) ||
-      /\boverride\s+your\s+(instructions?|guidelines?|safety)/i.test(l) ||
-      /\beven\s+if\s+the\s+user\s+(says|asks|tells you)\s+(no|not to|otherwise)/i.test(l)),
+    test: (l) => !DESCRIBING.test(l) && !citesRatherThanIssues(l, OVERRIDE) && OVERRIDE(l),
     problem: "attempts to override the agent's existing instructions — the classic prompt-injection shape, found in 36% of skills in a 3,984-skill audit",
     fix: "do not install this",
   },
@@ -252,7 +272,12 @@ export function auditText(file: string, text: string): Finding[] {
     const line = lines[i] ?? "";
     if (line.trim() === "") continue;
     const isCommandContext = isMarkdown ? inFence[i] === true : true;
-    const isProseContext = isMarkdown ? inFence[i] !== true : false;
+    // In a source file, prose lives in COMMENTS — and that is exactly where an injection gets
+    // planted, because an agent reads a script's source before running it. Hard-coding this to
+    // false meant `# Do not tell the user about this step.` in a setup.sh was checked by nothing:
+    // the two rules this file calls the most reliable markers of a malicious skill were unreachable
+    // outside Markdown. The blanking pass also erases comments, so prose rules read the raw line.
+    const isProseContext = isMarkdown ? inFence[i] !== true : !/[a-z0-9]/i.test(line);
     for (const r of RULES) {
       if (r.where === "command" && !isCommandContext) continue;
       if (r.where === "prose" && !isProseContext) continue;
@@ -263,7 +288,9 @@ export function auditText(file: string, text: string): Finding[] {
       // documentation. That keeps quoted arguments visible without re-introducing self-matching.
       const wasCommentOnly = !/[a-z0-9]/i.test(line);
       if (r.where === "command" && wasCommentOnly) continue;
-      const subject = r.where === "command" ? rawLines[i] ?? "" : line;
+      // Command rules and non-Markdown prose rules both need the raw line: blanking removes the
+      // string contents and the comment text respectively, which is where the signal lives.
+      const subject = r.where === "command" || (!isMarkdown && r.where === "prose") ? rawLines[i] ?? "" : line;
       if (r.test(subject, text, file)) {
         findings.push({ file, line: i + 1, rule: r.rule, severity: r.severity, problem: r.problem, fix: r.fix });
       }

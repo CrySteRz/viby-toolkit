@@ -97,7 +97,13 @@ export function parseDiff(diff: string): DiffFile[] {
       current.added.push({ line: lineNo, text });
       // Whitespace-only churn: an added line matching a removed one once spaces are collapsed.
       const norm = text.replace(/\s+/g, "");
-      if (norm !== "" && pendingRemovals.some((r) => r.replace(/\s+/g, "") === norm)) current.whitespaceOnly += 1;
+      // Consume the match. Without this one removed line satisfied unlimited added lines, so a file
+      // that genuinely added a duplicate line was classified as pure formatting churn.
+      const at = pendingRemovals.findIndex((r) => r.replace(/\s+/g, "") === norm);
+      if (norm !== "" && at !== -1) {
+        current.whitespaceOnly += 1;
+        pendingRemovals.splice(at, 1);
+      }
       continue;
     }
     if (raw.startsWith(" ")) {

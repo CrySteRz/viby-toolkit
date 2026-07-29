@@ -103,3 +103,30 @@ test("a logging pattern inside a comment or string is not a finding", () => {
 test("an unreadable file is reported, never silently clean", () => {
   assert.equal(scanFile("/nope/missing.ts")[0]?.rule, "unreadable");
 });
+
+test("P2 regression: a multi-line log call is still audited", () => {
+  // The usesRaw gate tested the current PHYSICAL line for a log call, so a call whose message sat
+  // on a continuation line lost every finding — and that is the form long messages actually take.
+  const code = ["export function handler(user: string) {", "  logger.info(", "    `entering checkout for ${user}`,", "  );", "}"].join("\n");
+  assert.ok(rules(code).includes("unstructured-log"), "the message on a continuation line must be seen");
+});
+
+test("a logging library's OWN implementation is not audited on how it calls a logger", () => {
+  // Measured false positive: every finding in a 2,000-file real corpus landed inside a file named
+  // `logger.mjs`, on lines that forward the caller's fields. That IS a logger's job.
+  const code = [
+    "export function logCaughtError(logger, event, error, context = {}) {",
+    "  logger.debug(event, { ...context, error: serializeErrorForLog(error) });",
+    "}",
+    "export function logDecision(logger, fields) {",
+    "  logger.debug(`decision:${fields.event}`, fields);",
+    "}",
+  ].join("\n");
+  assert.deepEqual(rules(code, "hooks/logger.mjs"), [], "a logger implementation forwards, it does not misuse");
+});
+
+test("but a request handler that does the same thing IS flagged", () => {
+  // The must-NOT half needs its counterpart, or the exemption above could swallow the rule whole.
+  const code = ["export async function POST(req) {", "  logger.debug(`decision:${body.event}`, body);", "}"].join("\n");
+  assert.ok(rules(code, "src/app/api/route.ts").length > 0, "the exemption must be scoped to the logger itself");
+});
