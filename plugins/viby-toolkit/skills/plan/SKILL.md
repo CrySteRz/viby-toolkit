@@ -50,9 +50,39 @@ nobody remembers why it was dropped; without it, the plan reads as if only one i
 ever considered. If the choice is between existing *tools* rather than designs, that is
 `/viby-toolkit:evaluate` — measure it, don't reason about it.
 
-## 4. Write the plan
+## 4. Write the plan as a dispatchable task list
 
-An ordered list of steps, each as: `file:location → what changes → why`. Include:
+Each task on one line, with what it **owns**, how it is **proved**, and what it **waits for**:
+
+```markdown
+- [ ] T1 — parse the CSV · files: src/parse.ts · verify: npm test -- parse · deps: —
+- [ ] T2 — write the rows · files: src/write.ts · verify: npm test -- write · deps: —
+- [ ] T3 — wire the route · files: src/route.ts · verify: npm test · deps: T1, T2
+```
+
+Then check it is actually dispatchable before anything is spawned:
+
+```bash
+CP=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/plan/scripts/check-plan.ts 2>/dev/null | tail -1)
+RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+sh "$RUN" "$CP" docs/plans/<this-plan>.md
+```
+
+It fails on the things that turn a plan into a reconciliation problem: **two tasks with no
+dependency between them owning the same file** (they can be dispatched in parallel and will
+conflict), a dependency cycle, a file touched by three or more tasks (a structural hub — take it
+yourself, sequentially), a task that does not name its files, and a task with no verification.
+That is `/viby-toolkit:principles` §3's "name the partition" requirement, made mechanical.
+
+The checkboxes are not decoration: this file is the durable progress ledger. Tick them as you go and
+a cleared session resumes by re-reading it.
+
+**Three things this format is deliberately not.** It is not a substitute for the prose below — a
+task list with no reasoning is unreviewable. It is not a promise of parallelism; most plans should
+run single-threaded (§3), and the checker only tells you *whether* you could. And it does not judge
+whether the plan is any good — only whether it can be executed.
+
+Alongside the task list, include:
 - The **sequence** (what must happen before what, and why).
 - The **risky step** — the one most likely to go wrong — and how you'll de-risk/verify it.
 - The **verification strategy**: what tests/flows prove each part works (this feeds the

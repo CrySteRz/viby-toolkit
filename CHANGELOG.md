@@ -1,5 +1,63 @@
 # Changelog
 
+## 2.11.0
+
+A second, deeper pass over the ecosystem — this time the famous *planning* frameworks (BMAD, the
+Kiro-style spec-driven workflows, agent-os) rather than the marketplaces. Two ideas were worth
+taking, one of them completes a law this toolkit has stated since v0.1 without ever explaining how
+to satisfy it. 13 checkers, 21 gates.
+
+### The idea that completes the fan-out law
+
+`principles` §3 has always said: parallelise writes only when "you can name the partition and the
+hubs". It never said **how to produce one**. The agile-AI frameworks answer it directly, and the
+formulation is worth quoting because it is the whole recipe:
+
+> a shared architecture, stories scoped to owned files, a dependency-ordered wave plan … One
+> architecture prevents semantic conflicts (API style, data model, naming, security) across agents.
+> Stories scoped to disjoint files, dependency-ordered into parallel waves, prevent file/merge
+> conflicts.
+
+Three ingredients, each preventing a different failure: **one agreed architecture** stops *semantic*
+conflict — the kind a merge cannot detect because every file is individually valid; **disjoint file
+ownership** stops *textual* conflict; **dependency waves** make the ordering explicit instead of
+hoped for. §3 now carries that recipe.
+
+### New — `check-plan.ts` (16 contract cases)
+
+And it makes the requirement mechanical instead of aspirational. `plan` now writes a dispatchable
+task list — each task naming the files it exclusively owns, its verification, and its dependencies —
+and the checker fails on:
+
+- **`unpartitioned-file` (P1)** — two tasks with no dependency between them owning the same file.
+  They can be dispatched in parallel and they will conflict. This one check is why the script exists.
+- **`hub-file` (P2)** — a file touched by three or more tasks: a structural hub, which §3 says to
+  take yourself, sequentially.
+- **`dep-cycle` / `unknown-dep` (P1)** — no execution order exists, or a task depends on nothing real.
+- **`no-files` / `no-verify` (P1)** — a task that cannot be partitioned, or whose "done" is a feeling.
+
+Transitive ordering counts, so `T1 → T2 → T3` sharing a file is fine; only genuinely concurrent
+tasks are flagged. The checkboxes double as the durable progress ledger a cleared session resumes from.
+
+### The second idea: gates exist so review happens THERE
+
+The spec-driven frameworks' real insight is not the documents, it is *where* review happens:
+"instead of reviewing every individual edit during implementation, you could review at structured
+phase gates", which reduces approval overhead and gives predictable intervention points. `plan` now
+frames its output that way.
+
+### Deliberately rejected, with the bar each failed
+
+- **21 agents, 50+ workflows, personas, "party mode".** Contradicts `principles` §8 — measured
+  shadowing cut correct skill selection from 88% to 53%, and this library's whole thesis is that
+  overlap is the cost, not count. Six agents with explicit model routing already cover the roles.
+- **Multiple agents conferring in one conversation.** Attractive, but the MAST finding is that ~36.9%
+  of multi-agent failures are inter-agent misalignment; putting more agents in one context is the
+  reconciliation problem, not a fix for it.
+- **"Regenerate the code from the spec when it changes."** Not credible on a real codebase, and it
+  contradicts `adopt` and `refactor`, which exist because you cannot regenerate what you cannot
+  characterise.
+
 ## 2.10.0
 
 Surveyed the wider Claude Code plugin/skill ecosystem for inspiration. The dominant pattern there is

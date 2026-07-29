@@ -96,6 +96,12 @@ const CHECKS: Check[] = [
     minPassing: 20,
   },
   {
+    name: "plan-validator contract",
+    cmd: [...NODE_RUNNER, "--test", "tests/check-plan.test.ts"],
+    ok: new Set([0]),
+    minPassing: 16,
+  },
+  {
     name: "skill-safety contract",
     cmd: [...NODE_RUNNER, "--test", "tests/check-skill-safety.test.ts"],
     ok: new Set([0]),

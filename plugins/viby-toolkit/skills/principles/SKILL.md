@@ -112,6 +112,18 @@ a year of production experience.
   Default to single-threaded writes, because you usually have not mapped it and mapping is
   work. Parallelise writes only when you can name the partition and the hubs — and take the
   hub files yourself, sequentially, since they are what everything else depends on.
+- **HOW to produce that partition** — the operational half this law was missing, and the one
+  genuinely transferable idea from the spec-driven agile frameworks: **decide the architecture
+  once, scope each work item to files it exclusively owns, and order the items into dependency
+  waves.** One agreed architecture is what prevents *semantic* conflict between parallel agents
+  (API style, data model, naming, error handling) — conflicts a merge cannot detect because every
+  file is individually valid. Disjoint file ownership is what prevents *textual* conflict. Waves
+  are what make the ordering explicit rather than hoped for. With all three, fan-out needs no
+  coordination; with any one missing, you pay reconciliation.
+
+  This is now checkable rather than aspirational: `skills/plan/scripts/check-plan.ts` reads a task
+  list and fails if two tasks with no dependency between them own the same file, if the dependency
+  graph has a cycle, or if a task does not say what it owns and how it is verified.
 - **The rate-limit reality:** every fan-out spends against your Max limits roughly an
   order of magnitude faster (Anthropic measured multi-agent at ~15× a single chat). Gate
   each fan-out behind: *"is this genuinely parallel AND read-only?"* If no → do it inline
