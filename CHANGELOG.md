@@ -1,5 +1,62 @@
 # Changelog
 
+## 2.15.0
+
+**Live routing was measured for the first time. It scored 5/10 against an 80% bar — a fail.** That
+claim had been the project's one unverified assertion since v1.0.0, and the lexical pre-screen said
+all 37 probes ranked first. The proxy was wrong about half of them.
+
+### How it was finally measurable
+
+Two mechanical facts, both discovered by trying:
+
+1. **The skill registry is frozen at session start.** A probe dispatched to a fresh subagent from a
+   long-running session came back naming skills that had been renamed several releases earlier. A
+   subagent inherits the parent's frozen listing, so **a stale session cannot measure current
+   descriptions however fresh the agent's context is.** That single fact is why this table stayed
+   empty for eight releases — "use a fresh session" was right for a sharper reason than stated.
+2. **Dispatch competes across every installed plugin, not within this library.** The agent could see
+   **90 skills**. One probe was lost outright to an official plugin's `security-review`.
+
+### The five failures, each with a cause and a fix
+
+| Probe | Fired | Wanted | Cause |
+|---|---|---|---|
+| is this ready to ship? | `release` | `verify` | both owned the word "ship" |
+| are these tests any good? | `review-cluster` | `test` | "any good" is review vocabulary |
+| check this for security problems | **another plugin's `security-review`** | `secure` | cross-plugin competition |
+| should we use Playwright or something lighter? | none | `evaluate` | description used `X or Y` placeholders where users name products |
+| remember that our migrations must never run in a transaction | none (runner-up: a config skill) | `learn` | read as a settings change |
+
+**In every mis-route the intended skill was the runner-up** — close, but not close enough, which is
+precisely the band a lexical proxy cannot resolve.
+
+### Changed
+
+Five descriptions fixed at the cause. `verify` now leads with the readiness question and `release` no
+longer claims "ship"; `review-cluster` states it reviews the change rather than the suite; `secure`
+claims the literal phrase and says what it covers that a diff review does not; `evaluate` and `learn`
+carry the phrasings people actually type.
+
+### New — `check-skills.ts --against <dir>`
+
+Cross-library shadowing, because the checker had only ever compared this library against itself and
+therefore could not see the pair that actually cost a probe. Two false-positive classes were fixed on
+first run: our own *installed copy* was being compared as an external competitor, and a mis-referenced
+helper meant the code would have thrown had `--against` ever been passed — caught by the typecheck gate.
+
+### And the same lesson, twice more
+
+Writing the exclusions re-triggered the v2.5.0 finding that **a negative condition is a lexical
+magnet**: quoting "are these tests any good" inside `review-cluster` to *disclaim* it made
+`review-cluster` claim it, and the trigger-collision check caught that immediately. Then the
+pre-screen started failing because mandatory mutual cross-references made each skill inherit its
+sibling's vocabulary — so the scorer now drops other skills' names from the trigger set, since a
+cross-reference is not a claim on the sibling's territory.
+
+**Not yet re-measured.** The five fixes are unvalidated: a second probe round has to run in a session
+started after this release is installed.
+
 ## 2.14.0
 
 `docs` gets its executable half. 16 checkers, 24 gates — every skill that has a mechanically

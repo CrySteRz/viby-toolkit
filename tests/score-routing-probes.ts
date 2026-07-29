@@ -111,7 +111,17 @@ function main(): number {
   }
 
   const skills = loadSkills(SKILLS_DIR).filter((s) => s.description !== "");
-  const descWords = new Map(skills.map((s) => [s.name, new Set(words(`${s.name} ${s.description}`))]));
+  // A mention of ANOTHER skill's name is a cross-reference, not a claim on its territory. The
+  // library requires mutual cross-references to clear the shadowing check, and counting them as
+  // trigger vocabulary made each skill inherit its sibling's words — so `release` scored on
+  // "verify" and vice versa. Drop other skills' names from every token set.
+  const allNames = new Set(skills.map((s) => s.name));
+  const descWords = new Map(
+    skills.map((s) => [
+      s.name,
+      new Set([...words(`${s.name} ${s.description}`)].filter((w) => w === s.name || !allNames.has(w))),
+    ]),
+  );
 
   // IDF over the description corpus.
   const df = new Map<string, number>();

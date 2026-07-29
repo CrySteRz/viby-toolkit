@@ -4,7 +4,8 @@ description: >
   Use when reviewing a diff, a PR, or freshly written code before shipping — or whenever
   the user asks for a code review they can trust. Use after implementing a feature, as the
   self-review step of orchestration, or when the user says "review this", "check my
-  changes", "is this correct", "find bugs".
+  changes", "is this correct", "find bugs". Reviews the CHANGE itself: judging whether the test
+  suite is any good belongs to /viby-toolkit:test, and release readiness to /viby-toolkit:verify.
 ---
 
 # Review Cluster + False-Positive Filter

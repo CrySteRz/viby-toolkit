@@ -39,14 +39,34 @@ It is user-in-the-loop by construction: only the human can see which skill Claud
 asking the model to self-report its own routing is exactly the self-assessment this toolkit
 treats as a weak signal. So:
 
-1. Start a **fresh session** (routing is decided from the description listing at session start;
-   a session where the skill is already loaded proves nothing).
+1. Start a **fresh session — and specifically one begun AFTER the last `/plugin update`.** This is
+   mechanical, not a preference: the skill registry is captured at session start and does not refresh
+   mid-session. Measured on 2026-07-29 by dispatching a probe to a fresh subagent from a long-running
+   session: it reported the skills as `viby-code:ship` and `viby-code:review-cluster` — names retired
+   several releases earlier. A subagent inherits the parent session's frozen listing, so **no probe
+   run from a stale session measures the current descriptions**, however fresh the agent's context is.
+   That single fact is why this table stayed empty for so long.
 2. Type the probe **verbatim**, as the first substantive message.
 3. Note which skill loaded — right / wrong / none.
 4. `/clear` between probes. A loaded skill biases the next selection.
 
 You do not need to run them all in one sitting. Ten probes across three sessions beats a
 one-off sweep, because the failures that matter are the ones that recur.
+
+## The other thing that probe revealed
+
+The subagent could see **90 skills**, because every installed plugin contributes to the listing. Its
+runner-up for "is this ready to ship?" was `security-review` — a skill from a different plugin
+entirely.
+
+So the competition for a trigger phrase is not among this library's 31 descriptions; it is among all
+90 installed. `check-skills.ts` measures shadowing *within* a directory, which means it has never
+seen the pairs that matter most. Run it across the whole installed set as well:
+
+```bash
+node --experimental-strip-types plugins/viby-toolkit/skills/principles/scripts/check-skills.ts \
+  plugins/viby-toolkit/skills --against "$HOME"/.claude/plugins/cache/*/*/*/skills
+```
 
 ## Scoring
 
@@ -120,7 +140,32 @@ that only fires when you name it is a slash command, not a skill.
 
 | Date | Probes run | right | wrong (which skill fired) | none | Notes |
 |---|---|---|---|---|---|
-| — | — | — | — | — | **the live test has not been run** |
+| 2026-07-29 | 10 | **5** | 3 (`release` for verify · `review-cluster` for test · external `security-review` for secure) | 2 (evaluate, learn) | **50% — FAILS the 80% bar.** Fresh-context agent dispatch, current descriptions, one agent per probe. See below. |
+
+**What the first real run established.** 5/10, against a lexical pre-screen that said all 37 probes
+ranked first — so the proxy was wrong about half of them, and every failure had a specific cause:
+
+| Probe | Fired | Wanted | Cause | Fix applied |
+|---|---|---|---|---|
+| is this ready to ship? | `release` | `verify` | both own the word "ship" | `verify` leads with the phrase; `release` no longer says "ship a release"; mutual cross-reference |
+| are these tests any good? | `review-cluster` | `test` | "any good" is review vocabulary | `review-cluster` now states it reviews the change, not the suite |
+| check this for security problems | **`security-review`** (another plugin) | `secure` | **cross-plugin competition** — 90 skills are in the listing, not 31 | `secure` claims the literal phrase and states what it covers that a diff review does not |
+| should we use Playwright or something lighter? | none | `evaluate` | description used placeholders (`X or Y`) where users name products | concrete product-shaped phrasings added |
+| remember that our migrations must never run in a transaction | none (runner-up `update-config`) | `learn` | read as a config change | `learn` now owns that phrasing and says it records a project fact, not a setting |
+
+Three findings that outlive this run:
+
+1. **The registry is frozen at session start.** A probe dispatched from a long-running session reported
+   the skills under names retired several releases earlier. Subagents inherit the parent's frozen
+   listing, so a stale session cannot measure current descriptions however fresh the agent is.
+2. **Dispatch competes across all installed plugins.** One failure was a loss to an official plugin's
+   skill. `check-skills.ts` only ever compared this library against itself — hence the new
+   `--against` mode.
+3. **The intended skill was runner-up in every mis-route.** The descriptions were close but not close
+   enough, which is exactly the band a lexical proxy cannot resolve.
+
+**Not yet re-measured.** The five fixes above are unvalidated: a second round has to run in a session
+started after this release is installed.
 
 ### Lexical pre-screen (a proxy, not this test)
 

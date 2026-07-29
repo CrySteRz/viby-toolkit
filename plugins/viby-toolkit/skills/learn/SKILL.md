@@ -3,9 +3,10 @@ name: learn
 description: >
   Use after solving something non-obvious, discovering a build/test quirk or gotcha, having
   a review finding dismissed as unwanted, or finding a task failed because context got
-  compacted away. Use when the user says "remember this", "remember that we must never do
-  that", "don't flag that again", "note for next time". Records a reusable lesson to project
-  memory so it compounds.
+  compacted away. Use when the user says "remember this", "remember that our migrations must never
+  run in a transaction", "remember that we must never do that", "don't flag that again", "note for
+  next time", "keep that in mind for this project". Records a reusable PROJECT FACT to memory so it
+  compounds — not a settings or configuration change.
 ---
 
 # Learn (the compounding loop)

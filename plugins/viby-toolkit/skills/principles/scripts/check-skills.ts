@@ -183,6 +183,55 @@ export function loadSkills(dir: string): Skill[] {
 const SHADOW_HIGH = 0.2; // a pair this close is near-duplicate framing; selection is a coin flip
 const SHADOW_WATCH = 0.12; // adjacent enough that one disambiguating clause each is worth it
 
+/**
+ * Shadowing across LIBRARIES, not just within one.
+ *
+ * This checker only ever compared a directory against itself, which means it never saw the pairs that
+ * matter most: dispatch competes across every installed plugin. Measured 2026-07-29 — a fresh agent
+ * offered 90 skills picked a different plugin's `security-review` as runner-up for a probe this
+ * library owns. Cross-library collisions cannot be fixed by editing the other plugin, so they are
+ * reported at P2 with the only available remedy: make OUR description more specific.
+ */
+export function checkAcross(ourDir: string, otherDirs: string[]): Finding[] {
+  const ours = loadSkills(ourDir).filter((s) => s.description !== "");
+  const findings: Finding[] = [];
+  const seen = new Set<string>();
+  for (const dir of otherDirs) {
+    const theirs = loadSkills(dir).filter((s) => s.description !== "");
+    for (const a of ours) {
+      for (const b of theirs) {
+        if (a.name === b.name) continue;
+        const key = `${a.name}|${b.name}`;
+        if (seen.has(key)) continue;
+        const sim = jaccard(words(a.description), words(b.description));
+        if (sim >= SHADOW_HIGH) {
+          seen.add(key);
+          findings.push({
+            severity: "P2",
+            check: "cross-library-shadowing",
+            skills: [a.name, `${b.name} (external)`],
+            message: `${(sim * 100).toFixed(0)}% description overlap with an installed skill from another plugin — dispatch chooses between them and you can only edit yours`,
+          });
+        }
+        for (const phrase of triggerPhrases(a.description)) {
+          if (b.description.toLowerCase().includes(phrase)) {
+            const k2 = `t:${a.name}|${b.name}|${phrase}`;
+            if (seen.has(k2)) continue;
+            seen.add(k2);
+            findings.push({
+              severity: "P1",
+              check: "cross-library-trigger",
+              skills: [a.name, `${b.name} (external)`],
+              message: `both claim the literal trigger "${phrase}" — one of them wins and it is not decided by you`,
+            });
+          }
+        }
+      }
+    }
+  }
+  return findings;
+}
+
 export function checkSkills(dir: string): { skills: Skill[]; findings: Finding[] } {
   const skills = loadSkills(dir);
   const findings: Finding[] = [];
@@ -280,10 +329,17 @@ export function checkSkills(dir: string): { skills: Skill[]; findings: Finding[]
 function main(): number {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { json: { type: "boolean", default: false }, quiet: { type: "boolean", default: false } },
+    options: {
+      json: { type: "boolean", default: false },
+      quiet: { type: "boolean", default: false },
+      against: { type: "string", multiple: true },
+    },
   });
   const dir = path.resolve(positionals[0] ?? path.join("plugins", "viby-toolkit", "skills"));
   const { skills, findings } = checkSkills(dir);
+  // Dispatch competes across every installed library, not just within this one.
+  const others = (values.against ?? []).filter((d) => d !== dir && fs.existsSync(d));
+  if (others.length > 0) findings.push(...checkAcross(dir, others));
 
   if (skills.length === 0) {
     if (values.json) console.log(JSON.stringify({ skills: 0, findings: [] }));
