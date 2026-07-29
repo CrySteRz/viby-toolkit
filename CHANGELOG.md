@@ -273,18 +273,15 @@ with nothing dropped. The checker caught its author again.
 
 ## 2.0.0
 
-**Breaking: the plugin is renamed `viby-code` → `viby-toolkit`.** Every skill is now invoked
-`/viby-toolkit:<name>`, and the installed plugin id is `viby-toolkit@viby-toolkit`. Nothing
-else changed — no skill was added, removed or rewritten in this release. Major, not minor,
-because renaming every entry point is the definition of a breaking public-surface change,
-and this repo's own `release` skill says the version number is a promise about that surface
-rather than about the size of the diff.
+**Breaking: the plugin was renamed to `viby-toolkit`** (from its one previous name). Every
+skill is now invoked `/viby-toolkit:<name>`, and the installed plugin id is
+`viby-toolkit@viby-toolkit`. Nothing else changed — no skill was added, removed or rewritten
+in this release. Major, not minor, because renaming every entry point is the definition of a
+breaking public-surface change, and this repo's own `release` skill says the version number is
+a promise about that surface rather than about the size of the diff.
 
-**To update:** `/plugin update viby-toolkit`. The old `viby-code@viby-toolkit` entry no
-longer exists in the marketplace, so `~/.claude/settings.json` needs its `enabledPlugins`
-key changed to `"viby-toolkit@viby-toolkit"` — done on this machine already. Any project
-`CLAUDE.md` or note that says `/viby-code:` must be updated by hand; the old prefix resolves
-to nothing rather than failing loudly.
+The old prefix resolves to nothing rather than failing loudly, so a stale reference in a
+project `CLAUDE.md` shows up as a skill that mysteriously never fires.
 
 ## 1.1.0
 
