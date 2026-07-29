@@ -437,7 +437,7 @@ degraded-but-functional install rather than errors. Check with `node --version`.
 **Option A — via Claude Code (recommended):**
 
 ```
-/plugin marketplace add Crysterz/viby-toolkit
+/plugin marketplace add CrySteRz/viby-toolkit
 /plugin install viby-toolkit@viby-toolkit
 ```
 
@@ -450,7 +450,7 @@ Then confirm it's enabled at **user scope** so it applies to every project.
 {
   "extraKnownMarketplaces": {
     "viby-toolkit": {
-      "source": { "source": "github", "repo": "Crysterz/viby-toolkit" }
+      "source": { "source": "github", "repo": "CrySteRz/viby-toolkit" }
     }
   },
   "enabledPlugins": {
