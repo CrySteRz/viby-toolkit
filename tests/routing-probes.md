@@ -164,8 +164,27 @@ Three findings that outlive this run:
 3. **The intended skill was runner-up in every mis-route.** The descriptions were close but not close
    enough, which is exactly the band a lexical proxy cannot resolve.
 
-**Not yet re-measured.** The five fixes above are unvalidated: a second round has to run in a session
-started after this release is installed.
+**Replication run, same day, 5 probes, one fresh agent each — and it measured the PRE-FIX
+descriptions**, because the session registry had been reloaded before the fixes were written. Result:
+**4 of 5 failures reproduced exactly** (`verify`→`release`, `secure`→external `security-review`,
+`evaluate`→none, `learn`→none/`update-config`). The fifth drifted: `are these tests any good?` went
+from `review-cluster` to **none**, with `test` as runner-up — an unstable probe, which is its own
+finding, because instability means those two descriptions are close enough that dispatch is a coin
+flip rather than a decision.
+
+So the failures are **reproducible, not noise** — worth knowing before spending effort on them.
+
+**The fixes remain unvalidated, and the reason is the same mechanical fact:** the registry froze at
+the reload, so agents spawned afterwards see the descriptions as they were then, not as they are on
+disk. Validating requires `/reload-skills` (or a new session) and then re-running these five. The
+installed copy already carries the fixes — verified: `verify`'s description now contains the readiness
+phrase and `release`'s no longer does.
+
+**Method that works, for next time:** one fresh general-purpose agent per probe, launched in
+parallel, each given the probe text plus a meta-instruction to report `would_invoke` / `runner_up`
+and do no work. Ten probes cost about four seconds of wall-clock each and roughly 29k tokens per
+agent — none of which touches the main context. This is the fan-out law working exactly as stated:
+pure read work, no shared state, and the raw reasoning dies with the agent.
 
 ### Lexical pre-screen (a proxy, not this test)
 
