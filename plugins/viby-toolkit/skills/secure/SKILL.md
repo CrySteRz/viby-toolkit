@@ -3,11 +3,9 @@ name: secure
 description: >
   Use for a security-focused pass over code, dependencies, or configuration — "check this for
   security problems", "is this secure", "security review", "did I leak a secret", "check for
-  vulnerabilities", "audit the dependencies", "is this endpoint safe", before exposing something publicly, or before
-  committing config and CI changes. Deeper and differently-aimed than the security dimension
-  inside /viby-toolkit:review-cluster, which reviews one diff. Broader than any diff-scoped review:
-  it covers credentials already in git history, the supply chain, and the agent skills you install —
-  not only the pending change.
+  vulnerabilities", "audit the dependencies", "is this endpoint safe", before exposing
+  something publicly, or before committing config and CI changes. Not
+  /viby-toolkit:review-cluster.
 ---
 
 # Secure (credentials first, then the supply chain, then the code)

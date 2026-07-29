@@ -1,12 +1,9 @@
 ---
 name: refactor
 description: >
-  Use when restructuring code without changing what it does — "clean this up", "extract
-  this", "split this file", "this function is too long", "reduce duplication", "improve the
-  naming", "make this testable", "untangle this". Distinct from /viby-toolkit:migrate (a
-  mechanical sweep across many files), from /viby-toolkit:adopt (taking over untrusted code
-  someone else wrote, which needs a provenance gate and behaviour capture first), and from a
-  rewrite (which changes behaviour).
+  Use when restructuring code without changing what it does — "clean this up", "extract this",
+  "split this file", "this function is too long", "reduce duplication", "improve the naming",
+  "make this testable", "untangle this". Not /viby-toolkit:migrate, /viby-toolkit:adopt.
 ---
 
 # Refactor (behaviour-preserving, and proven so)

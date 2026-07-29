@@ -1,14 +1,10 @@
 ---
 name: adopt
 description: >
-  Use when taking on code you did not write and do not trust yet, and bringing it up to standard
-  — "someone handed us this repo", "we inherited this codebase", "the contractor delivered it",
-  "take over this project", "clean this up to our conventions", "this came from a vendor / an
-  agency / an old team", "rewrite this in our style and make sure it still does what it must".
-  Runs the whole pipeline: provenance gate, behaviour capture before any edit, agent-driven
-  conforming, then a functionality gate proved by tests the agents never saw. Distinct from
-  /viby-toolkit:refactor, which restructures code you already own and already have tests for,
-  and from /viby-toolkit:explore, which only maps a codebase.
+  Use when taking on code you did not write and do not trust yet, and bringing it up to
+  standard — "someone handed us this repo", "we inherited this codebase", "the contractor
+  delivered it", "take over this project", "clean this up to our conventions", "this came from
+  a vendor / an agency / an old team". Not /viby-toolkit:refactor, /viby-toolkit:explore.
 ---
 
 # Adopt (inherit foreign code, conform it, prove it still works)

@@ -1,12 +1,11 @@
 ---
 name: plan
 description: >
-  Use when the HOW of a task isn't obvious, is cross-cutting or high-stakes, or the user
-  wants to approve direction before any code is written. Use when the user says "plan
-  this", "how would you approach", "how would you approach splitting this service in two",
-  "what's the plan", or asks for a design/approach without
-  asking you to build yet. (For deciding WHAT to build at all, use brainstorm first; for
-  deciding which existing tool or dependency to adopt, use /viby-toolkit:evaluate.)
+  Use when the HOW of a task isn't obvious, is cross-cutting or high-stakes, or the user wants
+  to approve direction before any code is written. Use when the user says "plan this", "how
+  would you approach", "how would you approach splitting this service in two", "what's the
+  plan", "break this into steps", "what order should we do this in". Not
+  /viby-toolkit:brainstorm, /viby-toolkit:evaluate.
 ---
 
 # Plan

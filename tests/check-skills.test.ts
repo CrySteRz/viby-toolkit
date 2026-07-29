@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkSkills, loadSkills } from "../plugins/viby-toolkit/skills/principles/scripts/check-skills.ts";
+import { checkListingBudget, checkSkills, listingBudgetChars, loadSkills } from "../plugins/viby-toolkit/skills/principles/scripts/check-skills.ts";
 
 function library(skills: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skills-"));
@@ -139,11 +139,34 @@ test("the real viby-toolkit library is clean", () => {
   const dir = path.join(path.dirname(path.dirname(new URL(import.meta.url).pathname)), "plugins", "viby-toolkit", "skills");
   const { skills, findings: fs_ } = checkSkills(dir);
   assert.ok(skills.length >= 15, `expected the real library, found ${skills.length} skills`);
+  // `listing-over-budget` is excluded BY NAME, not by severity: it reports a structural standing
+  // cost of having 31 skills, which no amount of good writing can clear, and a permanently-red gate
+  // is worse than no gate. Excluding it by severity would also have silenced shadowing-watch, which
+  // is the finding this test exists for. The assertion below keeps the information from vanishing.
   assert.deepEqual(
-    fs_.map((f) => `${f.check}:${f.skills.join("+")}`),
+    fs_.filter((f) => f.check !== "listing-over-budget").map((f) => `${f.check}:${f.skills.join("+")}`),
     [],
     "the shipped skill library must have no shadowing or trigger collisions",
   );
+  assert.ok(
+    fs_.some((f) => f.check === "listing-over-budget"),
+    "the listing-budget figure must still be REPORTED — it is the measured cause of mis-routing",
+  );
+});
+
+test("the listing budget matches the constants in the Claude Code binary, not the docs", () => {
+  // Verified against Claude Code 2.1.220: skillListingBudgetFraction defaults to 0.01, bytesPerToken
+  // is 4, and the default context window is 200_000. The binary's own string: "The skill listing is
+  // budgeted at ~1% of the context window; when summed descriptions exceed it, entries get truncated
+  // and skill routing degrades."
+  assert.equal(listingBudgetChars(200_000), 8_000);
+  assert.equal(listingBudgetChars(1_000_000), 40_000);
+});
+
+test("a description past the 1,536-char per-skill cap is a P1, because the tail is silently cut", () => {
+  const long = { name: "x", description: "y".repeat(1_600), triggers: [], modelInvocable: true, directives: 0 };
+  const f = checkListingBudget([long]);
+  assert.ok(f.some((x) => x.check === "description-over-cap" && x.severity === "P1"), "over-cap must be P1");
 });
 
 test("a skill name containing a regex metacharacter still gets the cross-reference exemption", () => {

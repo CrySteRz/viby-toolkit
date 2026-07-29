@@ -1,12 +1,10 @@
 ---
 name: worktrees
 description: >
-  Use before running work that should be isolated from the main checkout — parallel
-  implementer agents that would edit-conflict, a risky experiment, or a migration you want
-  to keep off the working branch. Use when the user says "isolate this", "work in a
-  worktree", "try this without touching main", "run these in parallel without them stepping on
-  each other", or when orchestrate/migrate needs conflict-free parallel writes. Also decides
-  where a generated per-machine artifact (index, cache, venv) lives across several worktrees.
+  Use before running work that should be isolated from the main checkout — parallel implementer
+  agents that would edit-conflict, a risky experiment, or a migration you want off the working
+  branch. Use when the user says "isolate this", "work in a worktree", "try this without
+  touching main", "run these in parallel without them stepping on each other".
 ---
 
 # Worktrees (isolation, done right)

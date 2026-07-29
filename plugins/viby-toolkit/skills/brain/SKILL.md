@@ -2,12 +2,9 @@
 name: brain
 description: >
   Use when the question is about the memory system itself rather than one lesson — "what do you
-  remember", "audit your memory", "clean up the memory", "why did you think that", "you're working
-  from something outdated", "how should we structure what you know about this project", "is that
-  still true". Owns the architecture: what belongs in memory, how it is retrieved, when it is
-  retired. Distinct from /viby-toolkit:learn, which writes a single entry, from
-  /viby-toolkit:handoff, which serialises live session state meant to be thrown away, and from
-  /viby-toolkit:docs, which writes prose for a human rather than curating what the agent knows.
+  remember", "audit your memory", "clean up the memory", "why did you think that", "you're
+  working from something outdated", "how should we structure what you know about this project",
+  "is that still true". Not /viby-toolkit:learn, /viby-toolkit:handoff, /viby-toolkit:docs.
 ---
 
 # Brain (the memory has to be maintained, or it starts lying)

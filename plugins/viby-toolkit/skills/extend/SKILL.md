@@ -1,11 +1,10 @@
 ---
 name: extend
 description: >
-  Use when adding to or changing this toolkit itself — "add a skill for X", "write a new module",
-  "extend viby-toolkit", "add a checker", "improve this skill's description", "why isn't my skill
-  triggering". The meta-skill: how a new capability gets built here so it routes, runs, and is
-  verified rather than merely written. Distinct from /viby-toolkit:plan, which plans changes to a
-  product; this one knows this library's own contract.
+  Use when adding to or changing this toolkit itself — "add a skill for X", "write a new
+  module", "extend viby-toolkit", "add a checker", "improve this skill's description", "why
+  isn't my skill triggering". The meta-skill: how a new capability gets built here so it
+  routes, runs, and is verified rather than merely written. Not /viby-toolkit:plan.
 ---
 
 # Extend (adding to this toolkit without degrading it)

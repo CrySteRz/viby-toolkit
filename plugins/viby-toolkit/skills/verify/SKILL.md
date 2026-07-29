@@ -1,15 +1,10 @@
 ---
 name: verify
 description: >
-  Use before claiming any change is done, working, or fixed — the evidence gate made
-  executable. Use when the user says "is this ready to ship", "are we done", "is it working",
-  "did that work", "verify this", "prove it", "are the tests passing", or when you're
-  about to write "should work" /
-  "that should fix it". Also the Verify phase of /viby-toolkit:orchestrate and the closing
-  step of /viby-toolkit:debug and /viby-toolkit:migrate. Distinct from /viby-toolkit:test, which designs and writes
-  tests, and from /viby-toolkit:release, which picks the version number and cuts the tag once this
-  skill has established that the change is sound — this one runs the project's real checks and
-  screens their output for silent passes.
+  Use before claiming any change is done, working, or fixed. Use when the user says "is this
+  ready to ship", "are we done", "did that work", "verify this", "prove it", "are the tests
+  passing", "show me the exit code", or when you're about to write "should work". Also the
+  Verify phase of /viby-toolkit:orchestrate. Not /viby-toolkit:test, /viby-toolkit:release.
 ---
 
 # Verify (the evidence gate, executed)

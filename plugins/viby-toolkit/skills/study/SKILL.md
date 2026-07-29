@@ -3,11 +3,8 @@ name: study
 description: >
   Use when the user brings an idea or open question whose answer lives OUTSIDE the codebase and
   wants it researched properly — "research this", "do a deep dive on", "what's the state of the
-  art for", "how do other people solve this", "is this claim true", "write me a study on", "look
-  into whether we should". Produces a protocol first (question, competing answers, search plan,
-  stopping rule) for approval, then the study document. Distinct from /viby-toolkit:evaluate,
-  which measures 2–5 named candidates against your own code; hand over to it once the question
-  narrows to a shortlist. Distinct from /viby-toolkit:explore, which maps a codebase you have.
+  art for", "how do other people solve this", "is this claim true", "write me a study on",
+  "look into whether we should". Not /viby-toolkit:evaluate. Not /viby-toolkit:explore.
 ---
 
 # Study (protocol first, then evidence, then the answer)

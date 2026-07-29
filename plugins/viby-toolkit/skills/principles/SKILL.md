@@ -2,10 +2,9 @@
 name: principles
 description: >
   The operating contract every viby-toolkit skill and agent follows — accuracy rules, the
-  fan-out law, model-routing and escalation, context discipline, evidence-gating. Load it
-  when another viby-toolkit skill says "follow /viby-toolkit:principles", before deciding whether
-  to fan out subagents or which model to route work to, or when explaining how viby-toolkit
-  decides. Reference material — read it, don't "run" it.
+  fan-out law, model routing and escalation, context discipline, evidence gating. Load it when
+  another viby-toolkit skill says "follow /viby-toolkit:principles", or before deciding whether
+  to fan out subagents. Reference material — read it, don't run it.
 ---
 
 # Viby-code Operating Principles

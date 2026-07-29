@@ -2,14 +2,9 @@
 name: evaluate
 description: >
   Use when choosing whether to adopt a tool, library, dependency, service or MCP server —
-  "should we use Playwright or something lighter", "should we use X or Y", "which library should we
-  use", "is there a lighter option for this", "is this library worth adding", "evaluate these
-  options", "run a spike on this", "benchmark these two approaches", "is this MCP worth installing", "does
-  this actually save us anything". Produces a decision record measured against a case whose
-  answer you already know, with the rejections and the back-out path recorded. Distinct from
-  brainstorm, which decides WHAT to build, and plan, which decides HOW to build it — this
-  decides what to ADOPT, including "nothing". Distinct from /viby-toolkit:study, which answers an
-  open question from external evidence — start there when there is no shortlist yet.
+  "should we use Playwright or something lighter", "which library should we use", "is there a
+  lighter option", "is this library worth adding", "run a spike on this", "benchmark these two
+  approaches", "is this MCP worth installing". Not /viby-toolkit:study.
 ---
 
 # Evaluate (measure it on a case you already know the answer to)

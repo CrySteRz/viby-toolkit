@@ -1,12 +1,10 @@
 ---
 name: analytics
 description: >
-  Use when implementing or debugging the numbers themselves — "the numbers don't match", "write the
-  query for this metric", "build the reporting pipeline", "why is this figure wrong", "the totals
-  don't add up", "our dashboard disagrees with finance", "set up dbt models for these KPIs", "test
-  the data". Implements a metric contract as queries and models, then proves the number with tests
-  and a reconciliation. Distinct from /viby-toolkit:kpi, which defines what to measure and how to
-  present it; come here once the definitions exist.
+  Use when implementing or debugging the numbers themselves — "the numbers don't match", "write
+  the query for this metric", "build the reporting pipeline", "why is this figure wrong", "the
+  totals don't add up", "our dashboard disagrees with finance", "set up dbt models for these
+  KPIs", "test the data". Not /viby-toolkit:kpi.
 ---
 
 # Analytics (a number is not done until it reconciles)

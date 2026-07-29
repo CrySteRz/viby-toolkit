@@ -232,9 +232,82 @@ export function checkAcross(ourDir: string, otherDirs: string[]): Finding[] {
   return findings;
 }
 
+/**
+ * The skill listing is budgeted, and overflowing it silently degrades routing. Verified against the
+ * Claude Code binary (2.1.220), not the docs: `skillListingBudgetFraction` defaults to `0.01`,
+ * `bytesPerToken` is `4`, the default context window is `200_000`, and `skillListingMaxDescChars`
+ * caps a single description at `1536`. The binary's own words:
+ *
+ *   "The skill listing is budgeted at ~1% of the context window; when summed descriptions exceed
+ *    it, entries get truncated and skill routing degrades."
+ *
+ * And the overflow order is the part that hurts: descriptions are dropped starting with the skills
+ * you invoke LEAST. A fresh session has no invocation history, so a library's descriptions are the
+ * first to be cut to name-only — which is why writing LONGER, more explicit descriptions to fix a
+ * mis-route makes it worse. Every added character raises the overflow that strips the keywords.
+ */
+const LISTING_BYTES_PER_TOKEN = 4;
+const LISTING_BUDGET_FRACTION = 0.01;
+const LISTING_MAX_DESC_CHARS = 1536;
+/**
+ * The gate is PER-SKILL, not on the total. A 31-skill library cannot fit a "fair share" of an
+ * 8,000-char budget however it is written — 31 × 258 is already the whole thing — so gating on the
+ * total would be a permanently-red check, which this library treats as worse than no check. What is
+ * actually controllable is the length of each description, and the total follows from it.
+ */
+const DESC_TARGET = 400;
+
+export function listingBudgetChars(contextTokens: number): number {
+  return Math.floor(LISTING_BUDGET_FRACTION * contextTokens * LISTING_BYTES_PER_TOKEN);
+}
+
+export function checkListingBudget(skills: Skill[], contextTokens = 200_000): Finding[] {
+  const findings: Finding[] = [];
+  const total = skills.reduce((n, s) => n + s.description.length, 0);
+  const budget = listingBudgetChars(contextTokens);
+  const share = total / budget;
+
+  for (const s of skills) {
+    if (s.description.length > LISTING_MAX_DESC_CHARS) {
+      findings.push({
+        check: "description-over-cap",
+        severity: "P1",
+        skills: [s.name],
+        message: `${s.description.length} chars — past the ${LISTING_MAX_DESC_CHARS}-char per-skill cap, so the tail is cut off and whatever routing keywords live there are simply gone`,
+        detail: "the cut is silent; nothing warns you that the phrase you added is not in the listing",
+      });
+    } else if (s.description.length > DESC_TARGET) {
+      findings.push({
+        check: "description-too-long",
+        severity: "P2",
+        skills: [s.name],
+        message: `${s.description.length} chars against a ${DESC_TARGET}-char target — it is spending listing budget that gets taken from the whole library`,
+        detail: "cut the summary of what the skill DOES and keep only the triggers; the body says what it does",
+      });
+    }
+  }
+  if (share > 1) {
+    findings.push({
+      check: "listing-over-budget",
+      // P3 deliberately: with 31 skills this can never be cleared however well each is written, and a
+      // permanently-red gate is worse than no gate. The ACTIONABLE half is per-skill and gates at P2.
+      severity: "P3",
+      skills: [],
+      message:
+        `${skills.length} descriptions total ${total} chars = ${(share * 100).toFixed(0)}% of the ` +
+        `${budget}-char listing budget at ${contextTokens / 1000}k context, so entries get truncated ` +
+        "and routing decides on less than you wrote",
+      detail:
+        "descriptions are dropped least-invoked-first, so in a fresh session these are the first cut " +
+        "to name-only. Informational: with this many skills it is a standing cost, not a bug to fix.",
+    });
+  }
+  return findings;
+}
+
 export function checkSkills(dir: string): { skills: Skill[]; findings: Finding[] } {
   const skills = loadSkills(dir);
-  const findings: Finding[] = [];
+  const findings: Finding[] = [...checkListingBudget(skills)];
 
   for (const s of skills) {
     if (s.description.trim() === "") {

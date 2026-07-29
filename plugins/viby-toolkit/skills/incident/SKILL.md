@@ -3,8 +3,7 @@ name: incident
 description: >
   Use when something is broken RIGHT NOW in production or a shared environment — "the site is
   down", "we're getting paged", "users are reporting errors", "the deploy broke prod", "error
-  rate spiked", "it's timing out in prod". Distinct from /viby-toolkit:debug, which assumes you
-  have time to reproduce; here the order of operations is different.
+  rate spiked", "it's timing out in prod". Not /viby-toolkit:debug.
 ---
 
 # Incident (stop the bleeding, then find out why)

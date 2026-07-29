@@ -3,8 +3,7 @@ name: schema
 description: >
   Use for any database schema or data change — "add a column", "write a migration", "change
   this table", "rename this field", "backfill", "add an index", "drop the old column", "change
-  the column type", or reviewing a migration someone else wrote. Distinct from
-  /viby-toolkit:migrate, which sweeps code, not data.
+  the column type", or reviewing a migration someone else wrote. Not /viby-toolkit:migrate.
 ---
 
 # Schema (the one change you cannot undo)

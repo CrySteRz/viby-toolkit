@@ -1,13 +1,10 @@
 ---
 name: ui
 description: >
-  Use when a change has to be seen or driven to be believed — "does this render", "check the UI",
-  "is the layout broken", "click through this flow", "the button does nothing", "take a
-  screenshot", "does it work on mobile", "does this look right on mobile", "check accessibility",
-  "the page is blank". Drives a real
-  browser and reports what actually happened, with the screenshot and console attached. Distinct
-  from /viby-toolkit:test, which designs the test suite, and from /viby-toolkit:perf, which
-  measures speed.
+  Use when a change has to be seen or driven to be believed — "does this render", "check the
+  UI", "is the layout broken", "click through this flow", "the button does nothing", "take a
+  screenshot", "does this look right on mobile", "check accessibility", "the page is blank".
+  Not /viby-toolkit:test, /viby-toolkit:perf.
 ---
 
 # UI (see it, drive it, or you have not checked it)

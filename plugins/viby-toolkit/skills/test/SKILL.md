@@ -1,13 +1,10 @@
 ---
 name: test
 description: >
-  Use when writing, designing, auditing, or repairing tests — unit, integration, e2e,
-  contract, or property-based — and for QA strategy questions like "what should we test",
-  "is this well tested", "add tests for this", "write tests for this module", "are these
-  tests any good", "why didn't the tests catch this", "these
-  tests are flaky", "improve our coverage". Also the test-authoring half of
-  /viby-toolkit:orchestrate. For *running* checks to prove a change works, use
-  /viby-toolkit:verify instead.
+  Use when writing, designing, auditing, or repairing tests — unit, integration, e2e, contract,
+  or property-based — and for QA strategy: "what should we test", "is this well tested", "write
+  tests for this module", "are these tests any good", "why didn't the tests catch this", "these
+  tests are flaky". For *running* checks to prove a change works, /viby-toolkit:verify.
 ---
 
 # Test (QA, by design)

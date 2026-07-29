@@ -1,12 +1,10 @@
 ---
 name: observe
 description: >
-  Use when adding or fixing instrumentation — logging, metrics, tracing, error reporting —
-  or when an incident revealed you could not see what happened. Triggers: "add logging",
-  "why can't we see this", "add a metric", "instrument this", "we had no visibility", "we
-  can't tell what's happening in this service", "what
-  should we alert on", "this log is useless". Distinct from incident, which responds to a
-  live outage, and from debug, which diagnoses a reproducible failure.
+  Use when adding or fixing instrumentation — logging, metrics, tracing, error reporting — or
+  when an incident revealed you could not see what happened. Triggers: "add logging", "why
+  can't we see this", "add a metric", "instrument this", "we had no visibility", "we can't tell
+  what's happening in this service", "what should we alert on", "this log is useless".
 ---
 
 # Observe (instrument for the person reading it at 3am)
