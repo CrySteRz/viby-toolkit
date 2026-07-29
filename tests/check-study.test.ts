@@ -100,6 +100,39 @@ test("a list with NO introducing source is still flagged", () => {
   assert.ok(f.includes("unsourced-figure"), "the must-flag half of the same rule");
 });
 
+test("the paragraph directly above counts as the citation for the one below", () => {
+  // Technical writing cites once and then discusses. Requiring the URL in the same paragraph as
+  // every restatement fires on correctly sourced prose.
+  const f = checks(
+    "\n## Results\n\nThe monitored run is reported in [the paper](https://example.com/p) (fetched 2026-07-29),\nwhich gives the figures below.\n\nThe hacked rate fell from 28.57% to 0.56% under monitoring.\n",
+  );
+  assert.ok(!f.includes("unsourced-figure"), `an adjacent citing paragraph sources it: ${f.join()}`);
+});
+
+test("a paragraph TWO paragraphs after the citation is still flagged", () => {
+  // The bound is what stops one URL from sourcing an entire section.
+  const f = checks(
+    "\n## Results\n\nSee [the paper](https://example.com/p) (2026-07-29).\n\nSome unrelated discussion with no numbers in it at all.\n\nThe hacked rate fell from 28.57% to 0.56%.\n",
+  );
+  assert.ok(f.includes("unsourced-figure"), `the bound must hold: ${f.join() || "none"}`);
+});
+
+test("a heading resets attribution — a citation does not leak across sections", () => {
+  const f = checks(
+    "\n## Sources\n\nSee [the paper](https://example.com/p) (2026-07-29).\n\n## Results\n\nThroughput improved 47%.\n",
+  );
+  assert.ok(f.includes("unsourced-figure"), `attribution must not cross a heading: ${f.join() || "none"}`);
+});
+
+test('hedging inside a section headed "Not verified" is correct writing, not a finding', () => {
+  // Regression: MEASURED_HEADING matched the word "verified" inside "Not verified", so the most
+  // honest paragraph in a document was flagged as a result dressed up in hedges.
+  for (const heading of ["## Not verified", "## Limitations", "## Open questions", "## Unverified claims"]) {
+    const f = checks(`\n${heading}\n\nThe paper reportedly builds a dataset; the page is paywalled and was never read.\n`);
+    assert.ok(!f.includes("hedged-as-measured"), `${heading} must allow hedging, got ${f.join()}`);
+  }
+});
+
 test("a hedge inside a results section is flagged", () => {
   const f = checks("\n## Measured results\n\nThe index appears to resolve cross-module edges correctly.\n");
   assert.ok(f.includes("hedged-as-measured"), f.join() || "none");

@@ -1,5 +1,81 @@
 # Changelog
 
+## 2.4.0
+
+New module: **`/viby-toolkit:adopt`** — taking on code you did not write and do not trust yet,
+conforming it to instructions and to the target language's idiom with agents, and proving at the
+end that the required functionality is still there. Researched 2026-07-29; sources labelled
+fetched vs search-summary in `skills/adopt/references/methods.md`, including one paywalled paper
+recorded as unread rather than cited.
+
+### The two measurements the module is built on
+
+- **Repository-level refactoring fails more often than it succeeds.** On *SWE-Refactor* — 1,099
+  developer-written, behaviour-preserving refactorings from 18 Java projects — the best model
+  managed **41.58%**, and an agent **39.4%** on compound cases. Roughly six attempts in ten fail.
+  Multi-agent workflows helped more than any other single strategy.
+- **Watching for shortcuts makes agents better, not just honester.** Trajectory-level behaviour
+  monitoring "reduces average hacked-resolved rate from **28.57% to 0.56%**, while improving clean
+  resolved rate from **40.22% to 60.53%**" (arXiv 2606.26300, fetched). Without it, ~28.6% of
+  solutions that passed the verifier had reached green through a shortcut channel.
+
+So: fan out aggressively, gate mechanically. Under that much failure pressure the cheapest path to
+green is to edit the check rather than the code — documented shortcuts include deleting the test
+file and inserting `sys.exit(0)` to leave the harness successful.
+
+### The pipeline
+
+1. **Provenance gate first** — licence (may you even ship it?), secrets in history (rotate: they
+   are compromised on arrival), runtime behaviour, dependency typosquats. Stop and report rather
+   than refactoring around an unresolved licence.
+2. **Map it and find the seams**, assuming there are no usable tests — and if some exist, prove
+   they fail when the code is broken before trusting them.
+3. **Capture behaviour before editing**: characterization / golden-master / approval tests that
+   pin what it *did*, explicitly without judging whether that is correct; real recorded inputs over
+   invented ones; differential testing against the still-runnable original, which gives an oracle
+   without a spec — precisely what inherited code lacks; sprout and wrap before cutting.
+4. **The functionality matrix** — every requirement with its verification method and pass
+   criterion, traceable both ways — and **a held-out slice the agents never see**, the split
+   benchmarks use to catch agents that overfit to visible tests.
+5. **Mikado steps**: attempt naively, and when it breaks record the prerequisite and **revert**.
+   The discarded attempt bought the dependency graph, which is also the partition the fan-out law
+   requires before any parallel writes.
+6. **Conform in priority order**: explicit instructions > the target language's own idiom >
+   existing project conventions — and never carry one language's patterns into another. Mechanical,
+   structural and behavioural changes in separate commits.
+7. **Agents with a monitored trajectory**, then the acceptance gate: characterization green, drift
+   check clean, held-out suite green, every matrix row demonstrated, `verify` over the lot.
+
+### New — `check-test-drift.ts` (22 contract cases, 16 gates)
+
+Compares the test suite between two git refs and answers the question a green run cannot: **did
+the safety net shrink?** Test files gone, cases gone, assertions gone, skips added, `.only` added,
+or a zero-status exit inserted. Counts across TS/JS, Python, Go, Rust and JUnit-style suites.
+Reports on this repo's own history: 145 → 194 tests, 182 → 262 assertions since v2.2.0.
+
+It states its own limits on every run: an assertion weakened in place keeps the count, and nothing
+is executed, so a clean result proves the net was not cut — never that behaviour was preserved.
+
+**A move is not a deletion.** Suite-wide counts decide severity, so reorganising files is silent
+while genuinely removed coverage is P1.
+
+### Found by running the new tools on this release
+
+- **A silent-pass mode in the drift checker**, caught by pointing it at a tag that doesn't exist:
+  an unresolvable base ref produced an empty baseline and reported "0 → 198 tests, the net grew" —
+  a perfect score for a typo. Now exit 2 with "NOTHING was compared".
+- **Overlapping assert patterns double-counted** `self.assertEqual(...)`, and bare Python/Rust
+  `assert x == 1` wasn't counted at all. A miscount that differs between refs invents drift that
+  isn't there or hides drift that is.
+- **Three false-positive classes in `check-study.ts`**, found by auditing this release's own
+  research notes: a section headed **"Not verified"** matched the "measured" pattern, so the most
+  honest paragraph in the document was flagged as a dressed-up result; only a paragraph's *first*
+  line was kept as its citation, so a source on the second line read as unsourced; and multi-line
+  blockquotes were split one block per line, cutting a quotation off from the citation that
+  introduced it. Attribution now also extends to the paragraph *directly* above — bounded there, so
+  one URL still cannot source a whole section — and dates are matched per block, since a wrapped
+  citation carries "fetched <date>" on its second line.
+
 ## 2.3.0
 
 New module: **`/viby-toolkit:study`** — you bring an idea, it produces the protocol first

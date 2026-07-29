@@ -47,8 +47,19 @@ const HEDGES = [
   "reportedly",
 ];
 
-/** Section headings whose content is being presented as a measurement. */
+/**
+ * Section headings whose content is being presented as a measurement.
+ *
+ * NEGATED first: a section headed "Not verified", "Limitations" or "Open questions" is where
+ * hedging BELONGS. Matching it flagged the most honest paragraph in a document as if it were a
+ * result — punishing exactly the behaviour the skill asks for.
+ */
+const NOT_MEASURED_HEADING = /\b(not |un)(verified|tested|measured|proven)|limitation|open question|caveat|unknown|future work/i;
 const MEASURED_HEADING = /\b(measur|benchmark|result|finding|verified|tested|experiment|data)/i;
+
+function presentedAsMeasured(heading: string): boolean {
+  return MEASURED_HEADING.test(heading) && !NOT_MEASURED_HEADING.test(heading);
+}
 
 /** A quantity strong enough that citing it unsourced is a defect. Bare small integers are not
  *  claims ("2 candidates", "3 angles"), so they do not count. */
@@ -97,7 +108,12 @@ export function blockOf(lines: string[]): number[] {
       start = i + 1;
       continue;
     }
-    if (/^\s*#{1,6}\s/.test(line) || /^\s*([-*+]|\d+\.)\s/.test(line) || /^\s*\|/.test(line) || /^\s*>/.test(line)) {
+    // A multi-line blockquote is ONE unit — a quotation spanning three lines is not three
+    // claims, and splitting it meant the second line of a quote could not see the citation that
+    // introduced it. Table rows stay per-row on purpose (§ evidence tables are read row by row).
+    const isQuote = /^\s*>/.test(line);
+    const prevIsQuote = i > 0 && /^\s*>/.test(lines[i - 1] ?? "");
+    if (/^\s*#{1,6}\s/.test(line) || /^\s*([-*+]|\d+\.)\s/.test(line) || /^\s*\|/.test(line) || (isQuote && !prevIsQuote)) {
       start = i;
     }
     owner.push(start);
@@ -168,6 +184,12 @@ export function checkStudy(text: string, mode: Mode = "study"): Finding[] {
    *  not just its first item — otherwise the third bullet of a properly-introduced list is
    *  "unsourced" purely because it is further from the sentence. */
   let runStart = -1;
+  /** The paragraph before the current one, and where it ended. Technical writing cites a source
+   *  once and then discusses it, so the paragraph directly above counts as the citation for the
+   *  one below — bounded to *directly* above, which is what stops a single URL from sourcing a
+   *  whole section. */
+  let prevPara = "";
+  let prevParaEnd = -99;
   const domains = new Set<string>();
   let urlCount = 0;
   let undatedCitations = 0;
@@ -180,6 +202,8 @@ export function checkStudy(text: string, mode: Mode = "study"): Finding[] {
       currentHeading = line;
       introLine = "";
       introEnd = -99;
+      prevPara = "";
+      prevParaEnd = -99;
       continue;
     }
 
@@ -189,19 +213,20 @@ export function checkStudy(text: string, mode: Mode = "study"): Finding[] {
       domains.add(domainOf(u));
     }
 
-    // A cited source with no date anywhere on its line. Sources rot — a quarter of pages that
-    // existed over a recent decade are already gone — so an undated citation may be
-    // unverifiable later, and nobody will know when it was true.
-    if (urls.length > 0 && !DATE_RE.test(line)) {
-      undatedCitations += 1;
-      if (undatedCitations === 1) firstUndated = i + 1;
-    }
-
     // A figure with no source on the same line and none on the next (tables and footnotes
     // routinely put the citation in the adjacent cell or line).
     const isBlockItem = /^\s*([-*+]|\d+\.)\s/.test(line) || /^\s*\|/.test(line);
     if (!isBlockItem && line.trim() !== "") {
-      if (owner[i] === i) introLine = line;
+      // Accumulate the WHOLE paragraph, not just its first line: a citation frequently lands on
+      // the second or third line of the sentence that introduces a figure, and keeping only the
+      // first line reported those as unsourced.
+      if (owner[i] === i) {
+        prevPara = introLine;
+        prevParaEnd = introEnd;
+        introLine = line;
+      } else {
+        introLine = `${introLine}\n${line}`;
+      }
       introEnd = i;
       runStart = -1; // ordinary prose ends any list/table run
     }
@@ -211,8 +236,24 @@ export function checkStudy(text: string, mode: Mode = "study"): Finding[] {
     let blockEnd = blockStart;
     while (blockEnd + 1 < lines.length && owner[blockEnd + 1] === blockStart) blockEnd += 1;
     if (isBlockItem && runStart === -1) runStart = blockStart;
-    const introApplies = isBlockItem && runStart >= 0 && runStart - introEnd <= 2;
-    const near = lines.slice(blockStart, blockEnd + 1).join("\n") + (introApplies ? `\n${introLine}` : "");
+    const intro = isBlockItem
+      ? runStart >= 0 && runStart - introEnd <= 2
+        ? introLine
+        : ""
+      : blockStart - prevParaEnd <= 2
+        ? prevPara
+        : "";
+    const near = lines.slice(blockStart, blockEnd + 1).join("\n") + `\n${intro}`;
+
+    // A cited source with no date anywhere in its block. Sources rot — a quarter of pages that
+    // existed over a recent decade are already gone — so an undated citation may be unverifiable
+    // later, and nobody will know when it was true. Checked per BLOCK, not per line: a wrapped
+    // citation routinely carries "fetched <date>" on its second line.
+    if (urls.length > 0 && !DATE_RE.test(lines.slice(blockStart, blockEnd + 1).join("\n"))) {
+      undatedCitations += 1;
+      if (undatedCitations === 1) firstUndated = i + 1;
+    }
+
     if (
       FIGURE.test(blankDates(line)) &&
       !HAS_URL.test(near) &&
@@ -229,7 +270,7 @@ export function checkStudy(text: string, mode: Mode = "study"): Finding[] {
 
     // A hedge inside a section that presents itself as measured. The exact prose this repo
     // has produced before when a fetch silently failed: "appears to", "the title suggests".
-    if (MEASURED_HEADING.test(currentHeading)) {
+    if (presentedAsMeasured(currentHeading)) {
       const hit = HEDGES.find((h) => line.toLowerCase().includes(h));
       if (hit !== undefined) {
         findings.push({
