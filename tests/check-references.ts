@@ -51,6 +51,33 @@ const skills = readdirSync(skillsDir).filter((d) => existsSync(join(skillsDir, d
 const commands = readdirSync(join(PLUGIN, "commands")).map((f) => f.replace(/\.md$/, ""));
 const agents = readdirSync(join(PLUGIN, "agents")).map((f) => f.replace(/\.md$/, ""));
 
+/** agent name → the tools its frontmatter grants. */
+const agentTools = new Map<string, string[]>(
+  agents.map((a) => {
+    const fm = frontmatter(readFileSync(join(PLUGIN, "agents", `${a}.md`), "utf8"));
+    const line = /^tools:\s*(.+)$/m.exec(fm)?.[1] ?? "";
+    return [a, line.split(",").map((t) => t.trim()).filter(Boolean)];
+  }),
+);
+
+/**
+ * Capabilities a skill body can instruct, and the tools an agent needs to actually do them.
+ * Deliberately short and specific: a vague pattern here would fire on prose that merely
+ * mentions the web, and a check that cries wolf gets deleted.
+ */
+const CAPABILITIES: Array<{ name: string; impliedBy: RegExp; tools: string[] }> = [
+  {
+    name: "web research fanned out to agents",
+    impliedBy: /\b(?:dispatch|fan out|spawn)[^.\n]{0,80}\b(?:researcher|search|web)\b|one\s+`?researcher`?\s+per/i,
+    tools: ["WebSearch", "WebFetch"],
+  },
+  {
+    name: "agents that write code",
+    impliedBy: /\bone\s+`implementer`\s+per\b/i,
+    tools: ["Edit", "Write"],
+  },
+];
+
 // Skills Claude cannot invoke. `disable-model-invocation: true` means user-only, so any
 // instruction telling Claude to load it is unfollowable.
 const modelBlocked = skills.filter((s) =>
@@ -94,10 +121,33 @@ for (const file of allFiles) {
   }
 
   // 3. Referenced agents must exist
-  for (const m of text.matchAll(/`(scout|reviewer|skeptic|implementer|debugger)`/g)) {
+  for (const m of text.matchAll(/`(scout|reviewer|skeptic|implementer|debugger|researcher)`/g)) {
     const name = m[1];
     if (name !== undefined && !agents.includes(name)) {
       problems.push({ file: rel, line: lineOf(text, m.index), message: `agent \`${name}\` does not exist` });
+    }
+  }
+
+  // 3b. A skill that instructs a CAPABILITY must name at least one agent that HAS it.
+  //     Existing only gets you so far: `study` told the reader to fan out multi-angle web
+  //     searches while every agent in the library was filesystem-only, so the fan-out it
+  //     described had nowhere to go and every search had to run on the main thread — the exact
+  //     context pollution subagents exist to prevent. "The agent exists" was true; "the agent
+  //     can do the thing" was not, and nothing checked the second.
+  if (rel.includes("/skills/") && rel.endsWith("SKILL.md")) {
+    const named = agents.filter((a) => new RegExp("`" + a + "`").test(text));
+    for (const cap of CAPABILITIES) {
+      if (!cap.impliedBy.test(text)) continue;
+      const covered = named.some((a) => (agentTools.get(a) ?? []).some((t) => cap.tools.includes(t)));
+      if (!covered) {
+        problems.push({
+          file: rel,
+          line: lineOf(text, cap.impliedBy.exec(text)?.index ?? 0),
+          message:
+            `instructs ${cap.name} but names no agent that can do it ` +
+            `(named: ${named.length > 0 ? named.join(", ") : "none"} — none grants ${cap.tools.join("/")})`,
+        });
+      }
     }
   }
 

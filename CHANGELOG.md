@@ -1,5 +1,77 @@
 # Changelog
 
+## 2.6.0
+
+The four gaps from the last review, closed — three of them fully, the fourth reduced to a
+ten-minute task that only a human can do.
+
+### 1. The agent that could not search (a verified defect, now fixed)
+
+`study` instructed a multi-angle web-research fan-out while **every agent in the library was
+filesystem-only** — `Read, Grep, Glob, Bash`, no web tools. The fan-out it described had nowhere to
+go, so every search had to run on the main thread, dumping raw results into the context subagents
+exist to protect.
+
+- **New `researcher` agent** (`WebSearch`, `WebFetch`, sonnet, read-only): runs **one** search
+  angle, opens primary sources, and returns findings that each carry a verbatim supporting quote,
+  its URL and the fetch date, plus the searches it ran and its stopping reason. Its own Iron Law is
+  the one from `study`: a working link is not evidence, because citations keep links valid >94% and
+  on-topic >80% while only 39–77% support the claim. Wired into `study` §5 and `evaluate` §10.
+- **`check-references.ts` now verifies capability, not just existence.** It checked that a named
+  agent *exists*; it could not see that the agent *cannot do the thing*. It now maps each agent's
+  granted tools and flags a skill that instructs a capability none of its named agents has.
+  Verified non-vacuous: replaying the pre-fix state, the check fires.
+
+### 2. Two coverage gaps in the skill library
+
+- **`/viby-toolkit:ui`** — a claim about the interface needs an *observation*. The markup can be
+  correct and the page still blank, and nothing in the diff shows it. Picks the driver by lifecycle
+  stage rather than preference, charges cost as **payload × cadence** (a driver that re-sends the
+  DOM after every click pays it per step), treats shipping real user data to a third-party service
+  as a hard gate, and forces the states nobody builds first — empty, loading, error, too-much-data,
+  two widths, keyboard-only, focus-after-action. Reports screenshot + console + network, or it did
+  not happen.
+- **`/viby-toolkit:extend`** — the meta-skill, written because five modules got built by hand this
+  month and each one rediscovered the same rules. Earn the slot (a new skill needs a decision the
+  others get *wrong*), write the description as real user phrasings with mutual cross-references,
+  never state an exclusion in the excluded case's own words, then prove it routes **and** prove it
+  doesn't shadow — expecting those two to fight, because adding trigger phrases *is* the shadowing
+  mechanism.
+
+### 3. First contact with real, non-toy repositories
+
+Every previous dogfood target was this repo: TypeScript, zero dependencies, written by the same
+process being tested. Pointed the checkers, read-only, at real work repositories — and the first
+one produced a confident wrong answer about what a repo *is*:
+
+- **A Kubernetes GitOps repo — 183 YAML manifests, one Python script — was reported as
+  "Python 100%".** Technically true, and the worst output this tool can give. `detect-stack.ts` now
+  censuses repo *shape* separately from language, names the infra flavour (kustomize, Helm,
+  Terraform, Compose, Ansible), leads with `repo shape CONFIG/INFRA` when config outnumbers code
+  4:1, and annotates the language line as "the code sliver only, not what this repo is". Both
+  halves tested: an infra repo must be flagged, an ordinary TS project with a package.json and a CI
+  file must not.
+- **The test scanner ran clean on a real TS suite** (exit 0) — no false-positive storm, which is
+  the precision work holding up outside its own fixtures.
+- **The migration linter found 74 issues across 62 real migrations** with a healthy distribution —
+  `index-without-concurrently` 36, `no-lock-timeout` 22, `ddl-and-backfill-together` 9,
+  `unbounded-dml` 4, and the two irreversible ones (`drop-column`, `drop-table`) exactly once each.
+  No single rule flooding is the signal that matters.
+
+### 4. Live routing: reduced, not closed
+
+Still the one honest gap, and still needs a human in fresh sessions. What changed is the friction:
+`routing-probes.md` now has a **10-minute version** — the ten probes covering the pairs most likely
+to collide and the skills that had no lexical hook before v2.5.0 — with the note that a single
+logged row beats a perfect empty table.
+
+### Also
+
+Three probes added for the new skills (33 total, all ranking first), and a flaw fixed in the probe
+scorer itself: it stoplisted "skill" and "toolkit", which are exactly `extend`'s distinguishing
+vocabulary, making its own probe unscoreable. IDF already discounts common words, so the stoplist
+only needs to remove English scaffolding.
+
 ## 2.5.0
 
 Nine skill descriptions fixed, and a new pre-screen that found the problems. **Live routing is

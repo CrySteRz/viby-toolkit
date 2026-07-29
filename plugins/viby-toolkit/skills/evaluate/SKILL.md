@@ -161,8 +161,9 @@ make a rule.
 - **Where does the data go?** Name every egress and how to turn it off. A candidate that
   ships your source or your users' data to a third party fails on that alone, whatever it
   scores. State the egress that exists anyway so the delta is honest.
-- **Who maintains it?** One-maintainer projects, no commits in months, and a star count that
-  outruns the commit history are risk signals — record them as accepted cost, not as
+- **Who maintains it?** Dispatch a `researcher` for this rather than reading repos inline — it is
+  read-only fan-out and the raw pages are worthless to you afterwards. One-maintainer projects, no
+  commits in months, and a star count that outruns the commit history are risk signals — record them as accepted cost, not as
   disqualifiers, and never as adoption evidence.
 - **What is the blast radius if it is wrong?** A planning aid that misleads costs a wasted
   hour. Something in the path of auth, payments or migrations costs more, so the correctness

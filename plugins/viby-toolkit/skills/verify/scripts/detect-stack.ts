@@ -39,6 +39,7 @@ export type Stack = {
   profilers: string[];
   commands: Commands;
   unknowns: string[];
+  shape: Shape;
 };
 
 const SKIP_DIRS = new Set([
@@ -178,6 +179,64 @@ function read(p: string): string {
   } catch {
     return "";
   }
+}
+
+/**
+ * Config / infrastructure file extensions. Not programming languages, and deliberately NOT
+ * folded into the language census — but counted, because a repo can be 97% YAML and the census
+ * will happily report "Python 100%" off a single stray script. That happened on a real
+ * Kubernetes GitOps repo: 183 YAML files, 1 Python file, headline "Python 100%". A fast
+ * confident wrong answer about what a repo even IS is the worst output this tool can produce.
+ */
+const CONFIG_EXT = new Set([".yaml", ".yml", ".tf", ".tfvars", ".json", ".toml", ".ini", ".conf", ".hcl", ".env", ".properties"]);
+const INFRA_MARKERS: Array<{ file: RegExp; what: string }> = [
+  { file: /^kustomization\.ya?ml$/i, what: "Kubernetes (kustomize)" },
+  { file: /^Chart\.ya?ml$/i, what: "Helm chart" },
+  { file: /^values(-\w+)?\.ya?ml$/i, what: "Helm values" },
+  { file: /\.tf$/i, what: "Terraform" },
+  { file: /^docker-compose(\.\w+)?\.ya?ml$/i, what: "Docker Compose" },
+  { file: /^Dockerfile/i, what: "Docker image" },
+  { file: /^(playbook|site)\.ya?ml$/i, what: "Ansible" },
+  { file: /^serverless\.ya?ml$/i, what: "Serverless Framework" },
+  { file: /^skaffold\.ya?ml$/i, what: "Skaffold" },
+];
+
+export type Shape = { codeFiles: number; configFiles: number; docFiles: number; infra: string[] };
+
+/** Whether this repo is mostly configuration rather than code, and of what kind. */
+function censusShape(root: string): Shape {
+  const shape: Shape = { codeFiles: 0, configFiles: 0, docFiles: 0, infra: [] };
+  const seen = new Set<string>();
+  const stack = [root];
+  let visited = 0;
+  while (stack.length > 0 && visited < 20_000) {
+    const dir = stack.pop();
+    if (dir === undefined) continue;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) {
+        if (!SKIP_DIRS.has(e.name) && !e.name.startsWith(".")) stack.push(path.join(dir, e.name));
+        continue;
+      }
+      visited += 1;
+      const ext = path.extname(e.name).toLowerCase();
+      if (LANGS[ext] !== undefined) shape.codeFiles += 1;
+      else if (CONFIG_EXT.has(ext)) shape.configFiles += 1;
+      else if (ext === ".md" || ext === ".rst" || ext === ".txt") shape.docFiles += 1;
+      for (const m of INFRA_MARKERS) {
+        if (m.file.test(e.name) && !seen.has(m.what)) {
+          seen.add(m.what);
+          shape.infra.push(m.what);
+        }
+      }
+    }
+  }
+  return shape;
 }
 
 function censusLanguages(root: string): Array<{ name: string; files: number; share: number }> {
@@ -401,6 +460,19 @@ export function detectStack(root: string): Stack {
   const testFrameworks = TEST_FRAMEWORK_HINTS.filter((h) => h.pattern.test(manifestText)).map((h) => h.name);
 
   const languages = censusLanguages(root);
+  const shape = censusShape(root);
+
+  // A config-dominated repo must say so BEFORE the language line, because the language line is
+  // computed over a sliver of the files and reads as the headline fact when it isn't one.
+  const totalCounted = shape.codeFiles + shape.configFiles + shape.docFiles;
+  if (totalCounted > 10 && shape.codeFiles / totalCounted < 0.2) {
+    unknowns.push(
+      `CONFIG/INFRA REPO: ${shape.configFiles} config file(s) vs ${shape.codeFiles} code file(s)` +
+        `${shape.infra.length > 0 ? ` — ${shape.infra.join(", ")}` : ""}. The language census ` +
+        `describes only the code sliver, so do not treat it as what this repo is. Changes here are ` +
+        `configuration: validate with the relevant tool (kubectl/helm/terraform plan), not a test suite.`,
+    );
+  }
 
   if (commands.test === undefined) {
     unknowns.push("no test command found — say so rather than guessing one; the project may genuinely have none");
@@ -434,6 +506,7 @@ export function detectStack(root: string): Stack {
     profilers,
     commands,
     unknowns,
+    shape,
   };
 }
 
@@ -444,7 +517,18 @@ function report(s: Stack): string {
     .slice(0, 6)
     .map((l) => `${l.name} ${l.share}%`)
     .join(", ");
-  out.push(`languages     ${langs || "none detected"}`);
+  // The shape line goes FIRST when config dominates. The language census is computed over code
+  // files only, so on a 97%-YAML repo "Python 100%" is technically true and completely
+  // misleading — and whichever line comes first is the one that gets believed.
+  const counted = s.shape.codeFiles + s.shape.configFiles + s.shape.docFiles;
+  const configDominated = counted > 10 && s.shape.codeFiles / counted < 0.2;
+  if (configDominated) {
+    out.push(
+      `repo shape    CONFIG/INFRA — ${s.shape.configFiles} config vs ${s.shape.codeFiles} code file(s)` +
+        `${s.shape.infra.length > 0 ? ` · ${s.shape.infra.join(", ")}` : ""}`,
+    );
+  }
+  out.push(`languages     ${langs || "none detected"}${configDominated ? "   ← the code sliver only, not what this repo is" : ""}`);
   out.push(`package mgr   ${s.packageManagers.join(", ") || "unknown"}`);
   if (s.monorepo) out.push(`monorepo      ${s.monorepo.tool} (${s.monorepo.from})`);
   if (s.testFrameworks.length) out.push(`test frameworks ${s.testFrameworks.join(", ")}`);

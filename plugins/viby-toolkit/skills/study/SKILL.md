@@ -86,6 +86,11 @@ have a shopping list.
 - **Several angles, not one query rephrased.** Search by problem, by mechanism, by the name
   people who solved it would use, by the failure mode, and by the tool/vendor name. Each angle
   is blind to what the others surface.
+- **Fan out: dispatch one `researcher` per angle, in parallel.** This is pure read work, so the
+  fan-out law permits it, and it is the whole reason to fan out here — a search pass generates
+  enormous raw output, and the researcher returns quoted, dated, labelled findings while the
+  snippets and fetched pages die with it. Give each one its angle, the oracle, and the opposing
+  query. Reconcile their findings yourself; they gather, you decide.
 - **Then snowball**: from a good source, work backwards through its references and forwards
   through what cites it. Search plus forward-citation chasing finds more than search alone.
 - **Write neutral queries, plus one that argues the opposite.** Leading or loaded phrasing

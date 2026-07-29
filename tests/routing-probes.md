@@ -10,6 +10,29 @@ mechanical reason: the installed plugin sat stale at 0.3.2 for the whole of deve
 descriptions being tested were never the descriptions installed. That is fixed — the installed
 plugin is current — so this test is now possible for the first time.
 
+## The 10-minute version
+
+If the full 30 is never going to happen, run **these ten**. They cover the pairs most likely to
+collide and the three skills that had no lexical hook at all before v2.5.0, so a miss here is
+worth more than a miss anywhere else. One fresh session each, `/clear` between:
+
+```
+1.  is this ready to ship?                                  → verify
+2.  are these tests any good?                               → test
+3.  we can't tell what's happening in this service at night → observe
+4.  build the CSV export from the ticket — spec is clear    → orchestrate
+5.  I'm thinking about adding notifications, not sure what  → brainstorm
+6.  review my changes before I open the PR                  → review-cluster
+7.  check this for security problems                        → secure
+8.  prod is down, 500s on every request                     → incident
+9.  should we use Playwright or something lighter?          → evaluate
+10. remember that our migrations must never run in a txn    → learn
+```
+
+Log it as one line in the results table: date, `10`, how many right, which skill fired for each
+wrong one. **A single row beats a perfect empty table** — with ten results the routing claim stops
+being unverified, and the misses point directly at the descriptions to fix.
+
 ## How to run it
 
 It is user-in-the-loop by construction: only the human can see which skill Claude loaded, and
@@ -74,6 +97,9 @@ that only fires when you name it is a slash command, not a skill.
 | 28 | "make this faster" *(deliberately ambiguous — `perf` or a direct answer are both fine; `refactor` is a mis-route)* | `perf` / none |
 | 29 | "the docs say one thing and the code does another" *(no skill owns this; `none` is the right answer)* | none |
 | 30 | "why is this slow AND wrong?" *(genuinely two jobs — either `debug` or `perf`, but it must not silently pick one and drop the other)* | `debug` / `perf` |
+| 31 | "the page is blank after my change, check the UI" | `ui` |
+| 32 | "does this look right on mobile?" | `ui` |
+| 33 | "add a skill to the toolkit for handling database seeds" | `extend` |
 
 ## What to do with the results
 

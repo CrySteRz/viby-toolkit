@@ -213,3 +213,48 @@ test("skips vendor directories when taking the language census", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a config/infra repo is labelled as one, not as its one stray script", () => {
+  // Found by running this detector on a real Kubernetes GitOps repo: 183 YAML manifests and one
+  // Python file produced the headline "Python 100%" — technically true, and a confident wrong
+  // answer about what the repo IS, which is the worst output this tool can give.
+  const files: Record<string, string> = { "scripts/rotate.py": "print(1)\n" };
+  for (let i = 0; i < 30; i += 1) files[`apps/svc${i}/kustomization.yaml`] = "resources:\n  - deploy.yaml\n";
+  files["charts/web/Chart.yaml"] = "name: web\nversion: 1.0.0\n";
+  const dir = build(files);
+  try {
+    const s = detectStack(dir);
+    assert.ok(s.shape.configFiles > s.shape.codeFiles * 10, `expected config-dominated, got ${JSON.stringify(s.shape)}`);
+    assert.ok(
+      s.shape.infra.some((i) => /kustomize|Helm/i.test(i)),
+      `the infra flavour must be named, got ${s.shape.infra.join(", ") || "none"}`,
+    );
+    assert.ok(
+      s.unknowns.some((u) => /CONFIG\/INFRA REPO/.test(u)),
+      "the reader must be warned before trusting the language line",
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an ordinary code repo with some config is NOT labelled config/infra", () => {
+  // The must-not half: every real project has a package.json, a tsconfig and a CI file. Flagging
+  // those as "this is a config repo" would fire on essentially everything.
+  const files: Record<string, string> = {
+    "package.json": '{"name":"x"}\n',
+    "tsconfig.json": "{}\n",
+    ".github/workflows/ci.yml": "jobs: {}\n",
+  };
+  for (let i = 0; i < 20; i += 1) files[`src/mod${i}.ts`] = "export const x = 1;\n";
+  const dir = build(files);
+  try {
+    const s = detectStack(dir);
+    assert.ok(
+      !s.unknowns.some((u) => /CONFIG\/INFRA REPO/.test(u)),
+      `a normal TS project must not be called a config repo: ${JSON.stringify(s.shape)}`,
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

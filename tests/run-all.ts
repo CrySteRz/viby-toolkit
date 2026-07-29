@@ -81,7 +81,7 @@ const CHECKS: Check[] = [
     name: "stack-detector contract",
     cmd: [...NODE_RUNNER, "--test", "tests/detect-stack.test.ts"],
     ok: new Set([0]),
-    minPassing: 12,
+    minPassing: 14,
   },
   {
     name: "read-cost-meter contract",

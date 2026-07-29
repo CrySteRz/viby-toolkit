@@ -38,7 +38,11 @@ const STOPWORDS = new Set(
     " should now also it its is are was were be been being do does did doing have has had you your" +
     " i we they he she them their what which who whom how why where says say said want wants asks" +
     " ask before after during about against between through above below own s t don now d ll m o re" +
-    " ve y viby code toolkit skill skills claude e.g eg ie make made get got need needs help let" +
+    // "skill", "skills" and "toolkit" are NOT stopped: they are the distinguishing vocabulary of
+    // /viby-toolkit:extend, and stopping them made its own probe unscoreable. IDF already
+    // discounts a word that appears in every description, so the stoplist only needs to remove
+    // English scaffolding — not domain words that happen to be common.
+    " ve y viby code claude e.g eg ie make made get got need needs help let" +
     " like would could should does doing thing things something anything really actually")
     .split(/\s+/)
     .filter(Boolean),
