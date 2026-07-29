@@ -73,6 +73,36 @@ everyone to ignore the real one.
 - **Container and infra config:** running as root, `latest` tags, baked-in credentials,
   world-readable buckets, security groups open to `0.0.0.0/0`, disabled TLS verification.
 
+## 2b. Agent skills and plugins are now part of that supply chain
+
+A skill is not a document. It is instructions executed with your credentials, in your repositories,
+with your agent's tool access — and it arrives with no review and no signature. The measured state
+of that ecosystem: an audit of **3,984 skills** across two public marketplaces (Feb 2026) found
+**36% containing security flaws, 1,467 with active malicious payloads, prompt injection in 36%**,
+summarised as *"if you've installed one in the past month, there's a 13% chance it contains a
+critical security flaw"*. A coordinated campaign distributing 30+ malicious skills was documented
+the same month. Official marketplaces are reviewed and signed; community ones generally are not.
+
+Before installing anything — or when auditing what is already installed:
+
+```bash
+AUD=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/secure/scripts/check-skill-safety.ts 2>/dev/null | tail -1)
+RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+sh "$RUN" "$AUD" <path-to-the-skill-or-plugin>
+sh "$RUN" "$AUD" "$HOME"/.claude/plugins/cache/*        # what you already trust
+```
+
+It flags the patterns malicious and careless skills share: a credential path meeting a network call,
+`curl | bash`, **instructions to act without telling the user** (the most reliable single marker —
+there is no legitimate reason for a skill to require concealment), attempts to override existing
+instructions, writes to the agent's own settings, encoded payloads, and invisible bidi/zero-width
+characters that make what a human reads differ from what the model receives.
+
+**Read the SKILL.md yourself anyway.** Pattern matching cannot prove a skill is safe, an attacker
+who knows the check exists can phrase around it, and the three questions that matter are not
+mechanical: *what does it need my tools for, what does it send anywhere, and would I have approved
+that if it had asked?*
+
 ## 3. Code surfaces — reachability decides severity
 
 Only after the above, and only where untrusted input can actually arrive:

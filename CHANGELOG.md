@@ -1,5 +1,57 @@
 # Changelog
 
+## 2.10.0
+
+Surveyed the wider Claude Code plugin/skill ecosystem for inspiration. The dominant pattern there is
+**quantity** — 83 agents in one collection, 100+ in another, 2,810 skills in a single marketplace —
+which is the opposite of this repo's thesis and directly contradicts `principles` §8: libraries
+degrade by *overlap*, not size, and skill shadowing cut correct selection from 88% to 53% in the
+measured study. So almost none of it was worth copying.
+
+One thing was, and it is not a feature. It is a threat.
+
+### New — `check-skill-safety.ts` (17 contract cases, gate 20)
+
+**The skill ecosystem is now a supply chain, and it is already under attack.** An audit of **3,984
+skills** across two public marketplaces (Feb 2026) found **36% containing security flaws, 1,467 with
+active malicious payloads, and prompt injection in 36%** — summarised as *"if you've installed one in
+the past month, there's a 13% chance it contains a critical security flaw"*. A coordinated campaign
+distributing 30+ malicious skills was documented the same month. Community marketplaces have no
+automated vetting.
+
+A skill is not a document: it is instructions executed with your credentials, in your repositories,
+with your agent's tool access. So `secure` gained a section for auditing one before you install it,
+and a checker for the patterns malicious and careless skills share:
+
+- **P1** — a credential path meeting a network call in one line; `curl | bash`; **instructions to act
+  without telling the user** (the most reliable single marker: there is no legitimate reason for a
+  skill to require concealment); instruction-override attempts; writes to the agent's own settings;
+  encoded/decode-then-execute payloads; invisible bidi and zero-width characters.
+- **P2/P3** — imperative reads of credential files, destructive commands, broad tool grants.
+
+### Audited what is already installed here
+
+1,186 files across three installed third-party marketplaces: **two came back completely clean**; the
+official set produced 12 `reads-credentials` and 8 `destructive-command` at P2 — consistent with what
+those plugins do for a living (an env-var manager reads `.env`), which is why those rules are phrased
+as *confirm why it needs this* rather than as verdicts.
+
+### Four false-positive classes it produced on the way, all found by running it
+
+- **On its own source**: the header and rule messages matched its own rules. Fixed by blanking
+  comments and string literals — the repo's oldest lesson, applied a fifth time.
+- **On its own prose**: the new `secure` section says "instructions to act without telling the user",
+  which the rule read as an instruction. A line *describing* a pattern is now excluded. Accepted cost,
+  stated in the code: an attacker who prefixes an injection with "the pattern is:" evades this.
+- **On emoji**: `U+200D` (zero-width joiner) builds emoji sequences, so two official plugins were
+  flagged for having emoji. Excluded — and `U+2066–2069`, the actual Trojan Source isolates, were
+  missing and are now included.
+- **On security guidance generally**: prose rules now apply only to prose and command rules only to
+  fenced blocks, so a skill that *warns* about `rm -rf` is inert.
+
+And one silent-failure bug of the same class as an earlier one: `\b>>\b` can never match, because
+punctuation has no word boundary — the `modifies-agent-config` rule had never fired.
+
 ## 2.9.0
 
 **The last named gap is closed: the build phase now has an executable half.** Deciding and proving
