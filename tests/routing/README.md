@@ -54,6 +54,7 @@ needs repo state, the fixture must have it, or the run measures the fixture.
 | 2026-07-30 | 2.18.0 | sonnet | 10 × 5 = 50 | 58% | clean fixture; zero `WRONG`, all failures `NONE` |
 | 2026-07-30 | 2.18.0 | sonnet | 4 × 5 = 20 | — | dirty-fixture arm; `verify` 1/5 → 5/5 |
 | **2026-07-30** | **2.20.0** | **sonnet** | **29 × 5 = 145** | **83%** | full library, shipped descriptions, deterministic dirty fixture |
+| **2026-07-30** | **2.20.0** | **opus** | **29 × 3 = 87** | **87%** | same environment; per-skill r = −0.01 vs sonnet |
 
 ### Full library at 2.20.0 — 120/145, one `WRONG`, 24 `NONE`
 
@@ -211,3 +212,46 @@ that exists to force the decision never loads.
 This is the shape of a real defect, as distinct from `schema` (control caught every hazard) and `docs`
 (control wrote a fine README). Fixing it is worth doing — but only with a **paired** A/B, per the
 section above.
+
+## Opus, the model actually used — and the correction it forces
+
+Same environment, same install, run back-to-back with the sonnet arm. 29 probes × 3 reps.
+
+**87% (76/87), zero `WRONG`.** Aggregate is close to sonnet's 83%. **Per-skill it is uncorrelated:
+r = −0.01.**
+
+| | sonnet | opus | |
+|---|---|---|---|
+| `schema` | 0/5 | **2/3** | opus better |
+| `learn` | 0/5 | **3/3** | opus better |
+| `evaluate` | 0/5 | **3/3** | opus better |
+| `worktrees` | 2/5 | **3/3** | opus better |
+| `extend` | 2/5 | **3/3** | opus better |
+| `migrate` | 4/5 | **0/3** | sonnet better |
+| `test` | 5/5 | **1/3** | sonnet better |
+| `perf` | 5/5 | **1/3** | sonnet better |
+| `debug` `orchestrate` | 5/5 | 2/3 | sonnet better |
+| 19 others | 4–5/5 | 3/3 | same |
+
+### What this corrects
+
+**The argument I was building — cut `schema`, `learn`, and `evaluate` because they never fire — was
+wrong.** All three route on opus (2/3, 3/3, 3/3), which is the model this toolkit actually runs on.
+Acting on the sonnet numbers would have deleted three working skills.
+
+**"`evaluate` is a genuine gap" was model-specific and I stated it generally.** The control finding
+stands — the unaided model makes no recommendation and never mentions lock-in — but `evaluate` *does*
+fire on opus, so there is no live gap on the model in use. Corrected.
+
+**Tuning a description against one model's failures may do nothing on another.** The five worst skills
+on sonnet are among the best on opus, and vice versa.
+
+### The honest strength of this claim
+
+r = −0.01 is computed on 3–5 reps per skill, and this same document shows a byte-identical description
+swinging 0/5 → 4/5 across environments. So per-skill rates carry wide error bars and some of that zero
+correlation is noise. The defensible statement is **"no evidence that per-skill routing transfers
+between models"** — not "proven uncorrelated". What *is* solid is the practical rule:
+
+> **Measure on the model you actually run. Never generalise a per-skill routing result across models,
+> and never cut a skill on one model's dispatch data.**
