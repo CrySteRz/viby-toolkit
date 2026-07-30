@@ -166,6 +166,11 @@ const CHECKS: Check[] = [
     skipUnless: () => existsSync(join(ROOT, "node_modules", ".bin", "tsc")),
     skipNote: "run `npm install` to enable typecheck (dev-only dependency)",
   },
+  {
+    name: "manifest version is not behind the newest tag",
+    cmd: [...NODE_RUNNER, "tests/check-version.ts"],
+    ok: new Set([0]),
+  },
   // The lexical routing proxy that used to gate here is GONE, deliberately. Routing is now measured
   // for real by `tests/routing/` — a fresh `claude -p` per run against the installed listing, with the
   // outcome read from the actual Skill tool call. That is not a gate (it costs real time and tokens),
