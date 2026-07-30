@@ -16,7 +16,35 @@ MODEL = os.environ.get("MODEL", "sonnet")
 MAX_TURNS = os.environ.get("MAX_TURNS", "4")
 ARM = os.environ.get("ARM", "with")  # "with" = plugins as installed; "bare" = control arm
 
+# Results live NEXT TO the harness, not in a temp dir. A whole 155-run matrix was lost to a session
+# restart wiping the scratchpad — about half an hour of compute, and worse, the numbers were already
+# quoted in a status message before anyone noticed the directory was gone. `runs*/` is gitignored.
 RUNS = os.path.join(ROOT, os.environ.get("RUNS_NAME", "runs" if ARM == "with" else f"runs-{ARM}"))
+
+
+# A dirty working tree, created deterministically. "review my changes" and "is this ready to ship" are
+# unanswerable in a clean checkout, and the first run of this harness scored them NONE for that reason
+# alone — `verify` went 1/5 to 5/5 once real pending changes existed. So the fixture's git state is part
+# of the harness, not something a human sets up by hand and forgets to reproduce.
+DIRTY_PATCH = """
+function applyPromo(total, code) {
+  const pct = PROMOS[code];
+  return pct ? total - total * pct : total;
+}
+const PROMOS = { SAVE10: 0.1, SAVE20: 0.2 };
+"""
+
+
+def setup_repo_state(work):
+    def git(*args):
+        subprocess.run(["git", *args], cwd=work, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, check=False)
+    git("init", "-q")
+    git("add", "-A")
+    git("-c", "user.email=fixture@example.invalid", "-c", "user.name=fixture", "commit", "-qm", "init")
+    pricing = os.path.join(work, "src", "pricing.js")
+    with open(pricing, "a") as f:
+        f.write(DIRTY_PATCH)
 
 
 def one(job):
@@ -28,6 +56,7 @@ def one(job):
         src = os.path.join(ROOT, "fixture", entry)
         dst = os.path.join(work, entry)
         shutil.copytree(src, dst) if os.path.isdir(src) else shutil.copy2(src, dst)
+    setup_repo_state(work)
 
     cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
            "--max-turns", MAX_TURNS, "--model", MODEL]
