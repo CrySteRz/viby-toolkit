@@ -49,10 +49,34 @@ needs repo state, the fixture must have it, or the run measures the fixture.
 
 ## Results
 
-| date | version | probes × reps | first-choice accuracy | notes |
-|---|---|---|---|---|
-| 2026-07-30 | 2.18.0 | 10 × 5 = 50 | **58%** | zero `WRONG`; all 21 failures were `NONE` |
-| 2026-07-30 | 2.18.0 | 4 × 5 = 20 | — | dirty-fixture arm; `verify` 1/5 → 5/5 |
+| date | version | model | probes × reps | first-choice accuracy | notes |
+|---|---|---|---|---|---|
+| 2026-07-30 | 2.18.0 | sonnet | 10 × 5 = 50 | 58% | clean fixture; zero `WRONG`, all failures `NONE` |
+| 2026-07-30 | 2.18.0 | sonnet | 4 × 5 = 20 | — | dirty-fixture arm; `verify` 1/5 → 5/5 |
+| **2026-07-30** | **2.20.0** | **sonnet** | **29 × 5 = 145** | **83%** | full library, shipped descriptions, deterministic dirty fixture |
+
+### Full library at 2.20.0 — 120/145, one `WRONG`, 24 `NONE`
+
+**5/5 (20 skills):** `plan` `review-cluster` `test` `verify` `secure` `debug` `explore` `perf`
+`orchestrate` `brainstorm` `study` `incident` `adopt` `observe` `deps` `api` `kpi` `release` `handoff`
+`principles`
+
+**4/5 (4):** `docs` `refactor` `migrate` `analytics` — one `NONE` each, run-to-run variance.
+
+**2/5 (2):** `worktrees` (3 `NONE`), `extend` (2 `NONE`, and one loss to `skill-creator:skill-creator`).
+
+**0/5 (3):** `schema`, `learn`, `evaluate`.
+
+Two things worth naming about that list:
+
+- **The only `WRONG` in 145 runs was to a plugin I installed today.** `skill-creator` beat `extend` on
+  "add a new skill to the toolkit" — arguably correctly. Installing a plugin changes your routing, and
+  a similarity check over your own library cannot see it coming.
+- **`docs` went 0/5 → 4/5, and the description got *worse* in between.** It was 0/5 at 2.18.0 and 2.19.0
+  on the clean fixture, and 4/5 at 2.20.0 after the pushy wording was **reverted**. The fixture changed
+  in the same window, so the improvement cannot be credited to wording. Recorded as an unexplained
+  confound rather than as evidence the revert helped — the matched-condition comparison (2.18.0 vs
+  2.19.0, both clean) is the one that justified the revert, and it still stands.
 
 Best estimate for 2.18.0, using the dirty-fixture result for the probes that needed repo state:
 **68%** (34/50).
@@ -122,3 +146,17 @@ the job *worse*. Dispatch rate is not the objective; it was a proxy, and on two 
 disagreed with the outcome. The open question this leaves is a strategic one, not a wording one:
 whether `schema` and `docs` earn their share of the listing at all for requests the base model already
 handles — which is a decision about the library, not a description to tune.
+
+## The fixture-fit trap, third occurrence — now handled structurally
+
+`ui` and `brain` both scored 0/5, and neither was a routing failure. The fixture contains **zero** UI
+files (`find fixture -name '*.tsx' -o -name '*.jsx' -o -name '*.html' -o -name '*.css'` → 0) and **no
+memory store**, so "does this look right on mobile" and "audit what you remember about this project"
+had nothing to act on. Same trap as `review my changes` in a clean checkout, hit twice more.
+
+They now live in `probes-unmeasurable.tsv` and are **excluded from the score** rather than counted as
+misses. That is not hiding a failure — it is refusing to report a number that measures the fixture.
+`ui` genuinely needs a browser and a dev server, which is out of scope here.
+
+**Before adding a probe, check the fixture can answer it.** A probe the fixture cannot satisfy produces
+a confident 0/5 that looks exactly like a description defect.

@@ -24,8 +24,6 @@ release	viby-toolkit:release	cut a release for this
 worktrees	viby-toolkit:worktrees	run these changes in parallel without them stepping on each other
 handoff	viby-toolkit:handoff	I am running out of context, write a handoff
 learn	viby-toolkit:learn	remember that our migrations must never run inside a transaction
-brain	viby-toolkit:brain	audit what you remember about this project
 evaluate	viby-toolkit:evaluate	should we use Stripe or something lighter
 extend	viby-toolkit:extend	add a new skill to the toolkit
-ui	viby-toolkit:ui	does this look right on mobile
 principles	viby-toolkit:principles	what operating principles do you follow before fanning out subagents
