@@ -15,6 +15,10 @@ PAR = int(os.environ.get("PAR", "6"))
 MODEL = os.environ.get("MODEL", "sonnet")
 MAX_TURNS = os.environ.get("MAX_TURNS", "4")
 ARM = os.environ.get("ARM", "with")  # "with" = plugins as installed; "bare" = control arm
+# CLEAN=1 skips the dirty patch, so fixture state can be isolated as a single variable. `docs` went
+# 0/5 -> 4/5 across a window in which BOTH the description and the fixture changed; this is how you
+# tell which one did it without reinstalling an old release.
+CLEAN = os.environ.get("CLEAN") == "1"
 
 # Results live NEXT TO the harness, not in a temp dir. A whole 155-run matrix was lost to a session
 # restart wiping the scratchpad — about half an hour of compute, and worse, the numbers were already
@@ -42,6 +46,8 @@ def setup_repo_state(work):
     git("init", "-q")
     git("add", "-A")
     git("-c", "user.email=fixture@example.invalid", "-c", "user.name=fixture", "commit", "-qm", "init")
+    if CLEAN:
+        return
     pricing = os.path.join(work, "src", "pricing.js")
     with open(pricing, "a") as f:
         f.write(DIRTY_PATCH)
@@ -61,9 +67,12 @@ def one(job):
     cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
            "--max-turns", MAX_TURNS, "--model", MODEL]
     if ARM == "bare":
-        # Control arm: no plugins loaded at all. If the task still gets done correctly here, the
-        # skill was not adding anything on that probe — the finding Superpowers insists you check.
-        cmd.append("--bare")
+        # Control arm: skills unavailable, everything else identical. NOT `--bare`, which also skips
+        # credential loading — every run came back "Not logged in · Please run /login", a 67-character
+        # non-answer that a keyword grader would happily have scored as "met 0/5 of the bar" and
+        # reported as the base model failing. `--disable-slash-commands` removes the skills and keeps
+        # the session intact.
+        cmd.append("--disable-slash-commands")
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     try:
         with open(os.path.join(work, "stream.jsonl"), "w") as out, \
