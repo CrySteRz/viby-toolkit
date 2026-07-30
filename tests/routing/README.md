@@ -98,3 +98,27 @@ always happens on turn 1, so the headline accuracy mostly survives — but a ski
 loaded later is scored `NONE`, and no run gets far enough to judge output quality. Treat `MAX_TURNS=4`
 as a dispatch-only measurement, and raise it before drawing any conclusion about what the agent
 actually produced.
+
+### The control changed the answer: two of the three "failures" were not failures
+
+`MAX_TURNS=14` ruled out the turn cap — `schema` stayed 0/5 and `docs` reached only 1/5. With runs now
+long enough to finish, the control question became answerable, and it inverted the conclusion:
+
+- **`schema`, 5/5 unaided runs caught every hazard** in `migrations/002_add_status.sql` — the
+  `ACCESS EXCLUSIVE`/rewrite risk of `ADD COLUMN NOT NULL DEFAULT`, the unbatched full-table `UPDATE`,
+  and the `NOW()` problem. No skill loaded.
+- **`docs`, unaided runs wrote a reasonable README** (123 words, sectioned: Modules / Database /
+  Testing). No skill loaded.
+
+> "Always include a no-guidance control. **If the control doesn't exhibit the failure, there is nothing
+> to fix — stop, don't author the guidance.**" — `obra/superpowers/skills/writing-skills/SKILL.md`
+
+So the pushy rewrite was **reverted for those two**. It measured no dispatch improvement, and keeping it
+would spend listing budget the whole library shares in order to force a skill that adds nothing on that
+request. `review-cluster` keeps its pushy version, because that one measured 1/5 → 5/5.
+
+**This reframes what "58% routing accuracy" means.** A `NONE` is only a defect when the unaided run does
+the job *worse*. Dispatch rate is not the objective; it was a proxy, and on two of ten probes the proxy
+disagreed with the outcome. The open question this leaves is a strategic one, not a wording one:
+whether `schema` and `docs` earn their share of the listing at all for requests the base model already
+handles — which is a decision about the library, not a description to tune.
