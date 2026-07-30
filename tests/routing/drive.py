@@ -19,6 +19,11 @@ ARM = os.environ.get("ARM", "with")  # "with" = plugins as installed; "bare" = c
 # 0/5 -> 4/5 across a window in which BOTH the description and the fixture changed; this is how you
 # tell which one did it without reinstalling an old release.
 CLEAN = os.environ.get("CLEAN") == "1"
+# PLUGIN_DIR loads the plugin from a checkout instead of the installed cache, which is what makes a
+# PAIRED A/B possible: point two git worktrees at two description variants and interleave the runs in
+# one environment. Comparing arms measured at different times does not work — see the docs result in
+# README: byte-identical description, 0/5 then 4/5, because unrelated parts of the listing moved.
+PLUGIN_DIR = os.environ.get("PLUGIN_DIR")
 
 # Results live NEXT TO the harness, not in a temp dir. A whole 155-run matrix was lost to a session
 # restart wiping the scratchpad — about half an hour of compute, and worse, the numbers were already
@@ -66,6 +71,8 @@ def one(job):
 
     cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
            "--max-turns", MAX_TURNS, "--model", MODEL]
+    if PLUGIN_DIR:
+        cmd.extend(["--plugin-dir", PLUGIN_DIR])
     if ARM == "bare":
         # Control arm: skills unavailable, everything else identical. NOT `--bare`, which also skips
         # credential loading — every run came back "Not logged in · Please run /login", a 67-character

@@ -160,3 +160,54 @@ misses. That is not hiding a failure — it is refusing to report a number that 
 
 **Before adding a probe, check the fixture can answer it.** A probe the fixture cannot satisfy produces
 a confident 0/5 that looks exactly like a description defect.
+
+## The result that undercuts every cross-session comparison here
+
+`docs` scored **0/5 at 2.18.0 and 4/5 at 2.20.0 with a byte-identical description** —
+`git show v2.18.0:…/docs/SKILL.md` and HEAD hash the same. Same probe, same clean fixture (verified by
+re-running `docs` with `CLEAN=1`: still 4/5, so fixture state is **not** the explanation), same
+`MAX_TURNS=4`, same model.
+
+What did change was **the rest of the listing**: sibling descriptions moved, and `skill-creator` was
+installed in between. So an individual skill's dispatch rate can swing from 0/5 to 4/5 for reasons that
+have nothing to do with its own description.
+
+### What that invalidates, stated plainly
+
+**The "pushy fix moved `review-cluster` 1/5 → 5/5" claim is confounded.** Those arms ran at different
+times, and 2.19.0 changed three descriptions at once, so the listing differed between them. Pushy
+wording remains the best available explanation and the direction is plausible — but it is not
+established, and it should not be cited as a measured effect of pushiness.
+
+**Any per-skill A/B in this document that compares arms run at different times is suspect.** The
+whole-library numbers (83%) are fine as a snapshot of one environment; the per-skill deltas are not.
+
+### The fix: paired A/B via `--plugin-dir`
+
+`drive.py` now takes `PLUGIN_DIR`, which loads the plugin from a checkout rather than the installed
+cache. Two git worktrees at two description variants, runs interleaved in one session, is the only
+comparison that holds. Do not A/B by installing one version, measuring, installing another, and
+measuring again — that is what produced the result above.
+
+## `evaluate` is a genuine gap — the control says so
+
+Unlike `schema` and `docs`, the unaided model does **not** clear `evaluate`'s own bar. Control arm,
+skills disabled (`--disable-slash-commands`), 12 turns, 3 runs on "should we use Stripe or something
+lighter":
+
+| bar item | met |
+|---|---|
+| reads THIS repo | 3/3 |
+| names concrete alternatives | 3/3 |
+| states a trade-off | 2/3 |
+| **makes an actual recommendation** | **0/3** |
+| **migration cost / lock-in / back-out** | **0/3** |
+
+So the base model produces a competent survey and stops short of a decision — which is precisely what
+`evaluate`'s Iron Law forbids ("a cost number with no correctness verdict beside it is not a result",
+plus a required back-out path). `evaluate` scored **0/5** on dispatch, so that gap is live: the skill
+that exists to force the decision never loads.
+
+This is the shape of a real defect, as distinct from `schema` (control caught every hazard) and `docs`
+(control wrote a fine README). Fixing it is worth doing — but only with a **paired** A/B, per the
+section above.
