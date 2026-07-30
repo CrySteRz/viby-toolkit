@@ -185,10 +185,17 @@ whole-library numbers (83%) are fine as a snapshot of one environment; the per-s
 
 ### The fix: paired A/B via `--plugin-dir`
 
-`drive.py` now takes `PLUGIN_DIR`, which loads the plugin from a checkout rather than the installed
-cache. Two git worktrees at two description variants, runs interleaved in one session, is the only
-comparison that holds. Do not A/B by installing one version, measuring, installing another, and
-measuring again — that is what produced the result above.
+`drive.py` takes `PLUGIN_DIR`, which loads the plugin from a checkout rather than the installed cache.
+Two git worktrees at two description variants, runs interleaved in one session, is the only comparison
+that holds. Do not A/B by installing one version, measuring, installing another, and measuring again —
+that is what produced the result above.
+
+**Verified, not assumed.** A checkout copy with `MARKERZQX7` planted in `plan`'s description was loaded
+via `--plugin-dir` alongside the normally-installed plugin, and the subprocess reported the marker
+present and quoted it back. So the checkout's description **overrides** the installed one rather than
+appearing beside it — which is what makes the A/B valid. (First attempt at this test failed for an
+unrelated reason worth knowing: a careless edit ate the closing `---`, and the skill then vanished from
+the listing entirely with no error.)
 
 ## `evaluate` is a genuine gap — the control says so
 

@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.21.1
+
+**Retracted the opus per-skill numbers — 3 reps was not enough.** Re-running the three worst opus
+skills at 5 reps in the same environment moved `perf` 1/3 → **5/5**, `migrate` 0/3 → 3/5, `test`
+1/3 → 3/5. `perf` went from "worst on opus" to perfect, and `migrate` — which had been called the worst
+opus failure — turned out to be noise I was about to investigate.
+
+So **`r = −0.01` must not be cited**: it compared 5-rep sonnet rates against 3-rep opus rates. The
+direction survives (`schema`, `learn`, `evaluate` went 0/5 → 2–3/3, too large a gap to be rep noise, and
+that is what stopped three working skills being cut); the magnitude and the zero-correlation claim do
+not. Only the aggregates are quotable: **sonnet 83%** over 145 runs, **opus 87%** over 87 runs.
+
+**The durable rule: `REPS=5` is a floor for any per-skill claim.** Aggregate accuracy over ~30 probes is
+stable; individual skill rates swing 2–4 out of 5 below that.
+
+Also: `check-skills` now states the real consequence of an empty parsed description — the skill is
+**dropped from the listing entirely, silently**. Verified by accident when a bad edit ate a frontmatter
+terminator and the skill vanished from `claude -p`'s available skills with no error. Regression test added.
+
+## 2.21.0
+
+**Opus arm: 87% (76/87), zero `WRONG`.** The model this toolkit actually runs on. Aggregate close to
+sonnet's 83%, but the failures are a different set of skills — `schema`, `learn` and `evaluate` all
+score 0/5 on sonnet and route fine on opus.
+
+**This overturned a decision I was about to recommend.** The argument to cut `schema`, `learn` and
+`evaluate` because "they never fire" was built entirely on sonnet data. Acting on it would have deleted
+three working skills. Corrected, and recorded in memory as the overriding caveat on the earlier
+control-arm lesson.
+
+Also corrected: the claim that pushy wording moved `review-cluster` 1/5 → 5/5 is **confounded** — those
+arms ran at different times and 2.19.0 changed three descriptions at once. And `docs` scored 0/5 then
+4/5 with a **byte-identical** description (fixture ruled out by a `CLEAN=1` re-run), so per-skill rates
+are environment-sensitive as well as rep-sensitive. Paired A/B via `PLUGIN_DIR` is the fix, and it is
+verified: a marker planted in a checkout copy overrides the installed description.
+
 ## 2.20.0
 
 **Routing was measured properly, and the measurement talked me out of two thirds of the fix.**
