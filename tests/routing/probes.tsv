@@ -1,10 +1,31 @@
-plan-split	viby-toolkit:plan	how would you approach splitting this service in two
-review-pr	viby-toolkit:review-cluster	review my changes before I open the PR
-test-module	viby-toolkit:test	write tests for the pricing module
-verify-ready	viby-toolkit:verify	is this ready to ship
-secure-check	viby-toolkit:secure	check this for security problems
-debug-flaky	viby-toolkit:debug	the checkout test is flaky, why
-explore-map	viby-toolkit:explore	I just cloned this, help me get oriented
-perf-slow	viby-toolkit:perf	the checkout endpoint is slow, make it faster
-schema-migration	viby-toolkit:schema	is this migration safe to run on a big table
-docs-readme	viby-toolkit:docs	write the README for this
+plan	viby-toolkit:plan	how would you approach splitting this service in two
+review-cluster	viby-toolkit:review-cluster	review my changes before I open the PR
+test	viby-toolkit:test	write tests for the pricing module
+verify	viby-toolkit:verify	is this ready to ship
+secure	viby-toolkit:secure	check this for security problems
+debug	viby-toolkit:debug	the checkout test is flaky, why
+explore	viby-toolkit:explore	I just cloned this, help me get oriented
+perf	viby-toolkit:perf	the checkout endpoint is slow, make it faster
+schema	viby-toolkit:schema	is this migration safe to run on a big table
+docs	viby-toolkit:docs	write the README for this
+orchestrate	viby-toolkit:orchestrate	add support for gift cards to checkout
+brainstorm	viby-toolkit:brainstorm	I'm thinking about adding subscriptions but I'm not sure what it should do
+study	viby-toolkit:study	research the best way to handle idempotency keys for payments
+incident	viby-toolkit:incident	checkout is down in production right now
+refactor	viby-toolkit:refactor	clean up pricing.js without changing its behaviour
+adopt	viby-toolkit:adopt	we inherited this repo from a contractor, bring it up to our standard
+migrate	viby-toolkit:migrate	move this whole repo from CommonJS to ESM
+observe	viby-toolkit:observe	there is no logging in checkout, add proper observability
+deps	viby-toolkit:deps	is it safe to upgrade our dependencies
+api	viby-toolkit:api	design the public API for the pricing module
+kpi	viby-toolkit:kpi	the client wants a KPI dashboard, what should we measure
+analytics	viby-toolkit:analytics	our revenue numbers do not match what finance reports
+release	viby-toolkit:release	cut a release for this
+worktrees	viby-toolkit:worktrees	run these changes in parallel without them stepping on each other
+handoff	viby-toolkit:handoff	I am running out of context, write a handoff
+learn	viby-toolkit:learn	remember that our migrations must never run inside a transaction
+brain	viby-toolkit:brain	audit what you remember about this project
+evaluate	viby-toolkit:evaluate	should we use Stripe or something lighter
+extend	viby-toolkit:extend	add a new skill to the toolkit
+ui	viby-toolkit:ui	does this look right on mobile
+principles	viby-toolkit:principles	what operating principles do you follow before fanning out subagents

@@ -1,3 +1,18 @@
+> **SUPERSEDED 2026-07-30 — kept for the record, do not run.** Replaced by `tests/routing/`, which
+> is executable: a fresh `claude -p` per run against the real installed listing, with the outcome read
+> from the actual `Skill` tool call instead of a human watching which skill loaded.
+>
+> **Its numbers should not be cited.** The method here is 10 probes, **one sample each, no control** —
+> and both flaws mattered. Re-measuring properly gave a different figure, and more importantly showed
+> that on two of ten probes the metric itself was wrong: `schema` and `docs` never fire, and the
+> unaided model does both jobs well, so those were never defects. A dispatch-rate table with no
+> control arm cannot tell "the wrong skill fired" from "no skill was needed".
+>
+> The document is preserved because the *reasoning* about why routing needed measuring at all is still
+> right, and because the shape of its failure is worth remembering.
+
+---
+
 # Routing probes — the one test that cannot be automated
 
 Every other check in this repo verifies code. **This one verifies the thing the code cannot

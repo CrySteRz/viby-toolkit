@@ -166,14 +166,16 @@ const CHECKS: Check[] = [
     skipUnless: () => existsSync(join(ROOT, "node_modules", ".bin", "tsc")),
     skipNote: "run `npm install` to enable typecheck (dev-only dependency)",
   },
-  // Every routing probe's intended skill must rank first on lexical overlap. A PROXY for live
-  // routing, not a substitute — but it catches a description that omits the phrasing a user
-  // actually reaches for, which is invisible by eye and the most likely cause of a mis-route.
-  {
-    name: "routing probes rank correctly",
-    cmd: [...NODE_RUNNER, "tests/score-routing-probes.ts"],
-    ok: new Set([0]),
-  },
+  // The lexical routing proxy that used to gate here is GONE, deliberately. Routing is now measured
+  // for real by `tests/routing/` — a fresh `claude -p` per run against the installed listing, with the
+  // outcome read from the actual Skill tool call. That is not a gate (it costs real time and tokens),
+  // so routing is measured on demand and recorded in `tests/routing/README.md`.
+  //
+  // The proxy was retired rather than kept alongside, because it was measurably misleading: it ranked
+  // `secure` as the threat to `review-cluster`, when the real competitor turned out to be Claude
+  // Code's built-in `code-review` skill — which a similarity check over this library's own 31
+  // descriptions cannot see at all. A gate that produces confident wrong guidance is worse than no
+  // gate, which is the same rule applied to `listing-over-budget` above.
   // Catches the class of bug no other check can see: an instruction that points at a skill
   // Claude cannot invoke, or a path built from a variable that is empty in this context.
   {

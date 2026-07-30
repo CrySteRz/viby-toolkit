@@ -46,12 +46,19 @@ The description is not documentation — it is the only thing dispatch sees. Thr
 Then prove it, in this order:
 
 ```bash
-# 1. add a row to tests/routing-probes.md — a prompt in the user's words, and the expected skill
-# 2. the intended skill must rank first (gate; a proxy, but it catches missing phrasings)
-node --experimental-strip-types tests/score-routing-probes.ts
-# 3. no shadowing or trigger collision introduced (gate)
+# 1. no shadowing, no trigger collision, no listing-budget regression (gate)
 node --experimental-strip-types plugins/viby-toolkit/skills/principles/scripts/check-skills.ts plugins/viby-toolkit/skills
+# 2. add a row to tests/routing/probes.tsv — a prompt in the user's words, and the expected skill
+# 3. MEASURE it. Ship and install first: a fresh subprocess reads the installed cache, not this tree.
+git push --tags && claude plugin update viby-toolkit@viby-toolkit
+REPS=5 PROBES=probes.tsv python3 tests/routing/drive.py && python3 tests/routing/score.py
 ```
+
+**Then ask the control question before you tune anything.** If the intended skill does not fire, run
+the same prompt with no skill available and judge the output. A skill that does not fire on a request
+the base model already handles well is not a routing bug, and forcing it to fire spends listing budget
+to add nothing — `schema` and `docs` both failed their probes and both turned out not to need fixing.
+Only rewrite the description when the unaided result is actually worse.
 
 Expect step 2 and step 3 to fight each other: adding trigger phrases raises overlap, which *is*
 the shadowing mechanism. When they do, the fix is a mutual cross-reference, not deleting the
