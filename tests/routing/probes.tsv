@@ -1,0 +1,10 @@
+plan-split	viby-toolkit:plan	how would you approach splitting this service in two
+review-pr	viby-toolkit:review-cluster	review my changes before I open the PR
+test-module	viby-toolkit:test	write tests for the pricing module
+verify-ready	viby-toolkit:verify	is this ready to ship
+secure-check	viby-toolkit:secure	check this for security problems
+debug-flaky	viby-toolkit:debug	the checkout test is flaky, why
+explore-map	viby-toolkit:explore	I just cloned this, help me get oriented
+perf-slow	viby-toolkit:perf	the checkout endpoint is slow, make it faster
+schema-migration	viby-toolkit:schema	is this migration safe to run on a big table
+docs-readme	viby-toolkit:docs	write the README for this
