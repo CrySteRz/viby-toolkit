@@ -201,3 +201,22 @@ test("progressive disclosure: a 500+ line body is P2, and references/ excuses a 
     "long and unsplit is worth a nudge",
   );
 });
+
+test("a damaged frontmatter terminator yields an empty description, which is the P1", () => {
+  // Found by accident while building the A/B harness: a bad edit ate the closing `---`, and the skill
+  // then did not appear in `claude -p`'s available-skills list AT ALL — silently, no error. The
+  // consequence is worse than "hard to route": the skill does not exist as far as the model is
+  // concerned. This gate is what stands between that and shipping.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vt-fm-"));
+  fs.mkdirSync(path.join(dir, "broken"));
+  fs.writeFileSync(
+    path.join(dir, "broken", "SKILL.md"),
+    ["---", "name: broken", "description: >", "  a description with no closing fence", "", "# Body starts here"].join("\n"),
+  );
+  try {
+    const { findings } = checkSkills(dir);
+    assert.ok(findings.some((f) => f.check === "no-description" && f.severity === "P1"), "must be a P1");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

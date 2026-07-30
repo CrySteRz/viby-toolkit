@@ -1,0 +1,3 @@
+test	viby-toolkit:test	write tests for the pricing module
+perf	viby-toolkit:perf	the checkout endpoint is slow, make it faster
+migrate	viby-toolkit:migrate	move this whole repo from CommonJS to ESM

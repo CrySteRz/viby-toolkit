@@ -69,7 +69,7 @@ const CHECKS: Check[] = [
     name: "skill-library health",
     cmd: [...NODE_RUNNER, "--test", "tests/check-skills.test.ts"],
     ok: new Set([0]),
-    minPassing: 14,
+    minPassing: 15,
   },
   {
     name: "migration-linter contract",

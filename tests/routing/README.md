@@ -54,7 +54,7 @@ needs repo state, the fixture must have it, or the run measures the fixture.
 | 2026-07-30 | 2.18.0 | sonnet | 10 × 5 = 50 | 58% | clean fixture; zero `WRONG`, all failures `NONE` |
 | 2026-07-30 | 2.18.0 | sonnet | 4 × 5 = 20 | — | dirty-fixture arm; `verify` 1/5 → 5/5 |
 | **2026-07-30** | **2.20.0** | **sonnet** | **29 × 5 = 145** | **83%** | full library, shipped descriptions, deterministic dirty fixture |
-| **2026-07-30** | **2.20.0** | **opus** | **29 × 3 = 87** | **87%** | same environment; per-skill r = −0.01 vs sonnet |
+| **2026-07-30** | **2.20.0** | **opus** | **29 × 3 = 87** | **87%** | same environment; **3 reps — per-skill rates underpowered, see retraction below** |
 
 ### Full library at 2.20.0 — 120/145, one `WRONG`, 24 `NONE`
 
@@ -217,8 +217,8 @@ section above.
 
 Same environment, same install, run back-to-back with the sonnet arm. 29 probes × 3 reps.
 
-**87% (76/87), zero `WRONG`.** Aggregate is close to sonnet's 83%. **Per-skill it is uncorrelated:
-r = −0.01.**
+**87% (76/87), zero `WRONG`.** Aggregate is close to sonnet's 83%. The per-skill table below used
+only 3 reps and **has since been partly retracted** — see the retraction section at the end.
 
 | | sonnet | opus | |
 |---|---|---|---|
@@ -255,3 +255,37 @@ between models"** — not "proven uncorrelated". What *is* solid is the practica
 
 > **Measure on the model you actually run. Never generalise a per-skill routing result across models,
 > and never cut a skill on one model's dispatch data.**
+
+## Retraction: the opus per-skill numbers were underpowered, and r = −0.01 should not be quoted
+
+The opus arm used **3 reps** to save cost. Re-running its three worst skills at **5 reps**, same
+environment, moved them sharply:
+
+| skill | opus @ 3 reps | opus @ 5 reps |
+|---|---|---|
+| `perf` | 1/3 | **5/5** |
+| `migrate` | 0/3 | **3/5** |
+| `test` | 1/3 | 3/5 |
+
+`perf` went from "worst on opus" to perfect. `migrate` — which I had called the worst opus failure and
+was about to investigate — is middling, not broken.
+
+**What to retract:**
+
+- **`r = −0.01` must not be cited.** It compares 5-rep sonnet rates against 3-rep opus rates. The
+  per-skill comparison is underpowered on one side, and this re-run shows how much movement 2 extra reps
+  buy. The *direction* — that the sonnet failures route fine on opus — survives, because `schema`,
+  `learn` and `evaluate` went 0/5 → 2–3/3, a gap too large to be rep noise. The **magnitude and the
+  claim of zero correlation do not survive.**
+- **"`migrate` 0/3 is the worst opus failure" is withdrawn.** It was noise.
+- The aggregate figures (sonnet 83% over 145 runs, opus 87% over 87 runs) are the only numbers here
+  worth quoting, and even those carry wide bars.
+
+**The rule this establishes, which is the durable part:** `REPS=5` is a floor for a *per-skill* claim,
+not a nice-to-have. Anything below it produces per-skill rates that swing by 2–4 out of 5. Aggregate
+accuracy over 29 probes is stable; individual skill rates are not. Do not open an investigation into a
+single skill on 3 reps — that is how an hour gets spent on noise.
+
+This is the third result in one day that turned out to be measurement artefact rather than signal
+(after mid-flight scoring, and the fixture that could not answer its probe). The harness is now honest
+about all three, which is the only reason its remaining numbers can be trusted at all.

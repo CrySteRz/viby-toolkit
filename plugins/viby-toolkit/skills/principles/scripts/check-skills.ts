@@ -365,7 +365,11 @@ export function checkSkills(dir: string): { skills: Skill[]; findings: Finding[]
         check: "no-description",
         severity: "P1",
         skills: [s.name],
-        message: "no description, so the model has nothing to route on — it will effectively never be chosen",
+        message:
+          "no description parsed — the skill is DROPPED FROM THE LISTING ENTIRELY, silently. " +
+          "Observed 2026-07-30: a SKILL.md whose frontmatter terminator was damaged did not appear in " +
+          "`claude -p`'s available skills at all, with no error and no warning. Usually a malformed " +
+          "frontmatter block rather than a genuinely absent description — check the `---` fences first",
       });
     }
     if (s.directives >= DIRECTIVES_FLOOR) {
