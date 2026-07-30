@@ -98,7 +98,15 @@ export function auditEntry(file: string, text: string, root: string): Finding[] 
       if (exists !== null) refs.push({ ref, line: i + 1, exists });
     }
   }
+  // A memory entry legitimately cites TWO namespaces: sibling memory files (`[[slug]]`,
+  // `other-entry.md`) which live next to it, and PROJECT paths which live in a repo this checker was
+  // not given. The single-root guard above was defeated by that mix — one resolving sibling made the
+  // root "look right", and then every project path was reported stale. So judge the project root
+  // only on refs that look like project paths, and stay silent when none of those resolve.
+  const isProjectRef = (ref: string) => ref.includes("/");
+  const projectRefs = refs.filter((r) => isProjectRef(r.ref));
   const resolvable = refs.filter((r) => r.exists);
+  const projectRootKnown = projectRefs.length === 0 || projectRefs.some((r) => r.exists);
   const rootLooksRight = refs.length === 0 || resolvable.length > 0;
   if (!rootLooksRight) {
     findings.push({
@@ -110,7 +118,7 @@ export function auditEntry(file: string, text: string, root: string): Finding[] 
       fix: "re-run with --root pointing at the project this memory belongs to",
     });
   }
-  for (const r of rootLooksRight ? refs : []) {
+  for (const r of (rootLooksRight ? refs : []).filter((r) => !isProjectRef(r.ref) || projectRootKnown)) {
     {
       if (!r.exists) {
         const ref = r.ref;

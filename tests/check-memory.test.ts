@@ -210,3 +210,18 @@ test("a single-token filename is not a duplicate of a longer, specific one", () 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a project path is not reported stale just because a sibling memory file resolved", () => {
+  // Found by running this checker on the author's own memory store: the entry cited
+  // `viby-toolkit-modules.md` (a real sibling) AND `plugins/viby-toolkit/lib/strip-noncode.ts` (real,
+  // but in a repo this checker was never given). One resolving sibling made the root "look right", so
+  // the project path was reported as a P1 stale-reference — a confidently wrong finding about a file
+  // that exists. Two namespaces, one root assumption.
+  const dir = store({
+    "MEMORY.md": "- [a](a.md) — hook\n",
+    "a.md": "See `other.md` and `src/deep/module.ts`.\n",
+    "other.md": "x\n",
+  });
+  const rules = auditEntry("a.md", fs.readFileSync(path.join(dir, "a.md"), "utf8"), dir).map((f) => f.check);
+  assert.ok(!rules.includes("stale-reference"), `must not claim stale, got ${rules.join()}`);
+});
