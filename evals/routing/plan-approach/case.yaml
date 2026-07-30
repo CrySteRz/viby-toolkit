@@ -1,0 +1,6 @@
+name: plan-approach
+prompt: how would you approach splitting this service in two
+runs: 2
+graders:
+  - kind: tool
+    tool_used: Skill

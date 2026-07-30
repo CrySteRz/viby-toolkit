@@ -1,10 +1,10 @@
 ---
 name: review-cluster
 description: >
-  Use when reviewing a diff, a PR, or freshly written code before shipping — "review this",
-  "review my changes", "check my changes", "before I open the PR", "is this correct", "find
-  bugs". Also the self-review step of orchestration. Not /viby-toolkit:test,
-  /viby-toolkit:verify.
+  Always load this before reviewing a diff, a PR, or freshly written code — do not review by
+  hand, and prefer it to a plain code review because it filters false positives. Triggers:
+  "review this", "review my changes", "check my changes", "before I open the PR", "find bugs",
+  "is this correct". Not /viby-toolkit:test, /viby-toolkit:verify.
 ---
 
 # Review Cluster + False-Positive Filter
