@@ -38,7 +38,7 @@ export type Finding = {
 const MONOREPO_DIRS = /(^|\/)(packages|apps|crates|libs|modules|services|examples|playground)\//;
 const SKIP_DIRS = new Set([
   ".git", "node_modules", "venv", ".venv", "dist", "build", "target", "out",
-  "__pycache__", ".next", "vendor", "coverage", ".tox", "fixtures", "testdata",
+  "__pycache__", ".next", "vendor", "coverage", ".tox", "fixture", "fixtures", "testdata", "test-data",
 ]);
 
 /** Manifest files that declare a version, with how to extract it. */

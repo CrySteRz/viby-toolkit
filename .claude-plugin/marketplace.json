@@ -4,7 +4,7 @@
     "name": "Ionut-Marian Blidaru"
   },
   "metadata": {
-    "description": "Personal Claude Code toolkit: orchestration, adversarial review clusters, debugging, migrations — accuracy-first with built-in token discipline",
+    "description": "Personal Claude Code toolkit: orchestration, adversarial review clusters, debugging, migrations \u2014 accuracy-first with built-in token discipline",
     "version": "0.1.0"
   },
   "plugins": [
@@ -12,7 +12,7 @@
       "name": "viby-toolkit",
       "source": "./plugins/viby-toolkit",
       "description": "Orchestrator + brainstorm gate + grounded review cluster with false-positive filter + evidence-gated verification + test design and QA auditing + debugging + migration + compounding-memory for any stack. TypeScript, zero dependencies.",
-      "version": "2.15.0",
+      "version": "2.22.0",
       "author": {
         "name": "Ionut-Marian Blidaru"
       },

@@ -332,3 +332,27 @@ test("a figure in an ordinary section still needs a citation", () => {
   const f = checks("\n## Background\n\nThe best model reaches 41.58% on this task.\n");
   assert.ok(f.includes("unsourced-figure"), "the must-flag half of the same rule");
 });
+
+test("a semver is not an unsourced figure", () => {
+  // Regression: the `s` unit had no trailing boundary, so "viby-toolkit 2.21.3 so its skills"
+  // matched as "21.3 s" and every version string in a document was reported as a measurement.
+  const pad = "\nfiller.\n".repeat(6);
+  const found = checks(pad + "- **Decision served:** what to change in viby-toolkit 2.21.3 so its skills fan out.\n" + pad);
+  assert.ok(!found.includes("unsourced-figure"), `semver flagged: ${found.join(", ")}`);
+});
+
+test("a real duration measurement IS still an unsourced figure", () => {
+  // Padded away from the fixture's Sources line: a nearby URL legitimately suppresses this check,
+  // so without the padding the test would pass for the wrong reason.
+  const pad = "\nfiller.\n".repeat(6);
+  const found = checks(pad + "The p99 latency was 12.4 s under load.\n" + pad);
+  assert.ok(found.includes("unsourced-figure"), "the boundary fix must not blind the checker to real units");
+});
+
+test("a decimal measurement with a plural unit and no space is still an unsourced figure", () => {
+  // Regression: the trailing \b added to fix the semver false positive rejected "1.5MBs", silently
+  // letting a real unsourced measurement through. Both directions are pinned.
+  const pad = "\nfiller.\n".repeat(6);
+  const found = checks(pad + "We cut memory to 1.5MBs per request.\n" + pad);
+  assert.ok(found.includes("unsourced-figure"), `plural unit missed: ${found.join(", ")}`);
+});

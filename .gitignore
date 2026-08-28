@@ -12,3 +12,7 @@ credentials*
 *.tsbuildinfo
 .node_repl_history
 tests/routing/runs*/
+
+# the routing harness is Python
+__pycache__/
+*.pyc

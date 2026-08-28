@@ -1,0 +1,31 @@
+plan	viby-toolkit:plan	before we touch any code, walk me through the order you'd tackle this in
+review	viby-toolkit:review	can you look over what I just wrote before I push this
+test	viby-toolkit:test	the pricing module has zero coverage, can you put something together
+verify	viby-toolkit:verify	I think that's everything, can you double check before I tell the client it's fixed
+secure	viby-toolkit:secure	before we push this to the internet-facing box, take a pass and make sure nothing's exposed
+debug	viby-toolkit:debug	this worked yesterday and now it doesn't, no idea what changed
+explore	viby-toolkit:explore	I just joined this project and have zero context, can you show me around
+perf	viby-toolkit:perf	the dashboard takes forever to load and users are complaining
+schema	viby-toolkit:schema	we need to add a new field to the orders table without locking it for an hour
+docs	viby-toolkit:docs	nobody on the team knows how the auth flow works, can you put something together they can read
+orchestrate	viby-toolkit:orchestrate	we need gift cards working in checkout by friday
+brainstorm	viby-toolkit:brainstorm	not sure yet if subscriptions make sense for us or what shape they'd take
+study	viby-toolkit:study	before we pick an approach for idempotent payment retries, can you look into how other systems have handled this
+incident	viby-toolkit:incident	checkout just fell over in production and support is getting flooded
+refactor	viby-toolkit:refactor	pricing.js has ballooned into one giant function, can you break it apart without changing what it does
+adopt	viby-toolkit:adopt	a freelancer built this before I got here and I don't trust any of it, need to bring it in line with how we do things
+migrate	viby-toolkit:migrate	we're moving the whole thing off CommonJS onto ESM
+observe	viby-toolkit:observe	checkout fails silently and we have no idea what's actually happening in there
+deps	viby-toolkit:deps	half our packages haven't been touched in two years, worth the risk of jumping forward
+api	viby-toolkit:api	external partners are going to consume this, need to figure out the shape of it
+kpi	viby-toolkit:kpi	leadership wants numbers on the new feature but nobody's agreed on what counts as success
+analytics	viby-toolkit:analytics	finance says our revenue report is off from what's actually in the ledger
+release	viby-toolkit:release	time to push a new version out the door, need to figure out the version bump and notes
+worktrees	viby-toolkit:worktrees	I want three agents hacking on this at once without them clobbering each other's edits
+handoff	viby-toolkit:handoff	I'm about to run out of context mid-task, need to capture where things stand for next time
+learn	viby-toolkit:learn	make sure this migration-in-a-transaction mistake never gets repeated
+evaluate	viby-toolkit:evaluate	trying to decide between Stripe and something cheaper before we commit
+extend	viby-toolkit:extend	the toolkit is missing coverage for something we do a lot, want to add a new capability to it
+principles	viby-toolkit:principles	before you spin up a bunch of subagents for this, what's the operating doctrine here
+ui	viby-toolkit:ui	can you actually click through the signup flow and see if it works, not just read the code
+brain	viby-toolkit:brain	some of what's stored feels stale, can you sanity check the whole memory system

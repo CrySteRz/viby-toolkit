@@ -65,7 +65,13 @@ const STOPWORDS = new Set(
     " should now also it its is are was were be been being do does did doing have has had you your" +
     " i we they he she them their what which who whom how why where says say said want wants asks" +
     " ask before after during about against between through above below own s t don now d ll m o re" +
-    " ve y viby code skill skills claude also e.g eg ie")
+    " ve y viby code skill skills claude also e.g eg ie" +
+    // The pushy-imperative scaffolding itself. Anthropic's guidance is to make descriptions
+    // "a little bit pushy" to fight undertriggering, and this library measured that working. Once
+    // every description opens "Always load ...", those words appear in all 31 and inflate every
+    // pairwise similarity — the metric would punish the recommended phrasing and reward vagueness,
+    // exactly what the mutual-cross-reference exemption below already refuses to do.
+    " always load loading loads")
     .split(/\s+/)
     .filter(Boolean),
 );
@@ -264,9 +270,12 @@ const LISTING_BYTES_PER_TOKEN = 4;
 const LISTING_BUDGET_FRACTION = 0.01;
 const LISTING_MAX_DESC_CHARS = 1536;
 /**
- * The gate is PER-SKILL, not on the total. A 31-skill library cannot fit a "fair share" of an
- * 8,000-char budget however it is written — 31 × 258 is already the whole thing — so gating on the
- * total would be a permanently-red check, which this library treats as worse than no check. What is
+ * The gate is PER-SKILL, not on the total, because a per-skill number is the actionable one.
+ *
+ * It used to say a 31-skill library "cannot fit" an 8,000-char budget however it is written. That
+ * was wrong, and 2026-08-27 disproved it: rewriting all 31 as pure triggers — pushy opener, quoted
+ * utterances, no summary of what the skill does — took the library 10,321 -> 7,370 chars, 129% ->
+ * 92%, with zero shadowing findings. 258 chars each is tight, not impossible. What is
  * actually controllable is the length of each description, and the total follows from it.
  */
 const DESC_TARGET = 400;
@@ -303,8 +312,9 @@ export function checkListingBudget(skills: Skill[], contextTokens = 200_000): Fi
   if (share > 1) {
     findings.push({
       check: "listing-over-budget",
-      // P3 deliberately: with 31 skills this can never be cleared however well each is written, and a
-      // permanently-red gate is worse than no gate. The ACTIONABLE half is per-skill and gates at P2.
+      // P3 deliberately: it is a library-wide symptom whose fix is spread across every description,
+      // so the ACTIONABLE half is the per-skill P2. It IS clearable — the library sits at 92% — so
+      // treat it as a real regression signal rather than as standing background noise.
       severity: "P3",
       skills: [],
       message:
@@ -378,7 +388,7 @@ export function checkSkills(dir: string): { skills: Skill[]; findings: Finding[]
         severity: "P1",
         skills: [s.name],
         message: `${s.directives} directives — at N=80 simultaneous instructions, perfect compliance measured zero for every model tested, regardless of format`,
-        detail: "split it into a focused skill plus an on-demand reference file, as review-cluster does",
+        detail: "split it into a focused skill plus an on-demand reference file, as review does",
       });
     } else if (s.directives >= DIRECTIVES_REDESIGN) {
       findings.push({

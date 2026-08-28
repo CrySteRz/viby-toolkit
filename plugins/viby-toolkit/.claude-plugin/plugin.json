@@ -1,7 +1,7 @@
 {
   "name": "viby-toolkit",
-  "version": "2.21.3",
-  "description": "Accuracy-first engineering workflows: orchestrated plan→build→verify pipelines, adversarial review clusters with false-positive filtering, evidence-gated verification, test design and QA auditing, root-cause debugging, and large-scale migrations. Stack-agnostic, token-disciplined.",
+  "version": "2.22.0",
+  "description": "Accuracy-first engineering workflows: orchestrated plan\u2192build\u2192verify pipelines, adversarial review clusters with false-positive filtering, evidence-gated verification, test design and QA auditing, root-cause debugging, and large-scale migrations. Stack-agnostic, token-disciplined.",
   "author": {
     "name": "Ionut-Marian Blidaru"
   },

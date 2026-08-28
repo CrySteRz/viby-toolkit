@@ -139,18 +139,19 @@ test("the real viby-toolkit library is clean", () => {
   const dir = path.join(path.dirname(path.dirname(new URL(import.meta.url).pathname)), "plugins", "viby-toolkit", "skills");
   const { skills, findings: fs_ } = checkSkills(dir);
   assert.ok(skills.length >= 15, `expected the real library, found ${skills.length} skills`);
-  // `listing-over-budget` is excluded BY NAME, not by severity: it reports a structural standing
-  // cost of having 31 skills, which no amount of good writing can clear, and a permanently-red gate
-  // is worse than no gate. Excluding it by severity would also have silenced shadowing-watch, which
-  // is the finding this test exists for. The assertion below keeps the information from vanishing.
+  // This used to exclude `listing-over-budget` by name and then assert it WAS reported, on the
+  // belief that 31 skills could never fit. 2026-08-27 disproved that — rewriting every description
+  // as pure triggers landed the library at 92% — so the assertion is inverted: no findings at all,
+  // and being over budget is now a regression rather than the standing state.
   assert.deepEqual(
-    fs_.filter((f) => f.check !== "listing-over-budget").map((f) => `${f.check}:${f.skills.join("+")}`),
+    fs_.map((f) => `${f.check}:${f.skills.join("+")}`),
     [],
-    "the shipped skill library must have no shadowing or trigger collisions",
+    "the shipped library must have no shadowing, no trigger collisions, and must fit the listing budget",
   );
+  const total = skills.reduce((n, s) => n + s.description.length, 0);
   assert.ok(
-    fs_.some((f) => f.check === "listing-over-budget"),
-    "the listing-budget figure must still be REPORTED — it is the measured cause of mis-routing",
+    total <= listingBudgetChars(200_000),
+    `descriptions total ${total} chars, over the listing budget — the least-used skills get truncated to name-only first, which is exactly how a skill stops firing`,
   );
 });
 
@@ -161,6 +162,25 @@ test("the listing budget matches the constants in the Claude Code binary, not th
   // and skill routing degrades."
   assert.equal(listingBudgetChars(200_000), 8_000);
   assert.equal(listingBudgetChars(1_000_000), 40_000);
+});
+
+test("NOT VACUOUS: the aggregate budget check still fires when the library overflows", () => {
+  // The real-library test no longer asserts this finding exists, because the library now fits. That
+  // removed the only thing keeping the aggregate check honest, so it is pinned on a fixture instead.
+  const many = Array.from({ length: 40 }, (_, i) => ({
+    name: `s${i}`, description: "z".repeat(300), triggers: [], modelInvocable: true,
+    directives: 0, bodyLines: 1, bodyWords: 1, hasReferences: false,
+  }));
+  const f = checkListingBudget(many);
+  assert.ok(f.some((x) => x.check === "listing-over-budget"), "40 x 300 chars is 12,000 against an 8,000 budget");
+});
+
+test("and does NOT fire on a library that fits", () => {
+  const few = Array.from({ length: 10 }, (_, i) => ({
+    name: `s${i}`, description: "z".repeat(200), triggers: [], modelInvocable: true,
+    directives: 0, bodyLines: 1, bodyWords: 1, hasReferences: false,
+  }));
+  assert.ok(!checkListingBudget(few).some((x) => x.check === "listing-over-budget"));
 });
 
 test("a description past the 1,536-char per-skill cap is a P1, because the tail is silently cut", () => {
@@ -219,4 +239,28 @@ test("a damaged frontmatter terminator yields an empty description, which is the
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("the pushy-imperative opener does not count toward similarity", () => {
+  // Anthropic's documented fix for undertriggering is a pushy description, and this library
+  // measured it working. Once every skill opens "Always load ...", those words are common to all
+  // of them: if they counted, adopting the recommended phrasing library-wide would manufacture
+  // shadowing findings between skills that share nothing but scaffolding.
+  const f = findings({
+    alpha: 'name: alpha\ndescription: Always load before writing a database migration — "add a column", "backfill", "add an index".',
+    beta: 'name: beta\ndescription: Always load before clicking through a rendered page — "does this render", "take a screenshot", "the page is blank".',
+  });
+  assert.deepEqual(
+    f.filter((x) => x.check === "shadowing" || x.check === "shadowing-watch"),
+    [],
+    `scaffolding counted as overlap: ${JSON.stringify(f)}`,
+  );
+});
+
+test("STILL NOT VACUOUS: pushy openers do not hide a genuinely shadowed pair", () => {
+  const f = findings({
+    alpha: 'name: alpha\ndescription: Always load when reviewing a diff before shipping, checking correctness, finding bugs, judging whether the change is safe to merge.',
+    beta: 'name: beta\ndescription: Always load when reviewing a diff before merging, checking correctness, finding bugs, judging whether the change is safe to ship.',
+  });
+  assert.equal(f.filter((x) => x.check === "shadowing").length, 1, `expected shadowing, got ${JSON.stringify(f)}`);
 });

@@ -35,6 +35,64 @@ That third row is the one worth building the harness for. In the first real run,
 was `NONE` and there was not one `WRONG`** — which killed the hypothesis that sibling shadowing or
 listing-budget truncation was to blame, and pointed at undertriggering instead.
 
+## Every rate carries a confidence interval — read the bracket, not just the percentage
+
+`score.py` prints a 95% Wilson score interval next to every rate it reports, overall and per probe,
+e.g. `80% [38-96%]`. This is not decoration: a bare point estimate from a handful of reps has already
+produced a false "difference" in this repo's own history — **83% over 145 runs vs 87% over 87 runs**
+was written up as a change between two arms, and a per-skill rate on the very same kind of data swung
+**0/3 to 5/5** on a re-run at 5 reps (see the retraction at the end of this document). Neither of those
+was a real signal; both would have been caught by looking at the interval instead of the percentage.
+
+Wilson's interval (not the naive normal-approximation interval) is used because it stays inside
+`[0, 1]` and does not collapse to a zero-width interval at 0% or 100%, which the naive interval does —
+exactly the cases (`schema` 0/5, `plan` 5/5) this harness produces most often.
+
+**Comparing two arms is a first-class, guarded operation.** Set `COMPARE_RUNS_NAME` to a second runs
+directory (scored against the same probe list) and `score.py` will report a delta — but only if the
+two arms' intervals do not overlap:
+
+```bash
+RUNS_NAME=runs COMPARE_RUNS_NAME=runs-bare python3 tests/routing/score.py
+```
+
+If the intervals overlap, the script refuses to print a delta and says so explicitly, rather than
+printing a number that implies one arm is better when the data does not establish that. This is the
+guard that would have stopped the 83%-vs-87% write-up above from ever being phrased as a comparison.
+
+### How many reps do I need?
+
+Interval width shrinks slowly, not linearly, because it goes roughly as `1/sqrt(n)`. For a rate around
+80%, the 95% Wilson interval is approximately:
+
+| reps | interval width (±) |
+|---|---|
+| 5 | ~30 points (e.g. 38-96%) |
+| 10 | ~23 points |
+| 30 | ~14 points |
+| 50 | ~11 points |
+| 145 | ~7 points |
+
+**This is the stated reason `REPS=5` is a floor, not a default to lower**: at 5 reps a per-probe rate
+is barely narrowed at all from "could be anywhere" — `score.py` prints a warning to this effect
+whenever the per-probe rep count is 5 or below, and the per-probe numbers in the Results section below
+should be read with that warning in mind even where it predates the warning existing. The aggregate row
+over many probes is far more informative than any single probe's row at the same rep count, because it
+pools far more samples — that is why whole-library accuracy (83%, 87%) is trustworthy as a snapshot
+while individual skill rates at 3-5 reps are not.
+
+## Telemetry: cost, latency and turns were already on disk
+
+Every run's `stream.jsonl` ends with a `result` event carrying `total_cost_usd`, `duration_ms`,
+`num_turns` and a `usage` block. `score.py` now prints a per-probe table of the **median** (not mean —
+these distributions have a long tail from retries and max-turns-capped runs) tokens, cost, wall-clock
+time and turn count, read straight off that event. It costs nothing extra to collect since the driver
+was already producing it.
+
+Any run whose `result` event is missing a field, or has it in an unexpected type, contributes "n/a" for
+that field on that run rather than being silently treated as zero — a phantom free, instant run would
+otherwise drag every median down without a trace.
+
 ## Two traps this harness has already fallen into
 
 **Scoring mid-flight.** An unfinished run has no `Skill` call yet, so it looks exactly like `NONE`.
@@ -296,3 +354,43 @@ single skill on 3 reps — that is how an hour gets spent on noise.
 This is the third result in one day that turned out to be measurement artefact rather than signal
 (after mid-flight scoring, and the fixture that could not answer its probe). The harness is now honest
 about all three, which is the only reason its remaining numbers can be trusted at all.
+
+## `probes.tsv` is a tuning set, not ground truth — hence `probes-holdout.tsv`
+
+Every result above was produced against `probes.tsv`, and skill descriptions have been read, rewritten
+and re-measured against those same 29 prompts throughout this document. That makes `probes.tsv` a
+**tuning set**: a description edit that raises its score has learned something about those 29 exact
+phrasings, not necessarily about routing in general. Reporting `probes.tsv` accuracy as "the" routing
+accuracy after tuning against it is the same mistake as reporting training accuracy as test accuracy.
+
+`probes-holdout.tsv` exists to make that distinction checkable. It covers the same skills with prompts
+that deliberately avoid the quoted trigger phrases sitting in each skill's own `description:` — an
+engineer mid-task saying "this worked yesterday and now it doesn't" rather than the description's own
+"why is this failing". If a description edit was a real generalisation, it should also move the holdout
+score. If it only moved `probes.tsv`, it was overfitting.
+
+**The discipline, not optional:**
+
+- `probes-holdout.tsv` is **never read or consulted while writing or editing a description**. Looking at
+  it to phrase the next edit defeats the entire point — it becomes a second tuning set with extra steps.
+- It is run **only** to confirm that a change already made (and justified against `probes.tsv` or other
+  evidence) generalised, or to get an unbiased baseline before a round of edits begins.
+- A description tuned against a probe it was subsequently measured on has **no evidential value** for
+  that probe. This applies retroactively too: if a past edit to a skill's description was made while
+  looking at `probes.tsv`, that skill's `probes.tsv` score is not evidence of anything beyond
+  memorisation, and only its `probes-holdout.tsv` score should be trusted.
+
+Run it the same way as the tuning set, pointed at the holdout file:
+
+```bash
+PROBES=probes-holdout.tsv REPS=5 python3 tests/routing/drive.py
+python3 tests/routing/score.py
+```
+
+(`score.py` reads whatever `runs/` directory `drive.py` just populated, so no separate flag is needed
+to score the holdout run — just don't run the two files back to back without scoring in between, or one
+overwrites the other's `runs/` output.)
+
+No results table is kept here for the holdout set yet. When one is added, it goes here, appended below
+this note — not folded into or reconciled with the `probes.tsv` tables above, which are a record of what
+was tuned against, not a corrected version of it.

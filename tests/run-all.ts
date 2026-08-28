@@ -63,13 +63,13 @@ const CHECKS: Check[] = [
     name: "release-preflight contract",
     cmd: [...NODE_RUNNER, "--test", "tests/check-release.test.ts"],
     ok: new Set([0]),
-    minPassing: 18,
+    minPassing: 20,
   },
   {
     name: "skill-library health",
     cmd: [...NODE_RUNNER, "--test", "tests/check-skills.test.ts"],
     ok: new Set([0]),
-    minPassing: 15,
+    minPassing: 19,
   },
   {
     name: "migration-linter contract",
@@ -129,13 +129,13 @@ const CHECKS: Check[] = [
     name: "diff-hygiene contract",
     cmd: [...NODE_RUNNER, "--test", "tests/check-diff-hygiene.test.ts"],
     ok: new Set([0]),
-    minPassing: 22,
+    minPassing: 31,
   },
   {
     name: "study-auditor contract",
     cmd: [...NODE_RUNNER, "--test", "tests/check-study.test.ts"],
     ok: new Set([0]),
-    minPassing: 28,
+    minPassing: 37,
   },
   {
     name: "analytics-sql contract",
@@ -148,6 +148,30 @@ const CHECKS: Check[] = [
     cmd: [...NODE_RUNNER, "--test", "tests/check-test-drift.test.ts"],
     ok: new Set([0]),
     minPassing: 23,
+  },
+  {
+    name: "runner-shim contract",
+    cmd: [...NODE_RUNNER, "--test", "tests/run-shim.test.ts"],
+    ok: new Set([0]),
+    minPassing: 6,
+  },
+  {
+    name: "delegation-defaults contract",
+    cmd: [...NODE_RUNNER, "--test", "tests/check-orchestration.test.ts"],
+    ok: new Set([0]),
+    minPassing: 23,
+  },
+  {
+    name: "hook-wiring contract",
+    cmd: [...NODE_RUNNER, "--test", "tests/check-hooks.test.ts"],
+    ok: new Set([0]),
+    minPassing: 32,
+  },
+  {
+    name: "agent-contract checker",
+    cmd: [...NODE_RUNNER, "--test", "tests/check-agents.test.ts"],
+    ok: new Set([0]),
+    minPassing: 17,
   },
   // The toolkit's own test files must survive its own auditor. 0 = clean, 2 = nothing
   // to scan; 1 (findings) is a failure here because we dogfood a clean suite.
@@ -177,7 +201,7 @@ const CHECKS: Check[] = [
   // so routing is measured on demand and recorded in `tests/routing/README.md`.
   //
   // The proxy was retired rather than kept alongside, because it was measurably misleading: it ranked
-  // `secure` as the threat to `review-cluster`, when the real competitor turned out to be Claude
+  // `secure` as the threat to `review`, when the real competitor turned out to be Claude
   // Code's built-in `code-review` skill — which a similarity check over this library's own 31
   // descriptions cannot see at all. A gate that produces confident wrong guidance is worse than no
   // gate, which is the same rule applied to `listing-over-budget` above.
@@ -246,7 +270,9 @@ function runRunnerShimCheck(): Result {
   const script = join(dir, "sentinel.ts");
   const sentinel = "VIBY_RUN_ALL_SENTINEL_OK";
   try {
-    writeFileSync(script, `console.log(${JSON.stringify(sentinel)});\n`);
+    // A type annotation, deliberately: a sentinel of plain JS would pass under a runtime that
+    // cannot strip types at all, which is the exact failure this check exists to catch.
+    writeFileSync(script, `const ok: string = ${JSON.stringify(sentinel)};\nconsole.log(ok);\n`);
     const p = spawnSync("sh", [join(ROOT, "plugins", "viby-toolkit", "hooks", "run.sh"), script], {
       cwd: ROOT,
       encoding: "utf8",

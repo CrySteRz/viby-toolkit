@@ -23,6 +23,7 @@
  */
 import { parseArgs } from "node:util";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 
 export type Finding = {
@@ -129,6 +130,15 @@ type LineRule = {
   fix: string;
 };
 
+/** Credentials published as examples: AWS's `...EXAMPLE` convention, `YOUR_API_KEY` placeholders,
+ *  and masked values. Never real, and flagging them is indistinguishable from crying wolf. */
+const EXAMPLE_CREDENTIAL = /EXAMPLE(KEY)?\b|\bYOUR[_-][A-Z_-]*(KEY|TOKEN|SECRET)\b|X{8,}/i;
+
+/** Explicit inline allowlist, the mechanism every secret scanner ends up needing. A checker that
+ *  tests credential detection must contain a credential-shaped string, so without this the rule can
+ *  never run clean against its own repo — and a permanently-red gate is one this library rejects. */
+const ALLOW_SECRET = /\b(hygiene:allow-secret|gitleaks:allow|pragma: allowlist secret)\b/;
+
 const LINE_RULES: LineRule[] = [
   {
     check: "conflict-marker",
@@ -142,12 +152,19 @@ const LINE_RULES: LineRule[] = [
     severity: "P1",
     // Deliberately only the shapes that are almost never a false positive. /viby-toolkit:secure is
     // the real pass; this catches the obvious one at the moment it would enter history.
+    //
+    // Published placeholders are excluded first. AWS documents keys ending in EXAMPLE so they can be
+    // written down safely, and they appear in docs, tests and this checker's own fixtures — flagging
+    // them is how a P1 rule teaches the reader to ignore it. Found by this checker firing on its own
+    // test file once it learned to read untracked files.
     test: (t) =>
-      /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(t) ||
+      !EXAMPLE_CREDENTIAL.test(t) &&
+      !ALLOW_SECRET.test(t) &&
+      (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(t) ||
       /\bAKIA[0-9A-Z]{16}\b/.test(t) ||
       /\bgh[pousr]_[A-Za-z0-9]{36,}\b/.test(t) ||
       /\bsk-[A-Za-z0-9]{32,}\b/.test(t) ||
-      /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/.test(t),
+      /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/.test(t)),
     problem: "this line looks like a real credential, and a secret in a commit is compromised even if you remove it later",
     fix: "remove it, rotate the credential, and load it from the environment — see /viby-toolkit:secure",
   },
@@ -161,7 +178,22 @@ const LINE_RULES: LineRule[] = [
       if (SCRIPT_PATH.test(f) || SCRIPT_FILE.test(f)) return false; // a script's output is not debug
       if (/\bdebugger\s*;?\s*$/.test(t)) return true;
       if (/\bconsole\.(log|debug|dir)\s*\(/.test(t) && ![".test.ts"].some((s) => f.endsWith(s))) return true;
-      if (ext === ".py" && /^\s*print\s*\(/.test(t)) return true;
+      // Python is not JavaScript here: `print()` IS the language's output mechanism, so flagging
+      // every one floods any CLI, scorer or report generator with false positives — 23 of them on
+      // tests/routing/score.py alone, which is a reporting tool whose output is the product. Only
+      // the unambiguous debug forms count: an interactive breakpoint, or a print that is visibly a
+      // debugging marker (the `{x=}` f-string form, or a bare scratch literal).
+      if (ext === ".py") {
+        if (/\b(breakpoint\s*\(\)|(?:i?pdb)\.set_trace\s*\()/.test(t)) return true;
+        if (/^\s*print\s*\(/.test(t) && /=\}/.test(t)) return true;
+        // The literal must be ONLY the marker. `print("!! no runs found, skipping")` is a warning
+        // a user reads; `print("!!!")` is something you typed to see if a branch was reached.
+        if (/^\s*print\s*\(\s*["'](here|hi|test|debug|xxx+|!+|\?+)[\s!?.]*["']\s*\)\s*$/i.test(t)) return true;
+        // `print(x)` — a bare identifier with no formatting — is the classic scratch print. A
+        // formatted row (`print(f"{a:<8}{b:>4}")`) is output, and that is the distinction.
+        if (/^\s*print\s*\(\s*[A-Za-z_]\w*\s*\)\s*$/.test(t)) return true;
+        return false;
+      }
       if (ext === ".go" && /\bfmt\.Print(ln|f)?\s*\(/.test(t)) return true;
       if (ext === ".rs" && /\b(dbg!|println!)\s*\(/.test(t)) return true;
       if (ext === ".php" && /\b(var_dump|dd)\s*\(/.test(t)) return true;
@@ -191,6 +223,43 @@ const LINE_RULES: LineRule[] = [
 function git(args: string[], cwd: string): { ok: boolean; out: string } {
   const p = spawnSync("git", args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   return { ok: p.status === 0, out: p.stdout ?? "" };
+}
+
+/**
+ * A brand-new file has no git history to diff against, so `git diff` never sees it and every
+ * content rule below is blind to it — the exact gap this closes. `--exclude-standard` is git's own
+ * .gitignore/.git/info/exclude/core.excludesFile logic, so an ignored build artifact is never
+ * synthesized into a diff here.
+ */
+function untrackedDiff(cwd: string): string {
+  const listed = git(["ls-files", "--others", "--exclude-standard", "-z"], cwd).out;
+  const files = listed.split("\0").filter((f) => f !== "");
+  let diff = "";
+  for (const file of files) {
+    let content: string;
+    try {
+      content = fs.readFileSync(path.join(cwd, file), "utf8");
+    } catch {
+      continue; // gone, unreadable, or not a regular file
+    }
+    if (content.includes("\u0000")) continue; // binary
+    if (content === "") continue;
+    const endsWithNewline = content.endsWith("\n");
+    const lines = content.split("\n");
+    if (endsWithNewline) lines.pop();
+    if (lines.length === 0) continue;
+    diff +=
+      [
+        `diff --git a/${file} b/${file}`,
+        "new file mode 100644",
+        "--- /dev/null",
+        `+++ b/${file}`,
+        `@@ -0,0 +1,${lines.length} @@`,
+        ...lines.map((l) => `+${l}`),
+        "",
+      ].join("\n") + "\n";
+  }
+  return diff;
 }
 
 export function checkDiffHygiene(diff: string): { findings: Finding[]; addedLines: number; files: number } {
@@ -302,7 +371,7 @@ function main(): number {
     diff = git(["diff", "--unified=0", "--staged"], cwd).out;
     what = "staged changes";
   } else {
-    diff = git(["diff", "--unified=0"], cwd).out + git(["diff", "--unified=0", "--staged"], cwd).out;
+    diff = git(["diff", "--unified=0"], cwd).out + git(["diff", "--unified=0", "--staged"], cwd).out + untrackedDiff(cwd);
     what = "working tree + staged";
   }
 
@@ -334,7 +403,7 @@ function main(): number {
     );
     console.log(
       "This judges what the diff LOOKS like, not whether it is correct — a perfectly hygienic diff\n" +
-        "can be entirely wrong. Correctness is /viby-toolkit:review-cluster and /viby-toolkit:verify.",
+        "can be entirely wrong. Correctness is /viby-toolkit:review and /viby-toolkit:verify.",
     );
   }
   return r.findings.length > 0 ? 1 : 0;

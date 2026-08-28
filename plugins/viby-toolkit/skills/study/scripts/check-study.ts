@@ -71,9 +71,17 @@ function presentedAsMeasured(heading: string): boolean {
 }
 
 /** A quantity strong enough that citing it unsourced is a defect. Bare small integers are not
- *  claims ("2 candidates", "3 angles"), so they do not count. */
+ *  claims ("2 candidates", "3 angles"), so they do not count.
+ *
+ *  The trailing \b on the unit group is load-bearing: without it the `s` unit matched the first
+ *  letter of the next word, so "viby-toolkit 2.21.3 so its skills" parsed as "21.3 s" and every
+ *  semver in a document was reported as an unsourced measurement.
+ *
+ *  The `s?` before it is equally load-bearing in the other direction: the boundary alone rejected a
+ *  plural unit written without a space ("cut memory to 1.5MBs"), silently letting a real unsourced
+ *  measurement through. Both halves are pinned by tests. */
 const FIGURE =
-  /(\d[\d,]*\.?\d*\s?%|\d[\d,]*\.?\d*\s?[×x]\b|\bn\s?=\s?\d+|\$\s?\d[\d,]*|\d[\d,]{4,}\b|\d+\.\d+\s?(ms|s|GB|MB|kB|k tokens|tokens))/;
+  /(\d[\d,]*\.?\d*\s?%|\d[\d,]*\.?\d*\s?[×x]\b|\bn\s?=\s?\d+|\$\s?\d[\d,]*|\d[\d,]{4,}\b|\d+\.\d+\s?(ms|s|GB|MB|kB|k tokens|tokens)s?\b)/;
 
 /** Global — for matchAll only. NEVER call .test() on a /g regex: it advances lastIndex between
  *  calls, so the same input alternates true/false. Use HAS_URL for predicates. */

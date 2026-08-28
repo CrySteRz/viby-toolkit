@@ -1,5 +1,84 @@
 # Changelog
 
+## 2.22.0
+
+**BREAKING: the `review-cluster` skill is now `review`.** Anything invoking
+`/viby-toolkit:review-cluster` must be updated. Strict semver would call a removed public name a
+major bump; this is a personal toolkit with one consumer, so it is recorded here as a minor with the
+break named explicitly rather than hidden.
+
+**Delegation is now a default rather than a permission.** The always-on contract said "fan out cheap
+read-only subagents" — phrased as a permission, and nothing ever did. It now directs 3–4 read-only
+agents dispatched in one message for breadth, and a `Workflow` script for work that genuinely has
+stages (`orchestrate`, `review`, `study`). Writes stay single-threaded everywhere; nine search angles
+found no published ablation where parallel *writers* beat a single agent on a coding benchmark, and
+Anthropic's own guidance for this platform is that two subagents editing one file is "a recipe for
+conflict". Enforced by `check-orchestration.ts`, not just asserted.
+
+**All 31 descriptions rewritten as triggers, and the listing now FITS.** 10,321 → 7,535 chars, 129% →
+94% of the ~8,000-char skill listing budget. This matters because entries are truncated
+least-invoked-first: the skills that never fired were being cut to name-only, which kept them from
+firing. `check-skills.ts` previously claimed a 31-skill library "cannot fit" that budget however it is
+written — that claim was wrong and is corrected. Eight triggers dropped in the first pass
+(`"check accessibility"`, `"audit the dependencies"`, `"review this interface"`, `"write me a study
+on"`, …) were caught by a regression review and restored.
+
+**Corrected a hallucinated citation in the always-loaded contract.** `principles` cited MAST as
+"~36.9% inter-agent misalignment ... the majority category". Extracted from the v3 PDF directly:
+**System Design 44.2% / Inter-Agent Misalignment 32.3% / Task Verification 23.5%** over 1642 traces.
+The 36.9 traced to a WebFetch summarisation artifact — the exact failure `/viby-toolkit:study` exists
+to prevent, living in this repo's own principles for months.
+
+**Every hook and checker was dead on a distro Node.** `run.sh` gated on Node's *version*, but type
+stripping needs a build with amaro; Ubuntu's 22.22.1 clears the version check and dies with
+`ERR_NO_TYPESCRIPT`, and because the shim `exec`s, bun and tsx were unreachable. Now probes
+capability. Pinned by `tests/run-shim.test.ts` with fake runtimes on PATH.
+
+**Routing numbers now carry confidence intervals.** `score.py` reports Wilson intervals and refuses to
+report a delta whose intervals overlap — which retires the 83% vs 87% sonnet/opus comparison:
+[76–88%] and [79–93%] overlap, so that delta was never reportable. It also emits per-probe cost,
+token, latency and turn medians parsed from `result` events that were already on disk and discarded.
+
+**New: `probes-holdout.tsv`** — 31 probes, one per skill, none reusing a quoted trigger from its own
+description, so a description edit can be tested for generalisation instead of memorisation.
+
+**Three new deterministic checkers** (17 → 19, gate 24 → 28 checks): `check-orchestration.ts`
+(delegation defaults), `check-hooks.ts` (hook wiring — hooks were the only shipped artifact category
+with no checker), `check-agents.ts` (every subagent now states a return-size ceiling, the mechanism
+that makes subagents a context firewall).
+
+**Checker false positives fixed, each with both halves pinned:** `check-release` walked
+`tests/routing/fixture/` because `SKIP_DIRS` had only the plural; `check-diff-hygiene` was blind to
+untracked files (a new file with a credential was invisible) and then, once it could see them, flagged
+every `print()` in Python — 23 on `score.py` alone, a reporting tool whose output is the product;
+`check-study`'s figure regex read `2.21.3 so` as "21.3 s" and flagged every semver.
+
+**Fixture hermeticity.** A global `tag.gpgSign` made `git tag` in test fixtures fail with "no tag
+message?", silently leaving the fixture untagged and `release-preflight` red. All four git-using test
+files now run with `GIT_CONFIG_GLOBAL=/dev/null` and throw on non-zero status.
+
+**Manifest drift closed.** 2.21.3 bumped only `plugin.json`, leaving `package.json` and
+`marketplace.json` at 2.15.0. All manifests now move together, and 2.21.2/2.21.3 CHANGELOG entries are
+backfilled below.
+
+## 2.21.3
+
+**Gated the manifest version against the newest tag** — `tests/check-version.ts`, wired into the
+pre-push gate, after shipping two tags whose manifests disagreed with them.
+
+**This release is also where the manifest drift came from.** It bumped
+`plugins/viby-toolkit/.claude-plugin/plugin.json` to 2.21.3 and left `package.json` and
+`.claude-plugin/marketplace.json` at **2.15.0**, so the new check passed (plugin.json was not behind
+the newest tag) while the other two manifests were six minor versions stale. `check-release`'s
+`version-drift` caught it; nothing caught that the *entry for this release was never written*, which
+is why 2.21.2 and 2.21.3 are being backfilled here rather than written at the time.
+
+## 2.21.2
+
+**Verified the paired-A/B mechanism** (a marker planted in a checkout copy overrides the installed
+description via `PLUGIN_DIR`), and brought the changelog current — for 2.21.1. Its own entry was the
+one that got missed. Also dropped a probe from `probes-smoke.tsv`.
+
 ## 2.21.1
 
 **Retracted the opus per-skill numbers — 3 reps was not enough.** Re-running the three worst opus

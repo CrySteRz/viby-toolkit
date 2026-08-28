@@ -1,5 +1,5 @@
 plan	viby-toolkit:plan	how would you approach splitting this service in two
-review-cluster	viby-toolkit:review-cluster	review my changes before I open the PR
+review	viby-toolkit:review	review my changes before I open the PR
 test	viby-toolkit:test	write tests for the pricing module
 verify	viby-toolkit:verify	is this ready to ship
 secure	viby-toolkit:secure	check this for security problems

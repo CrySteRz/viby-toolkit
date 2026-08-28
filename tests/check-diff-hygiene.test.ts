@@ -14,6 +14,21 @@ import os from "node:os";
 import path from "node:path";
 import { checkDiffHygiene, parseDiff } from "../plugins/viby-toolkit/skills/orchestrate/scripts/check-diff-hygiene.ts";
 
+// Fixtures must not inherit the developer's global git config. A global `tag.gpgSign = true`
+// turns `git tag <name>` into a signed annotated tag, which fails with "no tag message?" in a
+// non-interactive run — leaving the fixture silently without the tag it is testing for.
+const GIT_ENV = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
+
+/** Same fail-loud contract as the sibling fixture files: a silently-failed `git add` or `git commit`
+ *  leaves the fixture in a state that surfaces later as a confusing, unrelated assertion failure. */
+function git(dir: string, ...args: string[]): void {
+  const r = spawnSync("git", args, { cwd: dir, encoding: "utf8", env: GIT_ENV });
+  if (r.status !== 0) {
+    throw new Error(`git ${args.join(" ")} failed (${r.status}): ${(r.stderr ?? "").trim()}`);
+  }
+}
+
+
 /** Build a unified diff the way `git diff --unified=0` emits it. */
 function diffOf(file: string, added: string[], removed: string[] = []): string {
   return [
@@ -47,7 +62,7 @@ test("a merge conflict marker is P1", () => {
 
 test("a credential-shaped line is P1", () => {
   for (const line of [
-    "const key = 'AKIAIOSFODNN7EXAMPLE';",
+    "const key = 'AKIA3XQ7BZP2LMWV6KTD';", // hygiene:allow-secret
     "token = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';",
     "-----BEGIN RSA PRIVATE KEY-----",
   ]) {
@@ -150,12 +165,12 @@ test("CLI: an unresolvable base ref is exit 2, not a pass", () => {
   );
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hyg-"));
   try {
-    spawnSync("git", ["init", "-q"], { cwd: dir });
-    spawnSync("git", ["config", "user.email", "t@e.com"], { cwd: dir });
-    spawnSync("git", ["config", "user.name", "T"], { cwd: dir });
+    git(dir, "init", "-q");
+    git(dir, "config", "user.email", "t@e.com");
+    git(dir, "config", "user.name", "T");
     fs.writeFileSync(path.join(dir, "a.ts"), "const a = 1;\n");
-    spawnSync("git", ["add", "-A"], { cwd: dir });
-    spawnSync("git", ["commit", "-qm", "init"], { cwd: dir });
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", "init");
     const p = spawnSync(
       process.execPath,
       ["--experimental-strip-types", "--disable-warning=ExperimentalWarning", script, "--base", "v99-nope"],
@@ -175,12 +190,12 @@ test("CLI: a real dirty working tree is audited, and the report says what it doe
   );
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hyg-"));
   try {
-    spawnSync("git", ["init", "-q"], { cwd: dir });
-    spawnSync("git", ["config", "user.email", "t@e.com"], { cwd: dir });
-    spawnSync("git", ["config", "user.name", "T"], { cwd: dir });
+    git(dir, "init", "-q");
+    git(dir, "config", "user.email", "t@e.com");
+    git(dir, "config", "user.name", "T");
     fs.writeFileSync(path.join(dir, "a.ts"), "const a = 1;\n");
-    spawnSync("git", ["add", "-A"], { cwd: dir });
-    spawnSync("git", ["commit", "-qm", "init"], { cwd: dir });
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", "init");
     fs.writeFileSync(path.join(dir, "a.ts"), "const a = 1;\nconsole.log('debugging');\n");
     const p = spawnSync(
       process.execPath,
@@ -190,6 +205,66 @@ test("CLI: a real dirty working tree is audited, and the report says what it doe
     assert.equal(p.status, 1, p.stdout);
     assert.match(p.stdout ?? "", /debug-added/);
     assert.match(p.stdout ?? "", /not whether it is correct/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("CLI: an untracked (new) file's credential and conflict marker are reported", () => {
+  const script = path.join(
+    path.dirname(import.meta.dirname),
+    "plugins", "viby-toolkit", "skills", "orchestrate", "scripts", "check-diff-hygiene.ts",
+  );
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hyg-"));
+  try {
+    git(dir, "init", "-q");
+    git(dir, "config", "user.email", "t@e.com");
+    git(dir, "config", "user.name", "T");
+    fs.writeFileSync(path.join(dir, "a.ts"), "const a = 1;\n");
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", "init");
+    fs.writeFileSync(
+      path.join(dir, "leaked.ts"),
+      'const key = "AKIA3XQ7BZP2LMWV6KTD";\nconsole.log("debugging", key);\n<<<<<<< HEAD\n', // hygiene:allow-secret
+    );
+    const p = spawnSync(
+      process.execPath,
+      ["--experimental-strip-types", "--disable-warning=ExperimentalWarning", script],
+      { cwd: dir, encoding: "utf8" },
+    );
+    assert.equal(p.status, 1, p.stdout);
+    assert.match(p.stdout ?? "", /secret-shaped/, `an untracked file's credential must be reported: ${p.stdout}`);
+    assert.match(p.stdout ?? "", /conflict-marker/, `an untracked file's conflict marker must be reported: ${p.stdout}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("CLI: a .gitignore'd untracked file is NOT reported even with the same content", () => {
+  const script = path.join(
+    path.dirname(import.meta.dirname),
+    "plugins", "viby-toolkit", "skills", "orchestrate", "scripts", "check-diff-hygiene.ts",
+  );
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hyg-"));
+  try {
+    git(dir, "init", "-q");
+    git(dir, "config", "user.email", "t@e.com");
+    git(dir, "config", "user.name", "T");
+    fs.writeFileSync(path.join(dir, "a.ts"), "const a = 1;\n");
+    fs.writeFileSync(path.join(dir, ".gitignore"), "ignored.ts\n");
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", "init");
+    fs.writeFileSync(
+      path.join(dir, "ignored.ts"),
+      'const key = "AKIA3XQ7BZP2LMWV6KTD";\n<<<<<<< HEAD\n', // hygiene:allow-secret
+    );
+    const p = spawnSync(
+      process.execPath,
+      ["--experimental-strip-types", "--disable-warning=ExperimentalWarning", script],
+      { cwd: dir, encoding: "utf8" },
+    );
+    assert.equal(p.status, 2, p.stdout);
+    assert.match(p.stdout ?? "", /no changes/, `an ignored file must never be scanned: ${p.stdout}`);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -223,7 +298,7 @@ test("comment-shaped rules do NOT run on prose files", () => {
 });
 
 test("but a credential or a conflict marker matters in ANY file type", () => {
-  assert.ok(checks(diffOf("README.md", ["export AWS_KEY=AKIAIOSFODNN7EXAMPLE"])).includes("secret-shaped"));
+  assert.ok(checks(diffOf("README.md", ["export AWS_KEY=AKIA3XQ7BZP2LMWV6KTD"])).includes("secret-shaped")); // hygiene:allow-secret
   assert.ok(checks(diffOf("config.yaml", ["<<<<<<< HEAD"])).includes("conflict-marker"));
 });
 
@@ -232,4 +307,50 @@ test("P2 regression: one removed line cannot excuse two added copies of it", () 
   // that genuinely duplicated a line was classified as pure formatting churn.
   const p = parseDiff(diffOf("src/a.ts", ["const a = 1;", "const a = 1;"], ["const a  =  1;"]));
   assert.equal(p[0]?.whitespaceOnly, 1, "only the first added copy pairs with the one removal");
+});
+
+test("a PUBLISHED example credential is NOT flagged", () => {
+  // AWS documents keys ending in EXAMPLE so they can be written down. This checker fired on its own
+  // test fixtures once it learned to read untracked files; a P1 that cries wolf gets ignored wholesale.
+  const f = checks(diffOf("src/a.ts", ['const key = "AKIAIOSFODNN7EXAMPLE";']));
+  assert.ok(!f.includes("secret-shaped"), `example credential flagged: ${f.join(", ")}`);
+});
+
+test("but a realistic key of the same shape IS still flagged", () => {
+  const f = checks(diffOf("src/a.ts", ['const key = "AKIA3XQ7BZP2LMWV6KTD";'])); // hygiene:allow-secret
+  assert.ok(f.includes("secret-shaped"), "the exclusion must not blind the rule");
+});
+
+test("an explicit inline allowlist comment suppresses the secret rule", () => {
+  const f = checks(diffOf("src/a.ts", ['const k = "AKIA3XQ7BZP2LMWV6KTD"; // hygiene:allow-secret']));
+  assert.ok(!f.includes("secret-shaped"), "an explicit allow marker must suppress");
+  const g = checks(diffOf("src/a.ts", ['const k = "AKIA3XQ7BZP2LMWV6KTD";'])); // hygiene:allow-secret
+  assert.ok(g.includes("secret-shaped"), "and the rule must still fire without it");
+});
+
+test("python: an interactive breakpoint IS a debug artifact", () => {
+  for (const line of ["    breakpoint()", "    import pdb; pdb.set_trace()", "    ipdb.set_trace()"]) {
+    assert.ok(checks(diffOf("app/x.py", [line])).includes("debug-added"), `should flag: ${line}`);
+  }
+});
+
+test("python: a visibly-debugging print IS flagged", () => {
+  for (const line of ['    print(f"{total=}")', '    print("here")', '    print("XXXX")']) {
+    assert.ok(checks(diffOf("app/x.py", [line])).includes("debug-added"), `should flag: ${line}`);
+  }
+});
+
+test("python: a report print is NOT a debug artifact", () => {
+  // Regression: every print( in a .py file was flagged, which put 23 findings on a scorer whose
+  // entire job is printing a table. A P2 that fires 23 times on correct code gets ignored wholesale.
+  for (const line of [
+    '    print(f"{pid:<18}{n:>4}   {tokens:>10}   {cost:>10}")',
+    '    print("probe                reps  hit  none")',
+    "    print(",
+    '    print(f"  {label}: {lo:.0%}-{hi:.0%}")',
+    '    print(f"!! no runs found under {name!r}, skipping comparison")',
+    '    print("!! 1 run(s) had not finished and were EXCLUDED")',
+  ]) {
+    assert.ok(!checks(diffOf("tests/routing/score.py", [line])).includes("debug-added"), `should NOT flag: ${line}`);
+  }
 });
