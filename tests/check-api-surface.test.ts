@@ -16,10 +16,19 @@ import os from "node:os";
 import path from "node:path";
 import { diffSurface, extractSurface } from "../plugins/viby-toolkit/skills/api/scripts/check-api-surface.ts";
 
+// Fixtures must not inherit the developer's global git config. A global `tag.gpgSign = true`
+// turns `git tag <name>` into a signed annotated tag, which fails with "no tag message?" in a
+// non-interactive run — leaving the fixture silently without the tag it is testing for.
+const GIT_ENV = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
+
+
 function repo(before: Record<string, string>, after: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "surface-"));
   const run = (...args: string[]): void => {
-    spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+    const r = spawnSync("git", args, { cwd: dir, encoding: "utf8", env: GIT_ENV });
+    if (r.status !== 0) {
+      throw new Error(`git ${args.join(" ")} failed (${r.status}): ${(r.stderr ?? "").trim()}`);
+    }
   };
   run("init", "-q");
   run("config", "user.email", "t@example.com");

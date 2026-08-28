@@ -14,10 +14,19 @@ import os from "node:os";
 import path from "node:path";
 import { checkRelease } from "../plugins/viby-toolkit/skills/release/scripts/check-release.ts";
 
+// Fixtures must not inherit the developer's global git config. A global `tag.gpgSign = true`
+// turns `git tag <name>` into a signed annotated tag, which fails with "no tag message?" in a
+// non-interactive run — leaving the fixture silently without the tag it is testing for.
+const GIT_ENV = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
+
+
 function repo(files: Record<string, string>, opts: { commit?: boolean; tags?: string[] } = {}): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rel-"));
   const run = (...args: string[]): void => {
-    spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+    const r = spawnSync("git", args, { cwd: dir, encoding: "utf8", env: GIT_ENV });
+    if (r.status !== 0) {
+      throw new Error(`git ${args.join(" ")} failed (${r.status}): ${(r.stderr ?? "").trim()}`);
+    }
   };
   run("init", "-q");
   run("config", "user.email", "t@example.com");
@@ -274,6 +283,36 @@ test("every debug artifact line is reported, not only the first", () => {
     assert.ok(f, "expected a debug-artifact finding");
     assert.match(f.detail ?? "", /a\.test\.js:1/, "first artifact reported");
     assert.match(f.detail ?? "", /a\.test\.js:3/, "the second artifact on line 3 must also be reported");
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test("a manifest inside a singular 'fixture' directory does not contribute to version drift", () => {
+  const dir = repo({
+    "package.json": JSON.stringify({ version: "1.0.0" }),
+    "tests/routing/fixture/package.json": JSON.stringify({ version: "9.9.9" }),
+    ".github/workflows/ci.yml": "jobs: {}\n",
+  });
+  try {
+    const found = checks(dir);
+    assert.ok(
+      !found.includes("version-drift"),
+      `a throwaway fixture manifest must not count as drift, got ${found.join()}`,
+    );
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test("a real manifest at the repo root still contributes to version drift", () => {
+  const dir = repo({
+    "package.json": JSON.stringify({ version: "1.0.0" }),
+    "other/package.json": JSON.stringify({ version: "2.0.0" }),
+    ".github/workflows/ci.yml": "jobs: {}\n",
+  });
+  try {
+    assert.ok(checks(dir).includes("version-drift"), "a genuine second manifest must still be caught");
   } finally {
     cleanup(dir);
   }

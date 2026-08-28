@@ -6,21 +6,25 @@
 # so a machine without a TS runtime degrades to "no hook" rather than a wedged session.
 #
 # Order: node (ubiquitous; also runs the test suite) -> bun -> npx tsx -> give up.
-# Type stripping needs Node >= 22.6; older Node falls through to the next option.
 #
-# Usage: sh run.sh <script.ts> [args...]
+# Node is probed for CAPABILITY, not version. Type stripping needs Node >= 22.6 built with
+# amaro, and distro builds ship a new-enough Node with amaro compiled out: it clears a
+# version check and then dies with ERR_NO_TYPESCRIPT. Because the next line is `exec`, that
+# death is terminal — bun and tsx are never reached. So the probe runs first and any node
+# that cannot strip types falls through to them.
 set -u
 
 script="${1:-}"
 [ -n "$script" ] || exit 0
 shift
 
-if command -v node >/dev/null 2>&1; then
-    major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
-    minor=$(node -p 'process.versions.node.split(".")[1]' 2>/dev/null || echo 0)
-    if [ "$major" -gt 22 ] 2>/dev/null || { [ "$major" -eq 22 ] && [ "$minor" -ge 6 ]; } 2>/dev/null; then
-        exec node --experimental-strip-types --disable-warning=ExperimentalWarning "$script" "$@"
-    fi
+if command -v node >/dev/null 2>&1 && node -e '
+  const [maj, min] = process.versions.node.split(".").map(Number);
+  const newEnough = maj > 22 || (maj === 22 && min >= 6);
+  const hasAmaro = process.config.variables.node_use_amaro !== false;
+  process.exit(newEnough && hasAmaro ? 0 : 1);
+' >/dev/null 2>&1; then
+    exec node --experimental-strip-types --disable-warning=ExperimentalWarning "$script" "$@"
 fi
 
 if command -v bun >/dev/null 2>&1; then
