@@ -1,10 +1,10 @@
 ---
 name: study
 description: >
-  Use when the user brings an idea or open question whose answer lives OUTSIDE the codebase and
-  wants it researched properly — "research this", "do a deep dive on", "what's the state of the
-  art for", "how do other people solve this", "is this claim true", "write me a study on",
-  "look into whether we should". Not /viby-toolkit:evaluate. Not /viby-toolkit:explore.
+  Always load when the answer lives OUTSIDE the codebase and needs researching properly —
+  "research this", "do a deep dive on", "what's the state of the art", "how do others solve this",
+  "write me a study on", "is this claim true". Not /viby-toolkit:evaluate.
+
 ---
 
 # Study (protocol first, then evidence, then the answer)
@@ -83,8 +83,8 @@ have a shopping list.
 - **Several angles, not one query rephrased.** Search by problem, by mechanism, by the name
   people who solved it would use, by the failure mode, and by the tool/vendor name. Each angle
   is blind to what the others surface.
-- **Fan out: dispatch one `researcher` per angle, in parallel.** This is pure read work, so the
-  fan-out law permits it, and it is the whole reason to fan out here — a search pass generates
+- **Fan out: author a `Workflow` that runs one `researcher` per angle.** This is pure read work, so
+  the fan-out law permits it, and it is the whole reason to fan out here — a search pass generates
   enormous raw output, and the researcher returns quoted, dated, labelled findings while the
   snippets and fetched pages die with it. Give each one its angle, the oracle, and the opposing
   query. Reconcile their findings yourself; they gather, you decide.

@@ -1,9 +1,10 @@
 ---
 name: schema
 description: >
-  Use for any database schema or data change — "add a column", "write a migration", "change
-  this table", "rename this field", "backfill", "add an index", "drop the old column", "change
-  the column type", or reviewing a migration someone else wrote. Not /viby-toolkit:migrate.
+  Always load for any database schema or data change — "add a column", "write a migration",
+  "change this table", "rename this field", "backfill", "add an index", or reviewing a migration.
+  Not /viby-toolkit:migrate, /viby-toolkit:analytics, /viby-toolkit:api.
+
 ---
 
 # Schema (the one change you cannot undo)

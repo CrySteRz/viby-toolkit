@@ -1,10 +1,10 @@
 ---
 name: release
 description: >
-  Use when cutting a release or preparing to publish — "cut a release", "bump the version",
-  "tag this", "publish it", "write the changelog", "is this a major or a minor", "what changed
-  since the last release", or before pushing anything downstream consumers will install. Not
-  /viby-toolkit:verify.
+  Always load before cutting a release or publishing — "cut a release", "bump the version", "tag
+  this", "publish it", "write the changelog", "is this a major or a minor", "what changed since
+  the last release". Not /viby-toolkit:verify.
+
 ---
 
 # Release (the version number is a promise)

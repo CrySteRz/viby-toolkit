@@ -1,11 +1,11 @@
 ---
 name: secure
 description: >
-  Use for a security-focused pass over code, dependencies, or configuration — "check this for
-  security problems", "is this secure", "security review", "did I leak a secret", "check for
-  vulnerabilities", "audit the dependencies", "is this endpoint safe", before exposing
-  something publicly, or before committing config and CI changes. Not
-  /viby-toolkit:review-cluster.
+  Always load for a security pass over code, dependencies or config — "is this secure", "security
+  review", "did I leak a secret", "check for vulnerabilities", "audit the dependencies", "is this
+  endpoint safe", before exposing anything publicly or committing CI config. Not /viby-
+  toolkit:review.
+
 ---
 
 # Secure (credentials first, then the supply chain, then the code)
@@ -16,8 +16,9 @@ IRON LAW: Order the pass by what actually goes wrong, not by what is interesting
           Confirm every candidate secret before reporting it — most look-alikes are not real.
 ```
 
-Follow `/viby-toolkit:principles`. Detection is read work — **fan out**. The judgement about
-what is genuinely exploitable stays on the main thread.
+Follow `/viby-toolkit:principles`. Detection is read work, so **fan out by default** (§3) — 3–4
+read-only agents dispatched in one message. The judgement about what is genuinely exploitable stays
+on the main thread.
 
 ## Why this order
 
@@ -125,7 +126,7 @@ Only after the above, and only where untrusted input can actually arrive:
 
 For each candidate ask **reachability**: can untrusted input actually get here, and what
 does an attacker gain? An unreachable "vulnerability" is a P3 note, not a finding. This is
-the same grounding discipline `/viby-toolkit:review-cluster` applies — quote the line, name a
+the same grounding discipline `/viby-toolkit:review` applies — quote the line, name a
 concrete exploit path, and let a fresh-context check kill anything you cannot substantiate.
 
 ## 4. Report

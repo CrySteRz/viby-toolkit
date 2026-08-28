@@ -1,10 +1,10 @@
 ---
 name: worktrees
 description: >
-  Use before running work that should be isolated from the main checkout — parallel implementer
-  agents that would edit-conflict, a risky experiment, or a migration you want off the working
-  branch. Use when the user says "isolate this", "work in a worktree", "try this without
-  touching main", "run these in parallel without them stepping on each other".
+  Always load before running work that must be isolated from the main checkout — parallel
+  implementer agents that would edit-conflict, a risky experiment, a migration off the working
+  branch. "isolate this", "work in a worktree", "without touching main".
+
 ---
 
 # Worktrees (isolation, done right)

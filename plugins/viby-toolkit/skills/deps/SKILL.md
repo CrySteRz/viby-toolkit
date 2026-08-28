@@ -1,10 +1,10 @@
 ---
 name: deps
 description: >
-  Use when moving a dependency version — "upgrade React", "bump the dependencies", "we're on an
-  old version of X", "dependabot opened 30 PRs", "migrate to v3", "is this safe to update",
-  "our lockfile is a mess", "replace this library". Not /viby-toolkit:secure,
-  /viby-toolkit:evaluate.
+  Always load before moving a dependency version — "upgrade React", "bump the dependencies",
+  "we're on an old version of X", "dependabot opened 30 PRs", "migrate to v3", "is this safe to
+  update". Not /viby-toolkit:evaluate.
+
 ---
 
 # Deps (one at a time, changelog first, revert cheap)

@@ -1,10 +1,10 @@
 ---
 name: evaluate
 description: >
-  Use when choosing whether to adopt a tool, library, dependency, service or MCP server —
-  "should we use Playwright or something lighter", "which library should we use", "is there a
-  lighter option", "is this library worth adding", "run a spike on this", "benchmark these two
-  approaches", "is this MCP worth installing". Not /viby-toolkit:study.
+  Always load before adopting a tool, library, service or MCP server — "should we use X or Y",
+  "which library should we use", "is this worth adding", "run a spike", "benchmark these two", "is
+  this MCP worth installing". Not /viby-toolkit:study.
+
 ---
 
 # Evaluate (measure it on a case you already know the answer to)

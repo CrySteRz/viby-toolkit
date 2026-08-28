@@ -1,10 +1,10 @@
 ---
 name: adopt
 description: >
-  Use when taking on code you did not write and do not trust yet, and bringing it up to
-  standard — "someone handed us this repo", "we inherited this codebase", "the contractor
-  delivered it", "take over this project", "clean this up to our conventions", "this came from
-  a vendor / an agency / an old team". Not /viby-toolkit:refactor, /viby-toolkit:explore.
+  Always load before touching code you did not write and do not trust — "we inherited this repo",
+  "the contractor delivered it", "take over this project", "clean this up to our conventions",
+  "this came from a vendor". Not /viby-toolkit:refactor or /viby-toolkit:explore.
+
 ---
 
 # Adopt (inherit foreign code, conform it, prove it still works)
@@ -129,7 +129,8 @@ reformats and restructures at once is unreviewable, and unreviewable is where in
 
 ## 7. Run it with agents, and monitor the trajectory
 
-- **Fan out for reading**: one `scout` per subsystem to map, one per language in a polyglot repo.
+- **Fan out for reading, in parallel and by default**: one `scout` per subsystem to map, one per
+  language in a polyglot repo — 3–4 at a time (`/viby-toolkit:principles` §3).
 - **Partition the writes** by the Mikado graph, one `implementer` per independent node, each in
   its own worktree (`/viby-toolkit:worktrees` — including the decision about where shared
   generated artifacts live).

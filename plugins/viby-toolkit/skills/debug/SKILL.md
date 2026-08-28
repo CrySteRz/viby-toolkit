@@ -1,10 +1,10 @@
 ---
 name: debug
 description: >
-  Use when something is broken, failing, throwing, crashing, flaky, or behaving wrong and
-  the cause isn't obvious. Use when the user says "why is this failing", "debug this",
-  "it's broken", "this test is flaky", "it passes locally but fails in CI", "root cause", or
-  pastes an error/stack trace.
+  Always load when something is broken, failing, throwing, crashing, flaky or wrong and the cause
+  is not obvious — "why is this failing", "debug this", "it's broken", "root cause", "this test is
+  flaky", "passes locally but fails in CI", or a pasted stack trace.
+
 ---
 
 # Debug (root-cause, evidence-driven)
@@ -50,8 +50,9 @@ on purpose.
 
 ### 2. Localize (fan out `scout` / `debugger` agents for breadth)
 
-Narrow *where* before reasoning about *why*. Spawn cheap parallel agents to gather
-evidence, each returning a tight summary (not dumps):
+Narrow *where* before reasoning about *why*. **Dispatch these lines of inquiry in parallel, in a
+single message** — they are independent, which is exactly the shape fan-out is for, and running them
+in sequence is the mistake. Each is read-only and returns a tight summary (not dumps):
 - One traces the **code path** from the entry point to the failure site.
 - One searches **recent changes** — `git log`/`git blame` on the implicated files, what
   changed around when this started failing. Regressions usually have a commit.

@@ -41,7 +41,7 @@ hallucination. One independent validator that will *execute* a checkable claim b
 opinions. A gap-hunting reviewer always finds gaps — so reviewers flag **correctness only** (taste →
 `/simplify`), and validators see the claim, not the author's reasoning. Prefer a fresh-context
 reviewer over self-review: models are weak at judging their own output. Full protocol in
-`review-cluster`.
+`review`.
 
 ## Do not trust a confidence number
 

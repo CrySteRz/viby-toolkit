@@ -1,11 +1,10 @@
 ---
 name: handoff
 description: >
-  Use when a task is mid-flight and the session is about to end, hit context limits, or be
-  cleared — to serialize live state so a fresh session resumes without re-deriving it. Use
-  when the user says "hand off", "save state", "continue later", "I'll pick this up
-  tomorrow", "I'm out of context", "write down where we are", or context is running high
-  mid-task. Ephemeral task state, not durable lessons.
+  Always load when a task is mid-flight and the session is ending, out of context, or about to be
+  cleared — "hand off", "save state", "continue later", "I'll pick this up tomorrow", "write down
+  where we are". Ephemeral state, not lessons.
+
 ---
 
 # Handoff (survive a context break mid-task)

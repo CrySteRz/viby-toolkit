@@ -1,10 +1,10 @@
 ---
 name: kpi
 description: >
-  Use when deciding WHAT to measure and how to present it — "build them a KPI dashboard", "what
-  should we track", "which metrics matter", "the client wants reporting", "define our KPIs",
-  "add a chart for X", "this dashboard is useless", "what does 'active user' even mean here".
-  Not /viby-toolkit:analytics.
+  Always load when deciding WHAT to measure and how to present it — "build them a dashboard",
+  "what should we track", "which metrics matter", "define our KPIs", "what does 'active user' even
+  mean here". Not /viby-toolkit:analytics.
+
 ---
 
 # KPI (define the number before anyone builds it)

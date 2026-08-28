@@ -1,10 +1,10 @@
 ---
 name: ui
 description: >
-  Use when a change has to be seen or driven to be believed — "does this render", "check the
+  Always load when a change must be seen or driven to be believed — "does this render", "check the
   UI", "is the layout broken", "click through this flow", "the button does nothing", "take a
-  screenshot", "does this look right on mobile", "check accessibility", "the page is blank".
-  Not /viby-toolkit:test, /viby-toolkit:perf.
+  screenshot", "check accessibility", "the page is blank".
+
 ---
 
 # UI (see it, drive it, or you have not checked it)

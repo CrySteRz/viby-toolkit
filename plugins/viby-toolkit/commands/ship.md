@@ -17,12 +17,14 @@ Do this:
 2. In the verify phase, run `/viby-toolkit:verify` — actually exercise the change, screen the
    output for silent-pass modes, and show the command + exit code. Do not report done on
    faith.
-3. In the self-review phase, run `/viby-toolkit:review-cluster` on your own diff and fix every
+3. In the self-review phase, run `/viby-toolkit:review` on your own diff and fix every
    **confirmed** finding (re-verifying each fix). Surface any unconfirmed findings for the
    user to judge.
-4. Follow `/viby-toolkit:principles` throughout: fan out cheap scout agents for breadth,
-   keep the main thread's context clean, route work to the cheapest model that can do it
-   correctly, and never trade correctness for cost.
+4. Follow `/viby-toolkit:principles` throughout. **Fan out by default** (§3) — a single sweep gets
+   3–4 read-only agents dispatched in one message — and **declare the staged phases as a `Workflow`**
+   (§3b): research-with-escalation, and the review pipeline. Every write stays on your single thread
+   between those calls. Keep the main thread's context clean, route work to the cheapest model that
+   can do it correctly, and never trade correctness for cost.
 
 End with a tight summary: what changed (file:line), the verification evidence, anything
 you deliberately left and why, and follow-ups. Lead with the outcome.

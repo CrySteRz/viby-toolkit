@@ -1,10 +1,10 @@
 ---
 name: perf
 description: >
-  Use for anything about speed, memory, or cost — "this is slow", "optimize this", "why does
-  it take so long", "reduce memory", "it times out", "make the build faster", "is this a
-  bottleneck", or before accepting a change justified as an optimization. Also use when
-  reviewing a performance claim someone else made.
+  Always load for anything about speed, memory or cost — "this is slow", "optimize this", "why
+  does it take so long", "reduce memory", "it times out", "make the build faster", "is this a
+  bottleneck", or to check a performance claim.
+
 ---
 
 # Perf (measure, or it didn't happen)
@@ -29,7 +29,8 @@ optimizations** (χ²=6.10, p=0.636) — but validate them very differently:
 
 So the deficit is not knowing what to optimize. It is *proving it worked*. Everything below
 is built around closing that specific gap. Follow `/viby-toolkit:principles`; profiling is read
-work, so fan out — but the numbers must come from one machine, one command.
+work, so fan out by default — but the numbers must come from one machine, one command, measured on
+the main thread.
 
 ## 1. Define the target before touching anything
 

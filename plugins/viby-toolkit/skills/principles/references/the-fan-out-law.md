@@ -59,13 +59,30 @@ cycle, or if a task does not say what it owns and how it is verified.
   spin-up plus its own context costs more than a direct read for a single known fact.
 - **Effort ceilings.** Simple fact-finding: 1 agent, a few tool calls. A comparison or multi-area
   map: 2–4 agents, ~10–15 calls each. 10+ agents only for a genuinely broad audit or migration.
-- **The failure is at the seams, not inside the agents.** The MAST taxonomy (Cemri et al., 1,600+
-  annotated traces across 7 multi-agent frameworks) attributes **~36.9% of failures to inter-agent
-  misalignment** — communication breakdown, context lost during handoff, conflicting outputs, format
-  mismatch. Not one is a reasoning failure; they are all interface failures, and they are the
-  majority category. Spend your care on the brief and the return format, not on the agent's
+- **The failure is in the design and the seams, not inside the agents.** The MAST taxonomy (Cemri et
+  al., **1642** annotated traces across 7 multi-agent frameworks) splits failures **System Design
+  44.2% / Inter-Agent Misalignment 32.3% / Task Verification 23.5%**. Not one is a reasoning failure.
+  Spend your care on the orchestration shape, the brief and the return format, not on the agent's
   cleverness. Reconciling several agents' output is where *you* introduce bugs, which is why writes
   stay single-threaded.
+
+  > **Correction, 2026-08-27.** This file previously said "~36.9% ... inter-agent misalignment ... the
+  > majority category". Both halves were wrong: the real figure is 32.3%, and the majority category is
+  > System Design at 44.2%. The 36.9 traced to a **WebFetch summarization artifact** — a re-query of the
+  > same render could not find any such number in the paper. Corrected against `pdftotext` output from
+  > the v3 PDF. That the toolkit's own always-loaded contract carried a hallucinated citation for
+  > months is the strongest argument there is for `/viby-toolkit:study`'s verbatim-quote rule.
+
+- **Error amplification is topology-dependent, and this is the case for orchestrating rather than
+  merely spawning:** independent agents amplify errors **17.2x** through unchecked propagation, while
+  **centralized coordination contains it to 4.4x** (Kim et al., arXiv 2512.08296). Never let agents
+  chain to each other; every result comes back through you.
+- **Capability saturation — the rule that stops pointless fan-out.** "coordination yields diminishing
+  or negative returns (beta=-0.408, p<0.001) once single-agent baselines exceed ~45%" (same paper). If
+  the main thread already handles this class of task well, fanning out makes it *worse*, not slower.
+- **A hard ceiling at 3–4 agents per stage:** "per-agent reasoning capacity becomes prohibitively thin
+  beyond 3-4 agents, creating a hard resource ceiling". The "10+ agents for a broad audit" line above
+  is the one exception, and only when each agent owns a genuinely disjoint slice.
 
 A caveat on importing anyone's multi-agent numbers, including Anthropic's own: their multi-agent
 research post reports "90.2% better than single-agent" and "~15× the tokens" on an internal

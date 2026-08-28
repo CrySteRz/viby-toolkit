@@ -1,10 +1,10 @@
 ---
 name: principles
 description: >
-  The operating contract every viby-toolkit skill and agent follows — accuracy rules, the
-  fan-out law, model routing and escalation, context discipline, evidence gating. Load it when
-  another viby-toolkit skill says "follow /viby-toolkit:principles", or before deciding whether
-  to fan out subagents. Reference material — read it, don't run it.
+  The operating contract every viby-toolkit skill and agent follows — accuracy rules, the fan-out
+  law, model routing, context discipline, evidence gating. Load when a skill says "follow /viby-
+  toolkit:principles". Reference — read it, don't run it.
+
 ---
 
 # viby-toolkit Operating Principles
@@ -18,6 +18,7 @@ nearly every other skill loads it — read a reference only when you are acting 
 | 1 | Accuracy over everything | — |
 | 2 | Curate context deliberately | `references/context-discipline.md` |
 | 3 | Fan out for READ; writes single-threaded | `references/the-fan-out-law.md` |
+| 3b | Stage multi-step fan-out with a script | `references/workflow-orchestration.md` |
 | 4 | Route to the cheapest model that is *correct* | `references/model-routing.md` |
 | 5–6 | No claim without fresh evidence; verify adversarially | `references/evidence-gate.md` |
 | 7 | Record lessons so they compound | — |
@@ -57,7 +58,16 @@ over-trim and drop something load-bearing.
 
 > **Fan out for READ. Keep WRITES single-threaded — unless you have mapped the dependency graph
 > and can name the partition.**
+>
+> **Fanning out is the default, not a permission. Stage it with a `Workflow` when the work has stages.**
 
+- **Breadth is dispatched in parallel by default.** Search, explore, review, audit: 3–4 cheap
+  read-only agents **in one message**, never worked through in sequence. Phrased as a permission
+  ("you may fan out") this never happened; it is a directive.
+- **Staged work gets a `Workflow` script (§3b)** — fan out, then verify each result, then synthesise.
+  Declared stages beat stages re-improvised under context pressure, and a skill instructing it is
+  itself the authorization to call `Workflow`, so it happens without the user asking.
+  `references/workflow-orchestration.md` has the decision rule, the shape rules and the skeleton.
 - **WIN:** parallel read-only agents — search, explore, analyze, review. All of this toolkit's agents
   (`scout`, `reviewer`, `skeptic`, `debugger`, `researcher`) are read-only by design.
 - **TRAP:** parallel writers make conflicting decisions from partial context, and you pay to
@@ -67,8 +77,11 @@ over-trim and drop something load-bearing.
   waves — and you take the hub files yourself, sequentially. `skills/plan/scripts/check-plan.ts`
   fails a plan whose parallel tasks share a file, so this is checkable rather than aspirational.
 - **Don't fan out for what you already know.** Known file, known symbol → read it inline.
-- **The failure is at the seams**, not inside the agents: ~36.9% of multi-agent failures are
-  inter-agent misalignment. Spend your care on the brief and the return format.
+- **The biggest failure category is system design (44.2%), not the agents' reasoning** — with
+  inter-agent misalignment second at 32.3% (MAST, 1642 traces). Both are interface failures, so an
+  explicit orchestration script beats prose you re-improvise: see `references/workflow-orchestration.md`.
+- **Ceilings that are not negotiable:** 3–4 agents per stage, and don't fan out at all where the main
+  thread already scores well — coordination turns negative past a ~45% single-agent baseline.
 
 ## 4. Model routing and delegation
 
@@ -96,7 +109,7 @@ gate as a procedure.
 A finding reaches the user only if it **quotes the exact line** (verified to exist) and a **single
 fresh-context validator** — not a same-model majority vote — confirms it is real, introduced by this
 change, and not already handled, with a reject-on-doubt bias. Reviewers flag **correctness only**
-(taste → `/simplify`); validators never see the author's reasoning. Full protocol in `review-cluster`.
+(taste → `/simplify`); validators never see the author's reasoning. Full protocol in `review`.
 
 ## 7. Compounding — each solved problem makes the next cheaper
 

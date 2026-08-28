@@ -1,10 +1,10 @@
 ---
 name: docs
 description: >
-  Use when writing prose a human will read — "write the README", "document this", "write the PR
-  description", "release notes", "write it up for the client", "an ADR for this decision",
-  "explain this to the team", "the docs are out of date". Not /viby-toolkit:study,
-  /viby-toolkit:handoff, /viby-toolkit:brain.
+  Always load before writing prose a human will read — "write the README", "document this", "write
+  the PR description", "release notes", "an ADR for this decision", "explain this to the team",
+  "the docs are out of date".
+
 ---
 
 # Docs (write for one reader with one next action)

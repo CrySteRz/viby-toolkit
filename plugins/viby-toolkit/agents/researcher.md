@@ -51,6 +51,21 @@ not verified it, and you must label it as unverified rather than passing it on.
   their data, their metric. Report them as a hypothesis to reproduce, never as a result.
 - Stop when two more searches surface nothing new, or when you hit your turn budget. Say which.
 
+## Return-size contract
+
+Hard ceiling: **180 lines**. Sized for five to eight quoted findings, which is already
+the target above ("five quoted, dated findings beat twenty paraphrases") — more than this
+back is not thoroughness, it's the raw search output leaking through the summary.
+- Citation-first, always: `URL` plus `fetched:` date plus at most one clause of prose
+  framing the claim, plus the one verbatim sentence that supports it. Never paste a page's
+  full text or a long excerpt back — quote the one sentence that carries the number.
+- Report what you searched and found clean (nothing supporting or refuting the angle), not
+  only what you found: a query that surfaced nothing new is what tells the caller you
+  reached saturation rather than gave up early.
+- If a single angle genuinely produces more than the ceiling (a contested claim needing
+  many sources on both sides), write the full findings to a scratch file and return the
+  headline plus the path (two-tier return) instead of truncating a source list silently.
+
 ## Output format
 
 Return only this, no preamble:

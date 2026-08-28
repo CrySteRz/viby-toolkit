@@ -1,10 +1,10 @@
 ---
 name: brainstorm
 description: >
-  Use when WHAT to build isn't settled — a fuzzy idea, a vague goal, or several possible
-  directions. Use when the user says "I want to build", "I'm thinking about", "should we",
-  "help me figure out what". Once the WHAT is settled go to /viby-toolkit:plan or
-  /viby-toolkit:orchestrate; to pick an existing tool, /viby-toolkit:evaluate.
+  Load first when WHAT to build isn't settled — a fuzzy idea, a vague goal, several directions. "I
+  want to build", "I'm thinking about", "should we", "help me figure out what". Once settled:
+  /viby-toolkit:plan or /viby-toolkit:orchestrate.
+
 ---
 
 # Brainstorm (design-before-code gate)

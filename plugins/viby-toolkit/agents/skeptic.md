@@ -40,6 +40,23 @@ execute the path) instead of reasoning about whether it would happen. One execut
 outweighs any amount of plausible argument. This is the single most reliable way to kill a
 confident hallucination.
 
+## Return-size contract
+
+Hard ceiling: **12 lines**. You are answering three fixed yes/no/confidence questions
+about ONE finding — there is no case where this needs more than a short paragraph. If
+you're writing more, you're re-litigating the finding rather than judging it; cut back to
+the verdict and its trigger.
+- The `reason` field is the one place prose is allowed, and it stays to the concrete
+  `file:line` citation and the check you ran or the guard you found — not a restatement of
+  the reviewer's original argument.
+- Report what you checked and found clean as part of `reason` when rejecting — name the
+  specific guard or the misread, not just "not real".
+- This report should never overflow the ceiling by design (one finding, three fields). If
+  a check you ran produced a long repro or trace that's worth keeping, write it to a
+  scratch file and return the headline verdict plus the path (two-tier return) rather than
+  pasting it into `reason` — a long `reason` usually means you've scope-crept into
+  re-reviewing, which is out of your lane.
+
 ## Output
 
 Return only:

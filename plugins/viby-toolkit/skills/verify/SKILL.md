@@ -1,10 +1,10 @@
 ---
 name: verify
 description: >
-  Use before claiming any change is done, working, or fixed. Use when the user says "is this
-  ready to ship", "are we done", "did that work", "verify this", "prove it", "are the tests
-  passing", "show me the exit code", or when you're about to write "should work". Also the
-  Verify phase of /viby-toolkit:orchestrate. Not /viby-toolkit:test, /viby-toolkit:release.
+  Always load before claiming any change is done, working or fixed — "is this ready to ship", "are
+  we done", "did that work", "verify this", "prove it", "are the tests passing", or when about to
+  write "should work". Not /viby-toolkit:test.
+
 ---
 
 # Verify (the evidence gate, executed)

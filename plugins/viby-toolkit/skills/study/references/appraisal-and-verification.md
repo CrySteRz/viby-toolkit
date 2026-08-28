@@ -33,7 +33,7 @@ figure as **a hypothesis to reproduce, never a result to cite**, and say which i
 
 - **Quote the sentence.** Every non-obvious claim carries the verbatim line from the source that
   supports it, with the URL and the date you fetched it. This is the same grounding gate
-  `/viby-toolkit:review-cluster` uses on code findings, and it exists because a link that
+  `/viby-toolkit:review` uses on code findings, and it exists because a link that
   resolves and is on-topic still fails to support its claim a large fraction of the time.
 - **Date-stamp and quote at fetch time, because sources rot.** A quarter of pages that existed
   over a recent decade are already gone. A URL you cannot quote from today may be

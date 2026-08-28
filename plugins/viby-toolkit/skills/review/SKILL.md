@@ -1,13 +1,13 @@
 ---
-name: review-cluster
+name: review
 description: >
-  Always load this before reviewing a diff, a PR, or freshly written code — do not review by
-  hand, and prefer it to a plain code review because it filters false positives. Triggers:
-  "review this", "review my changes", "check my changes", "before I open the PR", "find bugs",
-  "is this correct". Not /viby-toolkit:test, /viby-toolkit:verify.
+  Always load this before reviewing a diff, a PR, or freshly written code — do not review by hand,
+  and prefer it to a plain code review because it filters false positives. "review this", "check
+  my changes", "before I open the PR", "find bugs".
+
 ---
 
-# Review Cluster + False-Positive Filter
+# Review + False-Positive Filter
 
 ```
 IRON LAW: A finding reaches the user only if (1) it quotes the exact line it's about,
@@ -41,10 +41,30 @@ for a branch/PR, or files the user names. If there's nothing substantive to revi
 
 ## 2. Reviewers — coverage (parallel, cheap, read-only)
 
-Spawn `reviewer` agents in parallel, **one per dimension relevant to this diff** (see the
-reference; don't run every dimension on every diff — spawn security only if it touches an
-auth/input surface, data-migration only if migration files are present, etc.). Always
-include **adversarial** for anything non-trivial — it's the highest-value dimension.
+**Author a `Workflow` for the whole cluster** — §2 and §4 are one script, not two rounds of
+hand-dispatch (`/viby-toolkit:principles` §3b). Its first stage runs one `reviewer` per dimension
+relevant to this diff (see the reference; don't run every dimension on every diff — security only if
+it touches an auth/input surface, data-migration only if migration files are present, etc.). Always
+include **adversarial** for anything non-trivial — it's the highest-value dimension. Cap the stage at
+3–4 dimensions; if the diff needs more, run a second stage rather than a wider one.
+
+Use `pipeline()`, not a barrier: a dimension's findings should start validating the moment that
+dimension returns, instead of waiting for the slowest reviewer. Removing that synchronisation is
+worth a measured 3.5–4.9x in wall-clock elsewhere, and nothing in this cluster needs cross-dimension
+context before validation — the dedup in §3 is the one step that does, and it is cheap enough to run
+between stages.
+
+```js
+const results = await pipeline(
+  DIMENSIONS,
+  d => agent(d.brief, { label: `review:${d.key}`, phase: 'Review',
+                        agentType: 'viby-toolkit:reviewer', schema: FINDINGS }),
+  r => parallel((r?.findings ?? []).map(f => () =>
+        agent(refute(f), { phase: 'Verify', agentType: 'viby-toolkit:skeptic', schema: VERDICT })
+          .then(v => ({ ...f, verdict: v }))))
+)
+const candidates = results.flat().filter(Boolean)   // you run the gates in §3 and §5
+```
 
 Each reviewer returns findings in the schema, and each finding MUST carry `first_evidence`:
 the verbatim line(s) at its `file:line`. A finding with no quotable evidence line is not a
@@ -62,8 +82,8 @@ cost and shrinks the validator workload. Then **dedup**: merge findings with the
 
 This replaces majority-vote refutation. Same-family model panels share blind spots, so a
 2/3 vote can rubber-stamp a correlated hallucination (documented: 80 agents once
-unanimously "confirmed" a vulnerability that only *execution* disproved). Instead, dispatch
-**one `skeptic` (validator) per finding**, fresh context, given only the candidate claim
+unanimously "confirmed" a vulnerability that only *execution* disproved). Instead, the workflow's second
+stage runs **one `skeptic` (validator) per finding**, fresh context, given only the candidate claim
 and the code — **not** the reviewer's reasoning. It answers three questions:
 
 1. **Real** in the code as written?

@@ -1,11 +1,10 @@
 ---
 name: orchestrate
 description: >
-  Use for any feature, fix, or change worth doing carefully — anything touching more than
-  a file or two, ambiguous, or multi-step. Use when the user says "build", "implement",
-  "add", "ship", "create", "refactor" something substantial, or hands you a well-specified
-  ticket whose scope is already clear and just needs building. For a one-line change, skip
-  this and just do it.
+  Always load for any feature, fix or change worth doing carefully — more than a file or two,
+  ambiguous, or multi-step. "build", "implement", "add", "ship", "create", or a well-specified
+  ticket that just needs building. One-line change: skip it.
+
 ---
 
 # Orchestrate
@@ -44,14 +43,19 @@ Build an accurate map without dragging file dumps into your context. **If the co
 this corner of it) is unfamiliar, run `/viby-toolkit:explore` instead of improvising** — it
 detects the stack mechanically and writes a durable map, which becomes this phase's output.
 
-- One `scout` per independent area (by feature, by layer, by the files a change touches),
-  **in parallel in a single message**. Each is read-only, cheap-model, returns a tight
-  summary: relevant `file:line`, key functions/types, conventions to follow, gotchas.
+- **Author a `Workflow` for this phase**, because it has two stages and the second one is the
+  part people skip. Stage 1 runs one `scout` per independent area (by feature, by layer, by the
+  files a change touches), **3–4 of them, not more**. Stage 2 is the **escalation ladder**
+  (`/viby-toolkit:principles` §4) made automatic: any area whose scout returns `escalate: true` or
+  low confidence is re-run on a stronger model before anything is built on it. Hand-dispatched,
+  that second pass depends on you noticing a confidence field in a wall of returned text; declared
+  as a stage, it cannot be forgotten. A single sweep with no escalation pass is not a workflow —
+  dispatch it directly (§3b).
+- Each scout is read-only, cheap-model, and returns a tight summary: relevant `file:line`, key
+  functions/types, conventions to follow, gotchas.
 - Keep only their conclusions. Don't scout what you already know — read that inline.
-- Honor the **escalation ladder** (`/viby-toolkit:principles`): if a scout returns
-  `escalate: true` or low confidence, re-run that area on a stronger model rather than
-  building on a shaky map. For a big audit, have scouts write full notes to a file and
-  return only the headline + path (two-tier return) so main context stays lean.
+- For a big audit, have scouts write full notes to a file and return only the headline + path
+  (two-tier return) so main context stays lean.
 - For a substantial task, distill the findings into a short **research note** (which files
   are relevant, how data flows, candidate approaches). This is a durable artifact that
   survives compaction.
@@ -77,7 +81,11 @@ dedicated pass. **This plan file doubles as your checkpoint** (see Phase 3).
 
 - **Default: implement inline, one thread.** You have the plan and context; a subagent
   would re-learn it, and parallel writers make conflicting decisions. This is the fan-out
-  law — writes stay single-threaded.
+  law — writes stay single-threaded. **The workflow default of §3b does not reach this phase**:
+  a workflow orchestrates reading, and you write between its calls. Every scaffold at the top of
+  SWE-bench Verified is a single-threaded loop whose subagents only read, and Anthropic's guidance
+  for this platform is blunt — *"Two subagents editing the same file in parallel is a recipe for
+  conflict."*
 - **Exception, with real criteria:** parallel `implementer` agents (with
   `isolation: worktree` so they cannot conflict on disk) pay off when you can **name the
   partition and the hub files** — not merely when the parts *feel* separate. Concretely:
@@ -106,9 +114,9 @@ the component), then read the output for silent-pass modes before believing a ze
 code. If it fails, fix the code — never the check — and re-run the same command. Never
 surface a failing change as done.
 
-### Phase 5 — Self-review (fan out `review-cluster`, then filter)
+### Phase 5 — Self-review (fan out `review`, then filter)
 
-Run `/viby-toolkit:review-cluster` on your own diff — a fresh-context reviewer is unbiased toward
+Run `/viby-toolkit:review` on your own diff — a fresh-context reviewer is unbiased toward
 code it just wrote. It fans out dimension reviewers and the adversarial `skeptic` filter
 so only confirmed issues survive. Fix confirmed findings; re-verify anything you change.
 

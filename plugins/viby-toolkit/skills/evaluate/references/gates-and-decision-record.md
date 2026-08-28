@@ -21,7 +21,7 @@ trade off), and when you sit down to write the document.
 Save it (`docs/decisions/<date>-<topic>.md` or the project's convention):
 
 0. **A status line, first thing** — what was actually done, so a reader can weigh the
-   document before reading it. The same audit trail `review-cluster` ends with, at the top:
+   document before reading it. The same audit trail `review` ends with, at the top:
 
    > Status: **benchmarked on this repo** (2026-07-08, commit `d1a0b95`) · 5 candidates, 3
    > stood up and measured, 2 rejected on stated bars · 4 tasks × ground truth · **2 claims

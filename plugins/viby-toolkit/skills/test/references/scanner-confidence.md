@@ -30,5 +30,5 @@ scanned file. A helper reached some other way — a deep package alias, a dynami
 base class installed at runtime — still won't resolve.
 
 So: every finding is a heuristic. **Confirm against the code before changing anything**,
-exactly as the review cluster's grounding gate requires — and never report a clean scan as
+exactly as the review skill's grounding gate requires — and never report a clean scan as
 evidence that the tests are good, only that these specific defects were not found.

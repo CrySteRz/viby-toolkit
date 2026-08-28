@@ -1,10 +1,10 @@
 ---
 name: api
 description: >
-  Use when designing or changing an interface other code depends on — an HTTP endpoint, a
-  library's public surface, an event or message schema, a CLI, an exported type. Triggers:
-  "design an API", "add an endpoint", "what should this return", "how should this be shaped",
-  "is this a breaking change", "review this interface".
+  Always load before designing or changing an interface others depend on — an endpoint, a public
+  surface, an event schema, a CLI, an exported type. "design an API", "add an endpoint", "review
+  this interface", "is this a breaking change". Not /viby-toolkit:schema.
+
 ---
 
 # API (design the contract, because you cannot take it back)

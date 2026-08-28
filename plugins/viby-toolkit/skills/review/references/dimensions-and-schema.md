@@ -1,6 +1,6 @@
 # Review dimensions, finding schema, and confidence rubric
 
-Reference for the `review-cluster` skill. Loaded on demand — not part of the always-on
+Reference for the `review` skill. Loaded on demand — not part of the always-on
 skill metadata.
 
 ## Dimensions (spawn by relevance to the diff, not all every time)

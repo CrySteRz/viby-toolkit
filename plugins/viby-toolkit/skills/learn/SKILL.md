@@ -1,10 +1,10 @@
 ---
 name: learn
 description: >
-  Use after solving something non-obvious, discovering a build/test quirk or gotcha, having a
-  review finding dismissed as unwanted, or when a task failed because context got compacted
-  away. Use when the user says "remember this", "remember that we must never do that", "don't
-  flag that again", "note for next time", "keep that in mind for this project".
+  Always load after solving something non-obvious, hitting a build or test gotcha, or having a
+  review finding dismissed — "remember this", "remember we must never do that", "don't flag that
+  again", "note for next time". Not /viby-toolkit:brain.
+
 ---
 
 # Learn (the compounding loop)
@@ -28,7 +28,7 @@ memory** so it's portable across machines and needs no separate files or tooling
 - A convention this project insists on that a reviewer or implementer would otherwise
   violate.
 - A **rejected review finding** — a class of issue the user explicitly does *not* want
-  flagged ("that's intentional", "our style", "stop suggesting X"), so `review-cluster`
+  flagged ("that's intentional", "our style", "stop suggesting X"), so `review`
   stops re-surfacing it (suppress direction).
 - A **known past failure** for a module — "this area had an N+1 regression", "auth
   middleware here is easy to bypass". Future reviews cite it to *raise recall* (prime

@@ -1,10 +1,10 @@
 ---
 name: migrate
 description: >
-  Use for a change that is mechanical but wide — a rename, an API/library upgrade, a framework
-  version bump, a pattern migration, or any sweep touching many files. Use when the user says
-  "rename X everywhere", "migrate", "upgrade", "replace all", "codemod", or the edit is
-  repetitive across the codebase. Not /viby-toolkit:deps.
+  Always load for a change that is mechanical but wide — a rename, an API upgrade, a framework
+  bump, a pattern sweep across many files. "rename X everywhere", "migrate", "replace all",
+  "codemod". Not /viby-toolkit:deps or /viby-toolkit:schema.
+
 ---
 
 # Migrate (wide, mechanical, verified)
@@ -29,8 +29,8 @@ on shared code.
 ## 1. Discover the full work-list (before transforming anything)
 
 Enumerate **every** site that must change. Be exhaustive — a migration that covers 90% of
-sites is often worse than none. Use cheap `scout` agents in parallel, each searching a
-different way so nothing hides:
+sites is often worse than none. **Dispatch cheap `scout` agents in parallel, in a single message**,
+each searching a different way so nothing hides:
 - by **symbol/identifier** (the thing being renamed/replaced),
 - by **import/usage** of the old API,
 - by **string/pattern** (config, templates, docs, generated code),

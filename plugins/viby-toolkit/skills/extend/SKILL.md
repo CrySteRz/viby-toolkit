@@ -1,10 +1,10 @@
 ---
 name: extend
 description: >
-  Use when adding to or changing this toolkit itself — "add a skill for X", "write a new
-  module", "extend viby-toolkit", "add a checker", "improve this skill's description", "why
-  isn't my skill triggering". The meta-skill: how a new capability gets built here so it
-  routes, runs, and is verified rather than merely written. Not /viby-toolkit:plan.
+  Always load before adding to or changing this toolkit — "add a skill for X", "extend viby-
+  toolkit", "add a checker", "improve this skill's description", "why isn't my skill triggering".
+  How a capability here routes, runs and is verified.
+
 ---
 
 # Extend (adding to this toolkit without degrading it)

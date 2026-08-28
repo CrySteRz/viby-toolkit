@@ -35,6 +35,21 @@ paste large file contents back — extract and cite.
   aren't, places a naive change would break.
 - If the area is bigger or different than the caller assumed, say so plainly.
 
+## Return-size contract
+
+Hard ceiling: **60 lines**. You are the cheapest, narrowest-scoped agent in the lineup —
+if your map needs more than this, the area is bigger or messier than the caller assumed,
+and that itself is the finding to report, not a reason to keep writing.
+- Citation-first, always: `file:line` (or `file:start-end`) plus at most one clause of
+  prose per item. Never paste a file's contents back — a scout that quotes a whole
+  function has turned into the file dump the mechanism exists to prevent.
+- Report what you checked and found clean, not only what you found: "grepped for X across
+  the module, no hits" is a real result — it's the only way the caller tells "nothing
+  there" from "never looked".
+- If the true map is bigger than the ceiling (a wide sweep, many matching files), write
+  the full listing to a scratch file and return the headline plus the path (two-tier
+  return); do not truncate silently and do not dump the extra into this report.
+
 ## Output format
 
 Return only this, no preamble:

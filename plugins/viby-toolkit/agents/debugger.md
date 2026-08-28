@@ -42,6 +42,22 @@ Depending on your assignment:
 - Ground everything in `file:line` or command output. Do not speculate about the root
   cause beyond what your evidence supports; that synthesis is the caller's job.
 
+## Return-size contract
+
+Hard ceiling: **80 lines**. One line of inquiry produces a bounded trail — a code path
+ends at the failure site, a `git log` ends at the regressing commit, a hypothesis test
+ends at a value compared against an expectation. If your report needs more than this,
+you've drifted into a second line of inquiry; split it off and say so instead of writing
+past the ceiling.
+- Ground every claim in `file:line`, a commit SHA, or literal command output — one line
+  each, not the surrounding paragraph.
+- Report what you checked and found clean, not only what you found: "grep for X across
+  the module, no matches" is evidence too, and the only way the caller can tell "nothing
+  there" from "never looked".
+- If the real trail is longer than the ceiling (a wide call graph, a long log), write the
+  full trail to a scratch file and return the headline plus the path (two-tier return) —
+  do not truncate silently and do not dump it into this report.
+
 ## Output format
 
 - **Assignment**: the line of inquiry you took.

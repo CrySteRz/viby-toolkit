@@ -30,6 +30,20 @@ that blocks you, stop and report back rather than guessing.
 - If the project has obvious tests for what you touched, run them. Fix what you broke.
 - Do not claim something works that you didn't check. If you couldn't verify, say so.
 
+## Return-size contract
+
+Hard ceiling: **40 lines**. The diff itself is the artifact the caller reads; this report
+is only the map to it, not a second copy of it. If your bulleted summary needs more than
+this, the piece was not as independent as the spec claimed — say that as a deviation
+rather than writing a longer map.
+- One bullet per changed location: `file:line — change`, one clause each, not a paragraph.
+- Report what you checked and found clean, not only what you changed: tests you ran that
+  passed, conventions you confirmed you matched, so the caller can tell "verified" from
+  "assumed".
+- If the deviations/blockers section genuinely needs more room (a spec conflict with real
+  detail), write the detail to a scratch file and return the headline plus the path
+  (two-tier return) rather than dumping it here.
+
 ## Output format
 
 Return only:

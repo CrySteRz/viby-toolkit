@@ -1,11 +1,10 @@
 ---
 name: plan
 description: >
-  Use when the HOW of a task isn't obvious, is cross-cutting or high-stakes, or the user wants
-  to approve direction before any code is written. Use when the user says "plan this", "how
-  would you approach", "how would you approach splitting this service in two", "what's the
-  plan", "break this into steps", "what order should we do this in". Not
-  /viby-toolkit:brainstorm, /viby-toolkit:evaluate.
+  Always load when the HOW is not obvious, is cross-cutting or high-stakes, or direction needs
+  approval before code — "plan this", "how would you approach", "what's the plan", "break this
+  into steps", "what order". Not /viby-toolkit:brainstorm.
+
 ---
 
 # Plan
@@ -28,8 +27,9 @@ ones with the user now; make a documented assumption for the minor ones.
 
 ## 2. Ground it in the actual code (cheap scouts, parallel)
 
-Don't plan against an imagined codebase. Fan out `scout` agents to map the affected
-areas: where the relevant logic lives, the existing patterns and conventions to follow,
+Don't plan against an imagined codebase. **Fan out `scout` agents in parallel, in a single
+message** — 3–4 of them, read-only (`/viby-toolkit:principles` §3). Map the affected areas:
+where the relevant logic lives, the existing patterns and conventions to follow,
 the integration points, and the constraints (types, contracts, tests that will need
 updating). Keep their conclusions, not their file dumps.
 

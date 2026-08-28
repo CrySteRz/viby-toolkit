@@ -1,10 +1,10 @@
 ---
 name: explore
 description: >
-  Use when meeting an unfamiliar codebase or an unfamiliar corner of a known one — "what is
-  this repo", "how does X work here", "where does Y live", "where does the auth check actually
-  happen in here", "walk me through this", "I just cloned this", "help me get oriented", "map
-  this codebase", "what calls what". Also the research phase of /viby-toolkit:orchestrate.
+  Always load when meeting an unfamiliar codebase or corner of one — "what is this repo", "how
+  does X work here", "where does Y live", "walk me through this", "I just cloned this", "help me
+  get oriented", "map this codebase", "what calls what".
+
 ---
 
 # Explore (build a map, not a tour)
@@ -54,7 +54,9 @@ and was usually made wrong, because a directory's cost is not visible from its f
 
 ## 2. Fan out — one scout per question, not per directory
 
-Dispatch `scout` agents in parallel, each on **one specific question**, each returning
+**Dispatch `scout` agents in parallel, in a single message** — 3–4 of them
+(`/viby-toolkit:principles` §3). That is this skill's default, not an option, and working through the
+questions one at a time is the mistake. One scout per **specific question**, each returning
 `file:line` anchors rather than file contents. Good questions:
 
 - Where does a request/command enter, and what is the path to a response?

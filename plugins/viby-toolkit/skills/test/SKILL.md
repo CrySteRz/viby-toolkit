@@ -1,10 +1,10 @@
 ---
 name: test
 description: >
-  Use when writing, designing, auditing, or repairing tests — unit, integration, e2e, contract,
-  or property-based — and for QA strategy: "what should we test", "is this well tested", "write
-  tests for this module", "are these tests any good", "why didn't the tests catch this", "these
-  tests are flaky". For *running* checks to prove a change works, /viby-toolkit:verify.
+  Always load when writing, designing, auditing or repairing tests — "what should we test", "is
+  this well tested", "write tests for this module", "are these tests any good", "why didn't the
+  tests catch this". Not /viby-toolkit:verify.
+
 ---
 
 # Test (QA, by design)
@@ -20,7 +20,7 @@ Where the neighbours stop and this starts:
 - `test` = **author, design, and audit the tests themselves** (this skill).
 - `/viby-toolkit:verify` = run the checks and prove *this change* works.
 - `/viby-toolkit:debug` = a bug exists; the reproduction test comes first.
-- `/viby-toolkit:review-cluster` = review someone else's tests inside a diff.
+- `/viby-toolkit:review` = review someone else's tests inside a diff.
 
 Follow `/viby-toolkit:principles`. Test authoring is judgment work and a **write** — keep it on
 the main thread. Auditing an existing suite is read-only, so fan that out.

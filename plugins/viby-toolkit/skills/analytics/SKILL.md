@@ -1,10 +1,10 @@
 ---
 name: analytics
 description: >
-  Use when implementing or debugging the numbers themselves — "the numbers don't match", "write
-  the query for this metric", "build the reporting pipeline", "why is this figure wrong", "the
-  totals don't add up", "our dashboard disagrees with finance", "set up dbt models for these
-  KPIs", "test the data". Not /viby-toolkit:kpi.
+  Always load when implementing or debugging the numbers themselves — "the numbers don't match",
+  "write the query for this metric", "build the reporting pipeline", "the totals don't add up",
+  "test the data". Not /viby-toolkit:kpi or /viby-toolkit:schema.
+
 ---
 
 # Analytics (a number is not done until it reconciles)
