@@ -243,7 +243,13 @@ function runCheck(check: Check): Result {
   // that says "safe to push" must not go green on a suite that stopped testing anything,
   // so assert the suite still reports at least the number of passing tests we expect.
   if (check.minPassing !== undefined && code !== null && check.ok.has(code)) {
-    const m = /^# pass (\d+)$/m.exec(out);
+    // ⚠️ BOTH REPORTER FORMATS, because this gate silently inverted once already. `node --test`
+    // emitted `# pass N` (TAP) through Node 22; Node 23+ switched the default reporter to `spec`,
+    // which emits `\u2139 pass N`. The regex matched only the old form, so on a current Node EVERY
+    // suite here reported "no '# pass N' line at all" and 21 checks failed while `npm test` itself
+    // was green 479/479 — a gate that fails closed on its own parser is noise, and noise is how a
+    // real lost-cases regression gets waved through.
+    const m = /^(?:#|\u2139) pass (\d+)$/m.exec(out);
     const passed = m?.[1] !== undefined ? Number(m[1]) : -1;
     if (passed < check.minPassing) {
       return {
@@ -251,7 +257,7 @@ function runCheck(check: Check): Result {
         status: "FAIL",
         output:
           `expected at least ${check.minPassing} passing tests, saw ` +
-          `${passed < 0 ? "no '# pass N' line at all" : passed} — the suite lost cases, ` +
+          `${passed < 0 ? "no 'pass N' line at all" : passed} — the suite lost cases, ` +
           `or its output format changed\n\n${out}`,
         code,
       };

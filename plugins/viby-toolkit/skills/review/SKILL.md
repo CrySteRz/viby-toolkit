@@ -106,6 +106,14 @@ assertion, a type error, a reproducible crash — actually run it (or write the 
 rather than reasoning about whether it reproduces. An executed check beats any number of
 agreeing opinions.
 
+⚠️ **But the validators are read-only by DISCIPLINE, not by sandbox** — they hold `Bash`, so
+`sed -i` and `>` write straight past their `disallowedTools: Write, Edit`. This has already cost
+once: a validator proved a missing test by neutralising a guard to `if (false)` and returned
+without restoring it, leaving a disabled guard in the caller's uncommitted branch. Repro files go
+outside the repo (`"${TMPDIR:-/tmp}"`), and a mutation used as proof carries its own restore in the
+same command (`cp f /tmp/f.bak && <mutate> && <check> ; cp /tmp/f.bak f` — `;`, not `&&`, so the
+restore survives a failing check). The agent definitions carry the full contract; §5c verifies it.
+
 ## 5. Confidence gate — the calibrated kill
 
 Assign each surviving finding a confidence anchor (0/25/50/75/100 — see reference).
@@ -118,6 +126,26 @@ with the rule that a self-reported confidence never decides anything. 75 means *
 were checked* or *the absence of a guard was confirmed*; 100 means *reproduced*. If a finding
 cannot state in one clause what was checked, it does not clear 75, however confident the
 validator sounds.
+
+## 5c. Tree-integrity gate — before you report anything
+
+The cluster just ran a dozen agents with `Bash` across the caller's working tree. Verify none of
+them left it changed. Snapshot BEFORE dispatching and compare after:
+
+```bash
+git status --porcelain > "${TMPDIR:-/tmp}/tree-before.txt"   # before the cluster
+# ...cluster runs...
+diff <(git status --porcelain) "${TMPDIR:-/tmp}/tree-before.txt" && echo "TREE UNCHANGED"
+```
+
+Also `git diff` for content changes to files that were already modified — `--porcelain` shows a
+file as ` M` either way, so a reviewer's edit to an already-dirty file is invisible to the status
+comparison alone. Grep the diff for the tell-tales of a stranded proof: `if (false)`, `if (true)`,
+`return; //`, a commented-out guard, a deleted assertion.
+
+If something WAS left behind, restore it and say so in the report. A review that silently damages
+the code it reviewed is worse than no review — and the finding it was proving is usually still
+valid, so keep the finding and fix the tree.
 
 ## 6. Report — survivors only, plus a coverage line
 
