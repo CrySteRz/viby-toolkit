@@ -53,19 +53,50 @@ fi
 echo "→ Installing $PLUGIN from: $ROOT"
 
 # 3. Register (or refresh) the LOCAL marketplace — points at this folder, no network.
+#
+# NOTE: if a marketplace of this name is already registered pointing SOMEWHERE ELSE (e.g. at
+# github:CrySteRz/viby-toolkit rather than this folder), `add` fails on the name collision and the
+# refresh below updates THAT one instead of this directory. Say so rather than appear to have
+# installed from here.
 if claude plugin marketplace add "$ROOT" 2>/dev/null; then
   echo "  ✓ marketplace '$MARKET' added"
 else
   claude plugin marketplace update "$MARKET" >/dev/null 2>&1 || true
   echo "  ✓ marketplace '$MARKET' already present — refreshed"
+  echo "    (if it points at a different source, that source was refreshed, not this folder —"
+  echo "     check with: claude plugin marketplace list)"
 fi
 
-# 4. Install (or update) the plugin at user scope so it applies to every project.
-if claude plugin install "$PLUGIN@$MARKET" --scope user 2>/dev/null; then
-  echo "  ✓ plugin '$PLUGIN' installed"
+# 4. Drop this plugin's cached copy so an unchanged version number still re-materialises.
+#
+# ⚠️ WITHOUT THIS, RE-RUNNING THIS SCRIPT SILENTLY DOES NOTHING — which is what the footer below
+# used to promise it did. Two compounding reasons, both measured:
+#
+#   - `claude plugin install` EXITS 0 as a no-op when the plugin is already installed, so the
+#     `else` branch that ran `plugin update` never fired at all.
+#   - `claude plugin update` compares VERSION STRINGS and answers "already at the latest version"
+#     when the manifest version has not changed, so editing files in this folder and re-running
+#     left the cached copy stale. The cache under ~/.claude/plugins/cache is a COPY, not a symlink,
+#     so a stale copy is what Claude Code actually loads.
+#
+# The effect was a fix sitting in this folder, absent from the running agent, with the script
+# reporting success. Clearing the cached copy first makes the documented update path real.
+CACHE="$HOME/.claude/plugins/cache/$MARKET/$PLUGIN"
+if [ -d "$CACHE" ]; then
+  rm -rf "$CACHE"
+  echo "  ✓ cleared stale cached copy"
+fi
+
+# 5. Install (or update) the plugin at user scope so it applies to every project.
+# `install` is the idempotent path; `update` runs regardless, because `install` no-ops silently
+# when the plugin is already present.
+claude plugin install "$PLUGIN@$MARKET" --scope user >/dev/null 2>&1 || true
+claude plugin update "$PLUGIN@$MARKET" >/dev/null 2>&1 || true
+if [ -d "$CACHE" ]; then
+  echo "  ✓ plugin '$PLUGIN' installed at user scope"
 else
-  claude plugin update "$PLUGIN@$MARKET" >/dev/null 2>&1 || true
-  echo "  ✓ plugin '$PLUGIN' already installed — updated"
+  echo "  ✗ plugin '$PLUGIN' did not materialise — run 'claude plugin install $PLUGIN@$MARKET --scope user' and read the error" >&2
+  exit 1
 fi
 
 echo

@@ -1,8 +1,12 @@
 # viby-toolkit
 
-My personal Claude Code toolkit, distributed as a private plugin marketplace. One repo,
+My personal Claude Code toolkit, distributed as a public plugin marketplace. One repo,
 installed once per machine at **user scope**, so it applies automatically to every
 project — work and personal — and travels with me to any new computer.
+
+It is public so it installs with no credentials and auto-updates without a token; it is still
+built around how *I* work, so treat it as a working reference rather than a product. Nothing
+here phones home, and no hook intercepts or blocks a command.
 
 Marketplace: **`viby-toolkit`** · Plugin: **`viby-toolkit`**
 
@@ -433,7 +437,8 @@ The context discipline is measurable, not just asserted:
 
 ## Install on a new machine
 
-Prereqs: `gh` authenticated (`gh auth status`) or SSH access to this private repo.
+Prereqs: none for the repo itself — it is public, so no `gh` login, token or SSH key is
+needed to install or to auto-update.
 
 **Runtime:** the skills, agents and prompts are plain markdown and need nothing. The
 executable parts (statusline, test scanner) need **Node ≥22.6**, or bun, or
@@ -469,21 +474,26 @@ Then confirm it's enabled at **user scope** so it applies to every project.
 Restart Claude Code. Verify with `/plugin` (should list `viby-toolkit` as enabled) and by typing
 `/viby-toolkit:` (skills should autocomplete).
 
-### Private-repo auto-update note
+### Auto-update
 
-Background auto-update disables git credential helpers, so HTTPS pulls of a private
-marketplace can fail silently. Either:
-- use **SSH** (loaded key in `ssh-agent`) for the marketplace, or
-- run `gh auth setup-git` once, or
-- set `CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1` to keep the working clone if a
-  refresh fails.
+Nothing to configure. Background auto-update disables git credential helpers, which used to
+make HTTPS pulls of this marketplace fail **silently** while it was private; a public repo needs
+no credential, so that whole failure mode is gone.
 
-Force a manual update anytime with `/plugin update viby-toolkit`.
+One caveat if you cloned the marketplace over SSH (`gh` sets the git protocol to `ssh` for you,
+so this is easy to end up with): the fetch then needs a loaded key in `ssh-agent`, reintroducing
+the credential dependency the public repo just removed. `git -C ~/.claude/plugins/marketplaces/viby-toolkit remote -v`
+shows which you have; an `https://` remote is the one that needs nothing.
+
+Force a manual update anytime with `/plugin update viby-toolkit`. Set
+`CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1` to keep the working clone if a refresh
+fails rather than losing it.
 
 ## Install on a machine without GitHub access (portable bundle)
 
-For a PC that can't reach the private repo (no account, no token), install straight from a
-copy of this folder — no GitHub, no login, no network:
+The repo being public covers the no-account case, so this path is now for a machine with **no
+network at all** — an air-gapped box, or a locked-down environment where GitHub is unreachable.
+Install straight from a copy of this folder:
 
 1. Copy the whole `viby-toolkit` folder to the target machine (USB, `scp`, a cloud drive,
    or Syncthing). A clean copy without git history:
@@ -501,6 +511,14 @@ copy of this folder — no GitHub, no login, no network:
 **Keep the folder** — the plugin loads from it. **To update later:** copy a newer copy of
 the folder over the old one and re-run `bash install.sh` (it's idempotent). This trades
 auto-update for total independence from GitHub.
+
+> ⚠️ That re-run genuinely refreshes the install now; before, it silently did not. `claude plugin
+> install` exits 0 as a no-op when the plugin is already present, so the script's update branch
+> never ran — and `claude plugin update` compares version strings, so an edit made without bumping
+> the version left the cached copy untouched. Since `~/.claude/plugins/cache` holds a *copy* rather
+> than a symlink, the stale copy is what Claude Code loaded: the change sat in this folder, absent
+> from the running agent, while the script reported success. `install.sh` now clears that cached
+> copy first and verifies the plugin re-materialised.
 
 ---
 
