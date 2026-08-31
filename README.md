@@ -508,6 +508,22 @@ Install straight from a copy of this folder:
    It registers this folder as a local marketplace and installs `viby-toolkit` at user scope.
    Restart Claude Code and type `/viby-toolkit:`.
 
+   On a machine that already has `viby-toolkit` installed **from GitHub**, this refuses rather
+   than proceeding, and says so. That is not caution for its own sake: `claude plugin marketplace
+   add` *replaces* a same-named marketplace instead of failing, so without the guard this script
+   silently repointed the marketplace at a local folder and every later auto-update came from that
+   directory instead of GitHub — while printing "added". Override deliberately when you mean it:
+
+   ```bash
+   VIBY_INSTALL_FORCE_LOCAL=1 bash install.sh    # repoint at this folder on purpose
+   ```
+
+   To keep the GitHub source and merely refresh it:
+
+   ```bash
+   claude plugin marketplace update viby-toolkit && claude plugin update viby-toolkit@viby-toolkit
+   ```
+
 **Keep the folder** — the plugin loads from it. **To update later:** copy a newer copy of
 the folder over the old one and re-run `bash install.sh` (it's idempotent). This trades
 auto-update for total independence from GitHub.

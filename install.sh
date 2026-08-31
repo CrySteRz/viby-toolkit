@@ -52,19 +52,66 @@ fi
 
 echo "→ Installing $PLUGIN from: $ROOT"
 
-# 3. Register (or refresh) the LOCAL marketplace — points at this folder, no network.
+# 3. REFUSE to hijack a marketplace of this name that points somewhere else.
 #
-# NOTE: if a marketplace of this name is already registered pointing SOMEWHERE ELSE (e.g. at
-# github:CrySteRz/viby-toolkit rather than this folder), `add` fails on the name collision and the
-# refresh below updates THAT one instead of this directory. Say so rather than appear to have
-# installed from here.
+# ⚠️ `claude plugin marketplace add` REPLACES a same-named marketplace instead of failing on the
+# collision — measured. So on a machine already installed from github:CrySteRz/viby-toolkit, running
+# this script silently repointed the marketplace at a local folder and reported "added", and the
+# next auto-update pulled from a directory the user had forgotten about instead of from GitHub.
+# An earlier version of this script tried to detect that by checking whether `add` FAILED, which it
+# never does — the warning was dead code.
+#
+# The repo is public, so installing from GitHub is the normal path and this folder-based install is
+# the deliberate exception (air-gapped machines). An exception should not overwrite the normal path
+# by accident, so this refuses unless asked twice.
+SETTINGS="$HOME/.claude/settings.json"
+read_source() {
+  # Prints the registered source for $MARKET, or nothing. Best-effort: no runtime, no check.
+  if command -v node >/dev/null 2>&1; then
+    node -e '
+      const fs = require("fs");
+      try {
+        const s = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const m = (s.extraKnownMarketplaces || {})[process.argv[2]];
+        if (m && m.source) process.stdout.write(m.source.path || m.source.repo || "");
+      } catch {}
+    ' "$SETTINGS" "$MARKET" 2>/dev/null
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c '
+import json, sys
+try:
+    s = json.load(open(sys.argv[1]))
+    m = s.get("extraKnownMarketplaces", {}).get(sys.argv[2]) or {}
+    src = m.get("source") or {}
+    sys.stdout.write(src.get("path") or src.get("repo") or "")
+except Exception:
+    pass
+' "$SETTINGS" "$MARKET" 2>/dev/null
+  fi
+}
+
+existing="$(read_source)"
+if [ -n "$existing" ] && [ "$existing" != "$ROOT" ]; then
+  if [ "${VIBY_INSTALL_FORCE_LOCAL:-}" != "1" ]; then
+    echo "✗ '$MARKET' is already installed from: $existing" >&2
+    echo "  Installing from this folder would REPOINT it at $ROOT and future updates would come" >&2
+    echo "  from this directory instead of that source — silently." >&2
+    echo >&2
+    echo "  If that is what you want (an air-gapped machine, or a local fork), re-run as:" >&2
+    echo "      VIBY_INSTALL_FORCE_LOCAL=1 bash install.sh" >&2
+    echo "  To keep the current source and just refresh it:" >&2
+    echo "      claude plugin marketplace update $MARKET && claude plugin update $PLUGIN@$MARKET" >&2
+    exit 1
+  fi
+  echo "  ! repointing '$MARKET' from $existing to this folder (VIBY_INSTALL_FORCE_LOCAL=1)"
+fi
+
+# 3b. Register (or refresh) the LOCAL marketplace — points at this folder, no network.
 if claude plugin marketplace add "$ROOT" 2>/dev/null; then
-  echo "  ✓ marketplace '$MARKET' added"
+  echo "  ✓ marketplace '$MARKET' points at this folder"
 else
   claude plugin marketplace update "$MARKET" >/dev/null 2>&1 || true
-  echo "  ✓ marketplace '$MARKET' already present — refreshed"
-  echo "    (if it points at a different source, that source was refreshed, not this folder —"
-  echo "     check with: claude plugin marketplace list)"
+  echo "  ✓ marketplace '$MARKET' refreshed"
 fi
 
 # 4. Drop this plugin's cached copy so an unchanged version number still re-materialises.
