@@ -62,8 +62,15 @@ Each task on one line, with what it **owns**, how it is **proved**, and what it 
 Then check it is actually dispatchable before anything is spawned:
 
 ```bash
-CP=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/plan/scripts/check-plan.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+CP="$VIBY_HOME/skills/plan/scripts/check-plan.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$CP" docs/plans/<this-plan>.md
 ```
 

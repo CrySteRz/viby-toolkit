@@ -48,8 +48,15 @@ step 2 to find out rather than guessing at a fix.
 ## 2. Establish the baseline — this is the step that gets skipped
 
 ```bash
-DETECT=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/verify/scripts/detect-stack.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+DETECT="$VIBY_HOME/skills/verify/scripts/detect-stack.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$DETECT" .
 ```
 

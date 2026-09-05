@@ -85,8 +85,15 @@ lever is not richer entries — it is entries that come back when they are relev
 A real store must forget. Run the audit, on a schedule and after any big refactor:
 
 ```bash
-MEM=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/brain/scripts/check-memory.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+MEM="$VIBY_HOME/skills/brain/scripts/check-memory.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$MEM" <memory-dir> --root <the project this memory is about>
 ```
 

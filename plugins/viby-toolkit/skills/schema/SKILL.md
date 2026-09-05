@@ -24,8 +24,15 @@ holds a lock takes the service down while it runs. Neither is fixed by a follow-
 ## 1. Lint it mechanically first
 
 ```bash
-CHECK=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/schema/scripts/check-migration.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+CHECK="$VIBY_HOME/skills/schema/scripts/check-migration.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$CHECK" --all
 ```
 

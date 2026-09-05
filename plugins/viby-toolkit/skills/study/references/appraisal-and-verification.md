@@ -51,8 +51,15 @@ figure as **a hypothesis to reproduce, never a result to cite**, and say which i
   mechanical audit instead, and a human bar:
 
 ```bash
-CHECK=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/study/scripts/check-study.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+CHECK="$VIBY_HOME/skills/study/scripts/check-study.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$CHECK" docs/studies/my-study.md
 ```
 

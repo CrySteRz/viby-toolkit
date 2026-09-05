@@ -29,8 +29,15 @@ joined to anything else is decoration.
 ## 0. Audit what is already there before adding more
 
 ```bash
-LOG=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/observe/scripts/check-logging.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+LOG="$VIBY_HOME/skills/observe/scripts/check-logging.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$LOG" src/
 ```
 

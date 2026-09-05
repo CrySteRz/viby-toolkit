@@ -47,8 +47,15 @@ Also record the **baseline**: what it costs to do this the way you do it today. 
 don't estimate by feel:
 
 ```bash
-METER=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/evaluate/scripts/measure-read-cost.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+METER="$VIBY_HOME/skills/evaluate/scripts/measure-read-cost.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$METER" src/ --top 10                  # what grep-and-read actually costs
 sh "$RUN" "$METER" src/ --repeat 6 --budget 60000 # a tool that re-sends state every step
 ```

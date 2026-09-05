@@ -151,10 +151,14 @@ for (const file of allFiles) {
     }
   }
 
-  // 4. Referenced .ts scripts inside the plugin must exist
-  for (const m of text.matchAll(/[\w/.-]*\/([\w-]+\.ts)\b/g)) {
+  // 4. Referenced .ts scripts inside the plugin must exist.
+  //    A shell variable expansion — `X="$VIBY_HOME/skills/.../script.ts"` — is a runtime path,
+  //    not a repo reference; it is immediately preceded by `$` (the expansion marker).
+  for (const m of text.matchAll(/([\w/.-]*)\/([\w-]+\.ts)\b/g)) {
     const whole = m[0];
+    const index = m.index ?? 0;
     if (!whole.includes("skills/") && !whole.includes("hooks/") && !whole.includes("tests/")) continue;
+    if (index > 0 && text[index - 1] === "$") continue;
     const candidate = whole.startsWith("plugins/") ? join(ROOT, whole) : join(PLUGIN, whole);
     const alt = join(ROOT, whole);
     if (!existsSync(candidate) && !existsSync(alt)) {

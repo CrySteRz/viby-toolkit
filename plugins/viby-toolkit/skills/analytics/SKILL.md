@@ -45,8 +45,15 @@ declared.
 These are the mechanically checkable ones, and they all produce a plausible answer:
 
 ```bash
-LINT=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/analytics/scripts/check-analytics-sql.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+LINT="$VIBY_HOME/skills/analytics/scripts/check-analytics-sql.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$LINT" models/          # exit 1 = findings
 ```
 

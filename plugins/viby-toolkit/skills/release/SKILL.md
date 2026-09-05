@@ -36,8 +36,15 @@ silently and no tool will tell you. So this skill spends its effort there.
 ## 1. Run the mechanical pre-flight first
 
 ```bash
-CHECK=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/release/scripts/check-release.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+CHECK="$VIBY_HOME/skills/release/scripts/check-release.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$CHECK" .
 ```
 
@@ -74,8 +81,8 @@ reading the whole change. It is faster and it is what the version number actuall
 Compute it rather than eyeballing it:
 
 ```bash
-SURFACE=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/api/scripts/check-api-surface.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+SURFACE="$VIBY_HOME/skills/api/scripts/check-api-surface.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$SURFACE" --base "$(git describe --tags --abbrev=0)" src   # exit 1 = breaking
 ```
 

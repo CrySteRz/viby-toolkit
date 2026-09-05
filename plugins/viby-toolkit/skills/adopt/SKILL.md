@@ -141,8 +141,15 @@ reformats and restructures at once is unreviewable, and unreviewable is where in
 - **Then check what they did to the safety net, not just whether it is green:**
 
 ```bash
-DRIFT=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/adopt/scripts/check-test-drift.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+DRIFT="$VIBY_HOME/skills/adopt/scripts/check-test-drift.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 sh "$RUN" "$DRIFT" --base <ref-before-the-agents> .     # exit 1 = the net shrank
 ```
 

@@ -139,8 +139,15 @@ bodies, so resolve the path from the plugin cache (or your checkout) instead:
 ```bash
 # Glob for the script itself, not for a version directory — an older cached version may
 # not contain it, and matching the file guarantees the one you pick does.
-SCAN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/skills/test/scripts/scan-test-quality.ts 2>/dev/null | tail -1)
-RUN=$(ls "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/hooks/run.sh 2>/dev/null | tail -1)
+VIBY_HOME=$(
+  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
+    d=${d%/}
+    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
+  done
+)
+
+SCAN="$VIBY_HOME/skills/test/scripts/scan-test-quality.ts"
+RUN="$VIBY_HOME/hooks/run.sh"
 
 sh "$RUN" "$SCAN"            # test files changed vs HEAD
 sh "$RUN" "$SCAN" --all      # every test file in the repo
