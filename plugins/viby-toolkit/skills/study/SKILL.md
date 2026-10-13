@@ -87,7 +87,8 @@ have a shopping list.
   the fan-out law permits it, and it is the whole reason to fan out here — a search pass generates
   enormous raw output, and the researcher returns quoted, dated, labelled findings while the
   snippets and fetched pages die with it. Give each one its angle, the oracle, and the opposing
-  query. Reconcile their findings yourself; they gather, you decide.
+  query. Reconcile their findings yourself; they gather, you decide. Cost rules for the script:
+  `/viby-toolkit:principles` §3b.
 - **Then snowball**: from a good source, work backwards through its references and forwards
   through what cites it. Search plus forward-citation chasing finds more than search alone.
 - **Write neutral queries, plus one that argues the opposite.** Leading or loaded phrasing

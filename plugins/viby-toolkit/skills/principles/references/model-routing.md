@@ -42,7 +42,7 @@ Cheap models are the default, but they fail *silently* on the wrong tasks. So:
   the genuinely hardest calls.
 - **Where cheap models are dangerous (route up):** multi-step chained reasoning,
   instruction drift in long prompts, interpretive/judgment calls, whole-system synthesis,
-  and anything with no downstream check. `scout` (haiku) is safe only for narrow, explicit,
+  and anything with no downstream check. `haiku` is safe only for narrow, explicit,
   single-hop retrieval; cross-file synthesis or judgment belongs on sonnet+.
 
 ### The four-part subagent contract

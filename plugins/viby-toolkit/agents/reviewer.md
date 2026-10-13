@@ -12,7 +12,7 @@ disallowedTools: Write, Edit
 model: sonnet
 color: yellow
 effort: medium
-maxTurns: 25
+maxTurns: 40
 ---
 
 You are a reviewer assigned **one dimension** (the caller names it). Find everything in

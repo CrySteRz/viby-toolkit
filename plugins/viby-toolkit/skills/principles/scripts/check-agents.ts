@@ -35,6 +35,8 @@ export type Agent = {
   name: string;
   description: string;
   tools: string[];
+  /** `disallowedTools`: with no `tools` allowlist, the agent inherits every tool except these. */
+  disallowedTools: string[];
   hasFrontmatter: boolean;
   body: string;
 };
@@ -93,6 +95,7 @@ export function loadAgents(dir: string): Agent[] {
       name: yamlField(fm, "name") || entry.replace(/\.md$/, ""),
       description: yamlField(fm, "description"),
       tools: yamlList(fm, "tools"),
+      disallowedTools: yamlList(fm, "disallowedTools"),
       hasFrontmatter: fm !== "",
       body,
     });
@@ -142,6 +145,20 @@ export function parallelClaimLacksIsolation(text: string): boolean {
   return false;
 }
 
+/**
+ * Whether the agent can write. An allowlist grants Write, Edit or NotebookEdit only by naming them; a
+ * denylist-only agent inherits all three unless it denies every one, so `disallowedTools: Write, Edit`
+ * alone still writes through NotebookEdit and is held to the same parallel-isolation rule. Either way
+ * a denied tool is removed, as Claude Code removes it. Bash and MCP tools are not counted, as on main.
+ */
+export function grantsWriting(agent: Pick<Agent, "tools" | "disallowedTools">): boolean {
+  const kept = (t: string) => !agent.disallowedTools.includes(t);
+  const writers = ["Write", "Edit", "NotebookEdit"];
+  if (agent.tools.length > 0) return agent.tools.some((t) => writers.includes(t) && kept(t));
+  if (agent.disallowedTools.length === 0) return false;
+  return writers.some(kept);
+}
+
 const CITATION_FIRST_AGENTS = new Set(["scout", "researcher"]);
 
 export function checkAgent(agent: Agent): Finding[] {
@@ -168,12 +185,14 @@ export function checkAgent(agent: Agent): Finding[] {
       message: "frontmatter has no `description` — dispatch has nothing to route on",
     });
   }
-  if (agent.tools.length === 0) {
+  // A denylist is as explicit as an allowlist: `disallowedTools` alone means "every inherited tool
+  // except these", which is how the general `worker` keeps MCP and deferred tools reachable.
+  if (agent.tools.length === 0 && agent.disallowedTools.length === 0) {
     findings.push({
       check: "no-tools",
       severity: "P1",
       agent: label,
-      message: "frontmatter has no `tools` list — unclear what the agent is allowed to touch",
+      message: "frontmatter has neither a `tools` allowlist nor a `disallowedTools` denylist — unclear what the agent is allowed to touch",
     });
   }
 
@@ -224,7 +243,7 @@ export function checkAgent(agent: Agent): Finding[] {
     });
   }
 
-  const grantsWriteOrEdit = agent.tools.some((t) => t === "Write" || t === "Edit");
+  const grantsWriteOrEdit = grantsWriting(agent);
   if (grantsWriteOrEdit && parallelClaimLacksIsolation(agent.description + "\n" + agent.body)) {
     findings.push({
       check: "parallel-write-without-isolation",

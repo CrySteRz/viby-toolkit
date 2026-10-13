@@ -67,9 +67,11 @@ over-trim and drop something load-bearing.
 - **Staged work gets a `Workflow` script (§3b)** — fan out, then verify each result, then synthesise.
   Declared stages beat stages re-improvised under context pressure, and a skill instructing it is
   itself the authorization to call `Workflow`, so it happens without the user asking.
-  `references/workflow-orchestration.md` has the decision rule, the shape rules and the skeleton.
-- **WIN:** parallel read-only agents — search, explore, analyze, review. All of this toolkit's agents
-  (`scout`, `reviewer`, `skeptic`, `debugger`, `researcher`) are read-only by design.
+  `references/workflow-orchestration.md` has the decision rule, the shape rules, the skeleton, and
+  the cost rules (model and effort per call, the `worker` agent, resume).
+- **WIN:** parallel read-only agents — search, explore, analyze, review. The toolkit's `scout`,
+  `reviewer`, `skeptic`, `debugger` and `researcher` are read-only by design (`implementer` and
+  `worker` can write).
 - **TRAP:** parallel writers make conflicting decisions from partial context, and you pay to
   reconcile. Use extra agents for *intelligence, not actions.*
 - **The trap is naive partitioning, not parallel writing as such.** Parallel writes do work when the

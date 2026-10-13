@@ -51,6 +51,8 @@ detects the stack mechanically and writes a durable map, which becomes this phas
   that second pass depends on you noticing a confidence field in a wall of returned text; declared
   as a stage, it cannot be forgotten. A single sweep with no escalation pass is not a workflow —
   dispatch it directly (§3b).
+- In every workflow script, pin `model` and `effort` on each `agent()` call, and give a stage no
+  specialised agent fits `agentType: 'viby-toolkit:worker'`. Cost rules: §3b.
 - Each scout is read-only, cheap-model, and returns a tight summary: relevant `file:line`, key
   functions/types, conventions to follow, gotchas.
 - Keep only their conclusions. Don't scout what you already know — read that inline.

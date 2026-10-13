@@ -51,12 +51,22 @@ const skills = readdirSync(skillsDir).filter((d) => existsSync(join(skillsDir, d
 const commands = readdirSync(join(PLUGIN, "commands")).map((f) => f.replace(/\.md$/, ""));
 const agents = readdirSync(join(PLUGIN, "agents")).map((f) => f.replace(/\.md$/, ""));
 
-/** agent name → the tools its frontmatter grants. */
-const agentTools = new Map<string, string[]>(
+function listField(fm: string, key: string): string[] {
+  const line = new RegExp(`^${key}:\\s*(.+)$`, "m").exec(fm)?.[1] ?? "";
+  return line.split(",").map((t) => t.trim()).filter(Boolean);
+}
+
+/**
+ * agent name → whether its frontmatter grants a tool. An allowlist (`tools`) grants what it names;
+ * a denylist alone (`disallowedTools`, as on `worker`) inherits every tool except those it names.
+ */
+const agentGrants = new Map<string, (tool: string) => boolean>(
   agents.map((a) => {
     const fm = frontmatter(readFileSync(join(PLUGIN, "agents", `${a}.md`), "utf8"));
-    const line = /^tools:\s*(.+)$/m.exec(fm)?.[1] ?? "";
-    return [a, line.split(",").map((t) => t.trim()).filter(Boolean)];
+    const allowed = listField(fm, "tools");
+    const denied = listField(fm, "disallowedTools");
+    if (allowed.length === 0 && denied.length > 0) return [a, (t: string) => !denied.includes(t)];
+    return [a, (t: string) => allowed.includes(t) && !denied.includes(t)];
   }),
 );
 
@@ -121,7 +131,7 @@ for (const file of allFiles) {
   }
 
   // 3. Referenced agents must exist
-  for (const m of text.matchAll(/`(scout|reviewer|skeptic|implementer|debugger|researcher)`/g)) {
+  for (const m of text.matchAll(/`(scout|reviewer|skeptic|implementer|debugger|researcher|worker)`/g)) {
     const name = m[1];
     if (name !== undefined && !agents.includes(name)) {
       problems.push({ file: rel, line: lineOf(text, m.index), message: `agent \`${name}\` does not exist` });
@@ -138,7 +148,7 @@ for (const file of allFiles) {
     const named = agents.filter((a) => new RegExp("`" + a + "`").test(text));
     for (const cap of CAPABILITIES) {
       if (!cap.impliedBy.test(text)) continue;
-      const covered = named.some((a) => (agentTools.get(a) ?? []).some((t) => cap.tools.includes(t)));
+      const covered = named.some((a) => cap.tools.some((t) => agentGrants.get(a)?.(t) ?? false));
       if (!covered) {
         problems.push({
           file: rel,

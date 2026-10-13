@@ -10,7 +10,7 @@ tools: Read, Grep, Glob, Bash, Edit, Write
 model: sonnet
 color: green
 effort: medium
-maxTurns: 40
+maxTurns: 60
 ---
 
 You are an implementer. You were handed a **precise spec** for one piece of a larger

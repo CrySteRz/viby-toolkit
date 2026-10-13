@@ -119,12 +119,54 @@ Notes that save a re-run:
 - `parallel()` never rejects; a thrown thunk becomes `null` in the array.
 - Use the toolkit's own read-only agents by `agentType` — `viby-toolkit:scout`, `researcher`,
   `reviewer`, `skeptic`, `debugger`. They are read-only by construction, which is rule 1 enforced by
-  the tool rather than by the prompt.
+  the tool rather than by the prompt. Where none fits, use `viby-toolkit:worker` (next section).
 - No `Date.now()` / `Math.random()` in a script; they break resume. Vary by index instead.
 - Concurrency is capped around 10 regardless of how many items you pass, so passing 40 items is safe —
   it is the *stage width per decision* that rule 2 constrains, not the queue length.
 - The script is persisted to disk and the run is resumable — edit the file and re-invoke with
   `{scriptPath, resumeFromRunId}` and unchanged agents replay from cache instead of re-running.
+
+## Cost rules for every script
+
+Workflow agents were ~76% of measured usage (owner's transcripts, 2026-09-28 to 2026-10-13), so
+these are rules, not tips.
+
+- **Set `model` and `effort` on every `agent()` call.** Only a typed toolkit agent's frontmatter may
+  stand in for them. An agent with neither inherits the session's effort at launch: 74% of workflow
+  agents did, often at max. Thinking stays in context and is re-read every turn (Sonnet 5.5: ~2,100
+  thinking tokens per turn at max, ~60 at medium).
+- **Route by stage.** `max` only for one hard problem, never for a fan-out.
+
+  | Stage | agentType | model | effort |
+  |---|---|---|---|
+  | Scout, inventory, refute | the typed `scout` / `skeptic` (frontmatter: sonnet, low / medium); else `viby-toolkit:worker` | sonnet | medium (worker) |
+  | Verify, web research | the typed `researcher` (frontmatter: sonnet, medium); else `viby-toolkit:worker` | sonnet | high (worker) |
+  | Build (only under rule 1's mapped-partition exception, `isolation: 'worktree'`), review, synthesis | `viby-toolkit:worker` | opus | xhigh (worker) |
+
+  A typed agent runs at its frontmatter effort unless the call sets one.
+
+  The typed `reviewer` in `/viby-toolkit:review` keeps its Sonnet frontmatter: its failures were turn
+  caps (all 67 cut runs stopped exactly at 25), not the model. The typed `scout` now runs on Sonnet at
+  low effort: on Haiku it was cut at its cap in 43 of 62 runs, against 6 of 81 on Sonnet.
+- **`agentType: 'viby-toolkit:worker'` for any stage no specialised agent fits.** It is the default
+  workflow agent minus six tools workflow agents never call (Artifact once in 171,522 tool calls;
+  Skill twice in 4,088 default agents), and the ~30K-character skill listing came only with Skill. A default
+  workflow agent starts at a median 45.8K tokens of context, a typed toolkit agent at 13–15K. The
+  worker has no `maxTurns`; its `effort: high` is only a fallback that the call's `effort` overrides.
+- **Keep fan-out siblings identical** in model, effort, agentType, schema and cwd: agents that match on
+  all of them build the same tools-and-system-prompt prefix and share one prompt cache.
+- **After editing a script, resume the run** (`resumeFromRunId`) instead of relaunching it, and put the
+  stages most likely to change last: the first agent whose prompt differs re-runs, and so does every
+  agent after it.
+- **Ask for short, schema-bound returns.** Big results go to a file; return its path and at most 10
+  lines.
+- **Never quote a turn budget above the agent's `maxTurns`.** Agents do not count their turns, so the
+  cap stops them: 81 of 90 failed typed agents stopped exactly at it, and a cut workflow agent fails or
+  returns an empty string. Briefs promised more than the cap in 44 of 101 implementer and 60 of 117 reviewer
+  prompts that named a budget.
+- **Never set `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` or `subagentPromptCacheTtl`.** The first moves every
+  stage, build and review included, to one model. The second puts agents on the 1h cache, an estimated
+  net loss of 5–12 points of usage: every cache write costs 2× instead of 1.25×.
 
 ## When NOT to author a workflow
 

@@ -1,5 +1,103 @@
 # Changelog
 
+## 2.23.0
+
+Cheaper sessions without a weaker model: no agent moved to Opus and no effort rose. The evidence is a
+usage study of the owner's transcripts (2026-09-07 to 2026-10-13), in which workflow agents were ~76%
+of usage since 2026-09-28.
+
+**Turn caps raised, because the caps were the failure.** Across 1,455 typed-agent runs, every run cut
+at its `maxTurns` stopped at exactly the cap with a tool call pending and no answer: implementer 99 of
+223 runs, reviewer 67 of 294, scout 60 of 173. 85 cut workflow runs still recorded a `result` (an
+empty string) and 65 cut direct subagents returned a "partial result", so most of these failures never
+showed as failures. New caps follow ceil5(p99 of
+successful runs × 1.5), with today's cap as the floor: implementer 40 → 60, researcher 30 → 45,
+reviewer 25 → 40, scout 20 → 30, skeptic 20 → 30. Debugger stays at 25 because it has no runs on
+disk. A censored fit leaves about 32% of implementer runs, 7% of reviewer and 15% of scout runs still
+cut, and under 1% of researcher and skeptic runs, for roughly +$0.20, +$0.06 and +$0.03 per run at
+list prices. Model and effort are unchanged: frontmatter was honoured (1,302 of 1,455 runs at the
+frontmatter effort, models resolved as written), and script overrides won as documented. A floor
+test now stops a cap drifting back down.
+
+**New agent: `worker`, the general Workflow stage agent.** Use `agentType: 'viby-toolkit:worker'` for
+any stage no specialised agent fits. A default workflow agent starts at a median 45.8K tokens of
+context, a typed toolkit agent at 13–15K. The worker is the default agent minus six tools workflow
+agents never call: Artifact (1 call in 171,522 workflow tool calls), Skill (twice in 4,088 default
+agents), ListAgents (16 times), and SendFeedback, ReportFindings and ShareOnboardingGuide (never).
+Everything else stays, ToolSearch included, because 12.7% of agents use it to reach WebFetch,
+WebSearch, Monitor and MCP tools. It has no `maxTurns` and no `model`, so the stage decides. Its
+`effort: high` is a fallback, so a call that omits `effort` no longer inherits the session's; 74% of
+workflow agents did, often at max. The call's own `effort` overrides it: the docs say per-invocation
+effort overrides the `effort` field, and 72 typed-agent runs ran at a script-set effort instead of
+their frontmatter's (checked against the script itself in one session).
+The body is the return discipline (StructuredOutput exactly once, or raw text) plus four economy
+rules. It is not ported to opencode by `tools/host-port.ts`, which has no Workflow tool.
+
+**Only fields plugin agents honour.** The worker relies on `disallowedTools` and `effort`, both
+supported for plugin-shipped agents. Plugin agents ignore `hooks`, `mcpServers`, `permissionMode` and
+`initialPrompt`, and no agent here uses them.
+
+**Workflow cost rules** in `principles/references/workflow-orchestration.md` (§3b), with one-line
+pointers from `orchestrate`, `review`, `study` and `principles`:
+- Set `model` and `effort` on every `agent()` call; only a typed agent's frontmatter may stand in.
+- Route per stage, preferring a typed agent where one fits (it runs at its frontmatter effort unless
+  the call sets one). For the worker: scout, inventory and refute on sonnet at medium; verify and web
+  research on sonnet at high; build, review and synthesis on opus at xhigh; max never in a fan-out.
+- Keep fan-out siblings identical so they share one prompt cache, resume an edited run instead of
+  relaunching it, and keep returns short and schema-bound with big results in a file.
+- Never quote a turn budget above `maxTurns`; briefs did in 44 of 101 implementer and 60 of 117
+  reviewer prompts that named one.
+- Never set `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` or `subagentPromptCacheTtl`; the 1h agent cache is a
+  estimated net loss of 5–12 points of usage.
+
+Directive counts stay under budget: orchestrate goes from 16 to 17, and `test` is still the heaviest
+at 32.
+
+**One COST line in the SessionStart contract**, which only main sessions receive. While a run you
+started is in flight it asks for one wake-up at ~55 minutes, because a main-session cache was rebuilt
+after 0–1.2% of gaps up to 60 minutes but after 77% of gaps of 60–65. It also says never to
+sleep-poll, and to send reads over ~10K characters to an agent that returns a digest. The injected
+contract grows from 1,788 to 1,968 characters.
+
+**Checkers taught about denylist agents.** `check-agents.ts` accepts `disallowedTools` alone as a tool
+statement and treats an agent that inherits Write, Edit or NotebookEdit as a writer for the
+parallel-isolation rule, so an agent with only `disallowedTools: Write, Edit` is still flagged, as main flagged it (there as
+`no-tools`).
+That is `grantsWriting`, the new public symbol behind the minor bump. `check-references.ts` resolves
+`` `worker` `` and credits a denylist agent with the tools it inherits, and `check-orchestration.ts`
+counts a backticked `` `worker` `` as a writing agent. Contract tests: agent-contract 17 → 26,
+delegation-defaults 23 → 26, with `minPassing` raised to match.
+
+**Still unverified:**
+- **The worker, as the shipped plugin type and interactively.** A headless probe (`claude -p`,
+  2026-10-13) ran the worker's frontmatter and body as a project agent beside default workflow agents,
+  all at `model: 'sonnet'`, `effort: 'medium'`, with and without a schema. The worker started at 14.1K
+  tokens of context against 27.5K for the default (−48%). It had none of the six denied tools and no
+  skill listing, and kept ToolSearch and the same 333 deferred tool names. It called StructuredOutput
+  exactly once when a schema was set, and its answers matched the default's. Every turn ran at the
+  call's `medium`, not the worker's `high`. The gap was 13.4K, not the 20K the probe set as its
+  target, because headless sessions never load Artifact; adding Artifact's definition gives an
+  inferred 25–28K interactively. Still not run: `agentType: 'viby-toolkit:worker'` itself, and an
+  interactive session.
+- **Precedence taken from the docs, not tested here.** The docs name only `schema` and `label` as
+  `agent()` options, so that its `effort` is the per-invocation effort they describe rests on the
+  72 observed runs and the probe, where a call's `effort: 'medium'` overrode the worker's `high`. That
+  dropping Skill drops the skill listing was measured in transcripts but is not documented. The probe
+  confirmed that `disallowedTools` removes Skill, ListAgents, ReportFindings and ShareOnboardingGuide.
+  SendFeedback was absent from the default agent as well, and Artifact never loads headless, so their
+  removal is still unconfirmed. How `maxTurns` interacts with an output schema is
+  undocumented; in the transcripts a capped agent never produced valid output.
+- **The caps.** They are fitted on censored data, mostly from Sonnet 5, and Sonnet 5.5 needs fewer
+  turns, so they may prove generous. Implementer cuts are concentrated in two sessions (82 of 99), and
+  about a third of implementer runs are still expected to hit 60, because those specs are larger than
+  one agent can finish.
+- **Scout moves from Haiku to Sonnet; effort stays low.** 43 of 62 Haiku scouts were cut at 20,
+  against 6 of 81 Sonnet scouts, and `effort: low` sends nothing on Haiku (78 runs). A cut run costs a
+  rerun, so a finished scout is expected to cost less on Sonnet despite the higher token price; this is
+  re-measured with the rest.
+- **The savings** are the study's estimates, to be re-measured two weeks out. Code and contracts are
+  verified (`npm run check`); behaviour in live sessions is not.
+
 ## 2.22.0
 
 **BREAKING: the `review-cluster` skill is now `review`.** Anything invoking

@@ -89,7 +89,13 @@ function agentBodyAndDesc(srcFile: string): { name: string; description: string;
 
 const agentsDir = join(PLUGIN, "agents");
 ensure(AGENTS_DIR);
-const agentNames = readdirSync(agentsDir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, ""));
+// `worker` exists only for Claude Code's Workflow tool (its body is about StructuredOutput and a
+// calling script, and it has no `tools` line to derive edit permission from), so it is not ported.
+const CLAUDE_CODE_ONLY_AGENTS = new Set(["worker"]);
+const agentNames = readdirSync(agentsDir)
+  .filter((f) => f.endsWith(".md"))
+  .map((f) => f.replace(/\.md$/, ""))
+  .filter((n) => !CLAUDE_CODE_ONLY_AGENTS.has(n));
 // Remove prior files this tool owned (symlinks or generated bare files), leave foreign agents alone
 for (const n of readdirSync(AGENTS_DIR)) {
   if (!n.endsWith(".md")) continue;

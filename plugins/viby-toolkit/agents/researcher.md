@@ -11,7 +11,7 @@ disallowedTools: Write, Edit
 model: sonnet
 color: magenta
 effort: medium
-maxTurns: 30
+maxTurns: 45
 ---
 
 You are a researcher. Your caller is building a study or an adoption decision and will act on

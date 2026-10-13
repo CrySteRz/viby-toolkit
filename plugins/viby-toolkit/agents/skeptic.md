@@ -11,7 +11,7 @@ disallowedTools: Write, Edit
 model: sonnet
 color: orange
 effort: medium
-maxTurns: 20
+maxTurns: 30
 ---
 
 You are a validator. You are handed **one** candidate finding from a code review. You are

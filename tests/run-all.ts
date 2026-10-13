@@ -159,7 +159,7 @@ const CHECKS: Check[] = [
     name: "delegation-defaults contract",
     cmd: [...NODE_RUNNER, "--test", "tests/check-orchestration.test.ts"],
     ok: new Set([0]),
-    minPassing: 23,
+    minPassing: 26,
   },
   {
     name: "hook-wiring contract",
@@ -171,7 +171,7 @@ const CHECKS: Check[] = [
     name: "agent-contract checker",
     cmd: [...NODE_RUNNER, "--test", "tests/check-agents.test.ts"],
     ok: new Set([0]),
-    minPassing: 17,
+    minPassing: 26,
   },
   // The toolkit's own test files must survive its own auditor. 0 = clean, 2 = nothing
   // to scan; 1 (findings) is a failure here because we dogfood a clean suite.

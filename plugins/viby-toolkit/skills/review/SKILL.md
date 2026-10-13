@@ -46,7 +46,8 @@ hand-dispatch (`/viby-toolkit:principles` §3b). Its first stage runs one `revie
 relevant to this diff (see the reference; don't run every dimension on every diff — security only if
 it touches an auth/input surface, data-migration only if migration files are present, etc.). Always
 include **adversarial** for anything non-trivial — it's the highest-value dimension. Cap the stage at
-3–4 dimensions; if the diff needs more, run a second stage rather than a wider one.
+3–4 dimensions; if the diff needs more, run a second stage rather than a wider one. §3b's cost
+rules (model, effort, resume) apply to the script.
 
 Use `pipeline()`, not a barrier: a dimension's findings should start validating the moment that
 dimension returns, instead of waiting for the slowest reviewer. Removing that synchronisation is

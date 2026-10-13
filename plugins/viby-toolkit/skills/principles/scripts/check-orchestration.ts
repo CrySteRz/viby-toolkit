@@ -15,7 +15,8 @@
  *                               reason these defaults were rewritten.
  *   P1 unstaged-pipeline        a skill whose work is genuinely staged does not instruct a Workflow,
  *                               so its stages get re-improvised on each run.
- *   P1 unisolated-parallel-write  a WRITING agent is parallelised without worktree isolation.
+ *   P1 unisolated-parallel-write  a WRITING agent (`implementer`, `worker`) is parallelised without
+ *                               worktree isolation.
  */
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -40,7 +41,7 @@ const STAGED = ["orchestrate", "review", "study"];
 const FANOUT =
   /\b(in parallel|fan out|fan-out|dispatch (?:one|several|\d+)|one \S+ per (?:dimension|angle|area|question|subsystem|node))\b/i;
 /** A toolkit agent, backticked — the strict form, used where a false positive would be costly. */
-const AGENT = /`(scout|reviewer|skeptic|debugger|researcher|implementer)`/;
+const AGENT = /`(scout|reviewer|skeptic|debugger|researcher|implementer|worker)`/;
 /**
  * The same agents unbackticked. Used ONLY for the hedge rule: formatting must not decide whether a
  * softened directive is caught, and "You may optionally fan out scout agents" is exactly the
@@ -51,8 +52,12 @@ const AGENT_LOOSE = /\b(scouts?|reviewers?|skeptics?|debuggers?|researchers?|imp
 /** Softeners that turn a directive back into the permission nobody acts on. */
 const HEDGE =
   /\b(you may|optionally|if you (?:want|like|prefer)|feel free|consider (?:dispatching|fanning|spawning)|could (?:dispatch|fan|spawn))\b/i;
-/** The agent that writes. Reading agents are safe to parallelise; this one is not. */
-const WRITER = /`?implementers?`?/i;
+/**
+ * The agents that write. Reading agents are safe to parallelise; these are not. `worker` keeps
+ * Edit/Write (it is the general Workflow agent) and counts only backticked, because "worker" is
+ * also an ordinary English word in skill prose.
+ */
+const WRITER = /`?implementers?`?|`worker`/i;
 /**
  * Backticked deliberately: a bare occurrence of the word satisfies nothing. A URL containing
  * "Workflow", or a fenced sample mentioning `.github/workflows`, is not an instruction to author one.
@@ -121,7 +126,7 @@ export function checkOrchestration(skillsDir: string): Finding[] {
       findings.push({
         skill: name,
         check: "unisolated-parallel-write",
-        message: "parallelises an `implementer` (a writing agent) with no worktree isolation alongside the instruction",
+        message: "parallelises a writing agent (`implementer` or `worker`) with no worktree isolation alongside the instruction",
       });
     }
   }

@@ -8,10 +8,10 @@ description: >
   not decide.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
-model: haiku
+model: sonnet
 color: cyan
 effort: low
-maxTurns: 20
+maxTurns: 30
 ---
 
 You are a scout. Your caller needs an accurate map of a slice of the codebase and will

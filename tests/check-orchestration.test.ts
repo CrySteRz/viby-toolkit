@@ -101,6 +101,23 @@ test("parallelising an implementer WITH worktree isolation is not flagged", () =
   assert.deepEqual(found, []);
 });
 
+test("parallelising the `worker` (it keeps Edit/Write) without worktree isolation is flagged", () => {
+  const found = checks({ build: "Dispatch several `worker` agents in parallel, one per module.\n" });
+  assert.deepEqual(found, ["build:unisolated-parallel-write"]);
+});
+
+test("parallelising the `worker` WITH worktree isolation is not flagged", () => {
+  const found = checks({
+    build: "Dispatch several `worker` agents in parallel, one per module, each in its own worktree.\n",
+  });
+  assert.deepEqual(found, []);
+});
+
+test("the plain English word 'workers' beside a read-only fan-out is NOT a writing agent", () => {
+  const found = checks({ explore: "Dispatch several `scout` agents in parallel; the workers only read.\n" });
+  assert.deepEqual(found, []);
+});
+
 test("principles itself is exempt — it defines the laws rather than consuming them", () => {
   const found = checks({ principles: "You may dispatch several `scout` agents in parallel.\n" });
   assert.deepEqual(found, []);

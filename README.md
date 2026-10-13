@@ -61,10 +61,12 @@ TypeScript with zero runtime dependencies and no build step — see
 
 ### Agents (dispatched by the skills; cheap models by design)
 
-`scout` (haiku, read-only recon) · `implementer` (sonnet) · `reviewer` (sonnet,
-one per review dimension) · `skeptic` (sonnet, adversarial false-positive filter) ·
-`debugger` (sonnet, evidence gathering). Each is colour-coded in the transcript so a
-parallel fan-out is readable at a glance.
+`scout` (sonnet at low effort, read-only recon) · `researcher` (sonnet, one web-research angle) ·
+`implementer` (sonnet) · `reviewer` (sonnet, one per review dimension) · `skeptic` (sonnet,
+adversarial false-positive filter) · `debugger` (sonnet, evidence gathering) · `worker` (the
+general `Workflow` stage agent: the stage's own model and effort, minus six tools workflow agents
+never call, no turn cap). Each is colour-coded in the transcript so a parallel fan-out is readable
+at a glance.
 
 ### Hooks
 
