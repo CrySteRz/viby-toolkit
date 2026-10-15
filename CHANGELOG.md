@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.24.0
+
+**Read-only recon agents skip CLAUDE.md.** `scout` and `researcher` now set `omitClaudeMd: true`, so
+they no longer load the project and user CLAUDE.md files. Measured in a Work repo with an 8.7 KB
+CLAUDE.md: an agent's first turn dropped from 6,831 to 2,250 tokens of context, and that base is
+re-read on every turn. Behaviour change: a scout or researcher no longer sees project rules from
+CLAUDE.md. Callers that need a rule applied must state it in the prompt, which the workflow rules
+already require ("give every stage the measured facts, the file list and the rules"). `reviewer`,
+`skeptic`, `debugger`, `implementer` and `worker` keep CLAUDE.md, because they apply project
+conventions or write code.
+
 ## 2.23.0
 
 Cheaper sessions without a weaker model: no agent moved to Opus and no effort rose. The evidence is a

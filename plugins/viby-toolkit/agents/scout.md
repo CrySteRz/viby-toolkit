@@ -9,6 +9,7 @@ description: >
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
 model: sonnet
+omitClaudeMd: true
 color: cyan
 effort: low
 maxTurns: 30

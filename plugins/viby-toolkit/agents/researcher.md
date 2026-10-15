@@ -9,6 +9,7 @@ description: >
 tools: WebSearch, WebFetch, Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
 model: sonnet
+omitClaudeMd: true
 color: magenta
 effort: medium
 maxTurns: 45
