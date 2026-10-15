@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.25.0
+
+**How much code to write, finally stated.** Until now nothing in the toolkit said it: a scout grep of
+orchestrate, principles, refactor, plan, implementer, worker and the session contract found no rule
+on reuse, the standard library, new dependencies, speculative abstraction or caller-grepping. Adopted
+from Ponytail (github.com/dietrichgebert/ponytail), studied 2026-10-15. One rule in three places: the
+session contract (main thread), `implementer` and `worker` (subagents never receive the session hook).
+Take the first option that fully works: what the repo has, then the standard library or platform, then
+an installed dependency, only then the minimum new code; no option or abstraction nobody asked for;
+for a bug, grep every caller and fix the root cause once; never cut validation, data-loss handling,
+security or accessibility. Evidence, with its limits: Ponytail's own benchmark (Opus 5.5, 39 tasks x 5
+runs, self-authored tasks and judges) measured -45% output tokens and -26% cost at 87/90 vs 86/90
+hidden-check passes. The caller-grep rule is its only rule with a before/after (1/6 to 6/6 on one
+task, n=6), and a plain-prose version scored 0/3, so the wording is kept operational. Its gains reverse
+on OpenAI models and are not measured here. Cost: the injected contract grew from 2,084 to 2,562 chars, about 120 tokens per session.
+
+**The contract survives compaction.** The SessionStart hook now also fires on `compact`, so the
+standing contract is restated after a compaction rather than surviving only as a summary paraphrase.
+
+**Reviews end with a verdict.** `/viby-toolkit:review` reports close with `Verdict: ship` or
+`Verdict: fix 1 and 3 first` and a `Not checked:` line. `reviewer` now greps the users of any changed
+signature, return shape or field in every dimension, including files the diff does not touch.
+`implementer` returns a `Skipped / risk` line.
+
+Considered and not adopted: a `shortcut:` debt-ledger skill (a new slot that overlaps the existing TODO
+hygiene check), a "what to cut" review dimension (stays with `/simplify`, by design), injecting the
+contract into subagents by a SubagentStart hook (our agents carry their own rules), and Ponytail's
+repo map (its own data calls the reuse rung's value unproven).
+
 ## 2.24.0
 
 **Read-only recon agents skip CLAUDE.md.** `scout` and `researcher` now set `omitClaudeMd: true`, so

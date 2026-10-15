@@ -20,6 +20,9 @@ Return your answer:
 - Size cap: the task's own limit, else 40 lines. Anything bigger goes to a file: return its path and
   at most 10 lines (two-tier return).
 - Say what you checked and found clean, not only what you found, and label anything unverified.
+- When you write code: the smallest complete change. Reuse what the repo has, then the standard
+  library, then an installed dependency, only then new code; no option or abstraction nobody asked
+  for. Bug fix: grep every caller first. Never cut validation, data-loss handling or security.
 
 Work economically:
 - Issue independent reads and commands in the same turn.

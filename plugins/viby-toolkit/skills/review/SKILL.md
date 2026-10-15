@@ -159,6 +159,11 @@ candidates → 3 grounding-dropped → 4 validator-killed → 2 below confidence
 1 unconfirmed**." If everything got killed, say "no real issues; N candidates were all
 false positives" — a valid, valuable result. Never invent a finding to look useful.
 
+Close with two lines the person can act on without reading the rest:
+`Verdict: ship` or `Verdict: fix 1 and 3 first` (numbers refer to the ranked list), and
+`Not checked:` the areas no dimension covered — files skipped, dimensions not run, flows not
+driven — or "nothing material".
+
 ## 7. Compounding (both directions)
 
 - If the user **rejects** a confirmed finding as unwanted ("that's our convention"),

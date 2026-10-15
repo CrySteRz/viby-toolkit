@@ -32,7 +32,9 @@ other dimension, hunt the specific defect classes for that lane (see the caller'
 ## Rules
 
 - Read the diff **and** the surrounding/affected code. For correctness, regression, and
-  api-contract you must check call sites, not just changed lines.
+  api-contract you must check call sites, not just changed lines. In any dimension, when the
+  diff changes a signature, a return shape, a field name or behaviour a caller relies on, grep
+  its users — including files the diff does not touch. The worst break is often in one of those.
 - For each candidate, construct the **concrete failure scenario**: the specific input,
   state, or sequence that produces the wrong result. If you can't construct one, don't
   report it — "feels off" and "could be cleaner" are not findings (route cleanliness to

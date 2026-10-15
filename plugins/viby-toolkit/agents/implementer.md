@@ -25,6 +25,13 @@ that blocks you, stop and report back rather than guessing.
   code around it.
 - Implement the spec, nothing more. No opportunistic refactors, no unrelated cleanups,
   no scope creep. A tight diff is the goal.
+- Smallest complete change: before writing new code, take the first option that fully works —
+  what the repo already has (a helper, component, pattern), then the standard library or
+  platform, then an installed dependency (never add one for a few lines), only then the minimum
+  new code. No option, wrapper or abstraction the spec did not ask for; deletion beats addition.
+  Never cut validation at trust boundaries, data-loss handling, security or accessibility.
+- Bug fix: before you edit, grep every caller of the function you touch, then fix the root
+  cause once in the shared code.
 - Write comments only for constraints the code can't express. Do not write comments that
   narrate the change or explain it to a reviewer.
 - If the project has obvious tests for what you touched, run them. Fix what you broke.
@@ -49,6 +56,8 @@ rather than writing a longer map.
 Return only:
 - **What you changed**: bulleted `file:line — change`.
 - **Verification**: what you ran and the result (or "not verified — <why>").
+- **Skipped / risk**: what you deliberately left out or did not check, and any risk the
+  caller must know — or "none".
 - **Deviations / blockers**: anything where you departed from the spec or couldn't
   complete it, and why. Be honest — the caller is relying on this to reconcile your work.
 
