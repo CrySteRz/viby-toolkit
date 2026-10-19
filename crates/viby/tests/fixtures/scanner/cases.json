@@ -1,0 +1,343 @@
+{
+  "cases": [
+    {
+      "name": "py: test with no assertion",
+      "filename": "test_a.py",
+      "source": "\ndef test_creates_user():\n    user = make_user(\"ana\")\n    save(user)\n"
+    },
+    {
+      "name": "py: test with assertion is clean",
+      "filename": "test_b.py",
+      "source": "\ndef test_creates_user():\n    user = make_user(\"ana\")\n    save(user)\n    assert user.id is not None\n"
+    },
+    {
+      "name": "ts: it() with no expect",
+      "filename": "a.test.ts",
+      "source": "\nit(\"creates a user\", async () => {\n  const user = await makeUser(\"ana\");\n  await save(user);\n});\n"
+    },
+    {
+      "name": "ts: node:assert style counts as an assertion",
+      "filename": "n.test.ts",
+      "source": "\ntest(\"exit code is tolerated\", () => {\n  const result = spawnSync(process.execPath, [SCANNER, \"--all\"], { encoding: \"utf8\" });\n  const allowed = [0, 1, 2];\n  assert.ok(allowed.includes(result.status), \"unexpected exit code\");\n});\n"
+    },
+    {
+      "name": "ts: node:assert deepStrictEqual counts as an assertion",
+      "filename": "o.test.ts",
+      "source": "\ntest(\"shapes match\", () => {\n  const got = collect();\n  const want = { a: 1, b: 2 };\n  assert.deepStrictEqual(got, want);\n});\n"
+    },
+    {
+      "name": "ts: it() with expect is clean",
+      "filename": "b.test.ts",
+      "source": "\nit(\"creates a user\", async () => {\n  const user = await makeUser(\"ana\");\n  expect(user.id).toBeDefined();\n});\n"
+    },
+    {
+      "name": "go: test with t.Fatal is clean",
+      "filename": "x_test.go",
+      "source": "\nfunc TestCreatesUser(t *testing.T) {\n\tu, err := MakeUser(\"ana\")\n\tif err != nil {\n\t\tt.Fatalf(\"MakeUser failed: %v\", err)\n\t}\n\t_ = u\n}\n"
+    },
+    {
+      "name": "ts: single-line smoke test is clean",
+      "filename": "smoke.test.ts",
+      "source": "it(\"does not throw\", () => { doThing(); });\n"
+    },
+    {
+      "name": "py: assertTrue(True)",
+      "filename": "test_c.py",
+      "source": "\ndef test_placeholder():\n    result = compute()\n    assertTrue(True)\n"
+    },
+    {
+      "name": "ts: expect(true).toBe(true)",
+      "filename": "c.test.ts",
+      "source": "\nit(\"works\", () => {\n  doThing();\n  expect(true).toBe(true);\n});\n"
+    },
+    {
+      "name": "ts: expect(x).toBe(x) self-comparison",
+      "filename": "d.test.ts",
+      "source": "\nit(\"works\", () => {\n  const total = compute();\n  expect(total).toBe(total);\n});\n"
+    },
+    {
+      "name": "py: real equality assertion is clean",
+      "filename": "test_d.py",
+      "source": "\ndef test_total():\n    total = compute()\n    assert total == 42\n"
+    },
+    {
+      "name": "ts: describe.only left in",
+      "filename": "e.test.ts",
+      "source": "\ndescribe.only(\"payments\", () => {\n  it(\"charges\", () => {\n    expect(charge(100)).toBe(100);\n  });\n});\n"
+    },
+    {
+      "name": "ts: it.skip left in",
+      "filename": "f.test.ts",
+      "source": "\nit.skip(\"charges the card\", () => {\n  expect(charge(100)).toBe(100);\n});\n"
+    },
+    {
+      "name": "py: pytest skip mark",
+      "filename": "test_e.py",
+      "source": "\n@pytest.mark.skip(reason=\"flaky\")\ndef test_charges():\n    assert charge(100) == 100\n"
+    },
+    {
+      "name": "go: t.Skip",
+      "filename": "y_test.go",
+      "source": "\nfunc TestCharges(t *testing.T) {\n\tt.Skip(\"not ready\")\n\tif Charge(100) != 100 {\n\t\tt.Fatalf(\"wrong\")\n\t}\n}\n"
+    },
+    {
+      "name": "ts: ordinary describe/it is clean",
+      "filename": "g.test.ts",
+      "source": "\ndescribe(\"payments\", () => {\n  it(\"charges\", () => {\n    expect(charge(100)).toBe(100);\n  });\n});\n"
+    },
+    {
+      "name": "py: time.sleep in test",
+      "filename": "test_f.py",
+      "source": "\ndef test_eventually_ready():\n    start_server()\n    time.sleep(2)\n    assert is_ready()\n"
+    },
+    {
+      "name": "ts: setTimeout promise wait",
+      "filename": "h.test.ts",
+      "source": "\nit(\"becomes ready\", async () => {\n  startServer();\n  await new Promise((r) => setTimeout(r, 2000));\n  expect(isReady()).toBe(true);\n});\n"
+    },
+    {
+      "name": "ts: setTimeout with fake timers is clean",
+      "filename": "i.test.ts",
+      "source": "\nbeforeEach(() => { jest.useFakeTimers(); });\nit(\"debounces\", () => {\n  const fn = debounce(cb, 100);\n  fn();\n  setTimeout(() => {}, 100);\n  expect(cb).toHaveBeenCalled();\n});\n"
+    },
+    {
+      "name": "py: polling for a condition is clean",
+      "filename": "test_g.py",
+      "source": "\ndef test_eventually_ready():\n    start_server()\n    wait_until(lambda: is_ready(), timeout=5)\n    assert is_ready()\n"
+    },
+    {
+      "name": "ts: a stray triple quote must not blank the rest of the file",
+      "filename": "triple.test.ts",
+      "source": "\nconst marker = ''';\ntest.skip(\"skipped and asserts nothing\", () => {\n  log(\"never runs\");\n});\ntest(\"tautology\", () => {\n  expect(true).toBe(true);\n});\n"
+    },
+    {
+      "name": "py: a real docstring is still blanked",
+      "filename": "test_doc.py",
+      "source": "\ndef test_documented():\n    \"\"\"Mentions DROP COLUMN and time.sleep(5) and it.skip deliberately.\"\"\"\n    total = compute()\n    assert total == 42\n"
+    },
+    {
+      "name": "ts: multi-line empty catch is a swallowed error",
+      "filename": "multiline-catch.test.ts",
+      "source": "\nit(\"handles bad input\", () => {\n  try {\n    parse(\"garbage\");\n  } catch (e) {\n  }\n  expect(state()).toBe(\"clean\");\n});\n"
+    },
+    {
+      "name": "py: exactly four mocks is at the boundary and must not fire",
+      "filename": "test_mock_boundary.py",
+      "source": "\ndef test_checkout():\n    a = MagicMock()\n    b = MagicMock()\n    c = MagicMock()\n    d = MagicMock()\n    checkout(a, b, c, d)\n    assert result.ok\n"
+    },
+    {
+      "name": "py: mock-heavy but assertion-richer must not fire",
+      "filename": "test_mock_asserts.py",
+      "source": "\ndef test_checkout():\n    a = MagicMock()\n    b = MagicMock()\n    c = MagicMock()\n    d = MagicMock()\n    e = MagicMock()\n    r = checkout(a, b, c, d, e)\n    assert r.status == \"paid\"\n    assert r.total == 100\n    assert r.currency == \"EUR\"\n    assert r.id is not None\n    assert r.receipt is not None\n    assert r.settled is True\n"
+    },
+    {
+      "name": "ts: regex literal containing it.skip is not a focused test",
+      "filename": "regex3.test.ts",
+      "source": "\nit(\"finds the text\", () => {\n  expect(screen.getByText(/it.skip/)).toBeTruthy();\n});\n"
+    },
+    {
+      "name": "ts: division is not mistaken for a regex literal",
+      "filename": "div.test.ts",
+      "source": "\nit(\"computes a ratio\", () => {\n  const ratio = width / height / 2;\n  expect(ratio).toBeCloseTo(0.5);\n});\n"
+    },
+    {
+      "name": "ts: ava t.is() counts as an assertion",
+      "filename": "ava.test.ts",
+      "source": "\ntest(\"adds\", (t) => {\n  const total = compute();\n  const other = compute2();\n  t.is(total, 3);\n});\n"
+    },
+    {
+      "name": "ts: multi-line expect.poll chain counts as an assertion",
+      "filename": "poll.test.ts",
+      "source": "\ntest(\"eventually matches\", async () => {\n  const allResult = build();\n  await expect\n    .poll(async () => JSON.parse(await page.textContent(\".result\")))\n    .toStrictEqual(allResult);\n});\n"
+    },
+    {
+      "name": "ts: expect.unreachable + empty catch is not a swallowed error",
+      "filename": "unreach.test.ts",
+      "source": "\ntest(\"throws on bad input\", async () => {\n  try {\n    await load(\"virtual:test\");\n    expect.unreachable();\n  } catch {}\n  expect(spy.lastCall[0]).toContain(\"failed\");\n});\n"
+    },
+    {
+      "name": "py: except/pass with else/fail is a raise-assertion, not a swallow",
+      "filename": "test_raises.py",
+      "source": "\ndef test_join_rejects_ints():\n    try:\n        \"\".join([0])\n    except TypeError:\n        pass\n    else:\n        self.fail(\"''.join([0]) did not raise TypeError\")\n"
+    },
+    {
+      "name": "py: draining a generator to StopIteration is not a swallowed error",
+      "filename": "test_drain.py",
+      "source": "\ndef test_generator_exhausts():\n    g = make_gen()\n    try:\n        while True:\n            g.send(None)\n    except StopIteration:\n        pass\n    assert g.closed\n"
+    },
+    {
+      "name": "ts: zero-delay setTimeout tick-flush is not a sleep-wait",
+      "filename": "tick.test.ts",
+      "source": "\nit(\"flushes effects\", async () => {\n  mount(App);\n  await new Promise((r) => setTimeout(r));\n  expect(container.innerHTML).toBe(\"<div>ok</div>\");\n});\n"
+    },
+    {
+      "name": "ts: a real delayed wait is still flagged",
+      "filename": "realwait.test.ts",
+      "source": "\nit(\"becomes ready\", async () => {\n  startServer();\n  await new Promise((r) => setTimeout(r, 2000));\n  expect(isReady()).toBe(true);\n});\n"
+    },
+    {
+      "name": "ts: spy introspection is not mock density",
+      "filename": "spy.test.ts",
+      "source": "\ntest(\"records every error\", () => {\n  const onError = vi.fn();\n  doThing(onError);\n  expect(onError.mock.calls[0]).toEqual([\"a\"]);\n  expect(onError.mock.calls[1]).toEqual([\"b\"]);\n  expect(onError.mock.calls[2]).toEqual([\"c\"]);\n  expect(onError.mock.calls[3]).toEqual([\"d\"]);\n  expect(onError.mock.calls[4]).toEqual([\"e\"]);\n});\n"
+    },
+    {
+      "name": "py: custom-named alias to an asserting helper is recognised",
+      "filename": "test_alias2.py",
+      "source": "\ndef check_match(self, pattern, text):\n    assert fnmatch(text, pattern)\n\ndef test_range():\n    check = self.check_match\n    check(\"[a-z]\", \"q\")\n    check(\"[!a-z]\", \"0\")\n"
+    },
+    {
+      "name": "py: assertion bound to a local alias counts as an assertion",
+      "filename": "test_alias.py",
+      "source": "\ndef test_percents():\n    eq = self.assertEqual\n    s = Template(\"%(foo)s $foo\")\n    d = dict(foo=\"baz\")\n    eq(s.substitute(d), \"%(foo)s baz\")\n"
+    },
+    {
+      "name": "py: self.fail in an except branch counts as an assertion",
+      "filename": "test_fail.py",
+      "source": "\ndef test_map_chunksize():\n    try:\n        self.pool.map_async(sqr, [], chunksize=1).get(timeout=1)\n    except TimeoutError:\n        self.fail(\"map_async stalled on a null list\")\n"
+    },
+    {
+      "name": "py: transitive helper chain counts as delegation",
+      "filename": "test_chain.py",
+      "source": "\ndef _really_check(x):\n    assert x > 0\n\ndef check_value(x):\n    _really_check(x)\n\ndef test_uses_chain():\n    v = compute()\n    save(v)\n    check_value(v)\n"
+    },
+    {
+      "name": "ts: regex literal containing a quote does not erase the line",
+      "filename": "regex.test.ts",
+      "source": "\nit(\"validates format\", () => {\n  const ok = /['\"]/.test(x);\n  expect(ok).toBe(true);\n});\n"
+    },
+    {
+      "name": "ts: regex literal with a quote, assertion on the same line",
+      "filename": "regex2.test.ts",
+      "source": "\nit(\"validates format\", () => {\n  const ok = /[\"']/.test(x); expect(ok).toBe(true);\n});\n"
+    },
+    {
+      "name": "py: unrelated local name does not excuse a missing assertion",
+      "filename": "test_deleg.py",
+      "source": "\nclass FakeCache:\n    def get(self, key):\n        return self.data.get(key)\n\n\ndef test_creates_user():\n    user = make_user(\"ana\")\n    cache.get(\"some_key\")\n    log_event(user)\n"
+    },
+    {
+      "name": "py: delegating to a helper that really asserts is clean",
+      "filename": "test_deleg2.py",
+      "source": "\ndef check_user(user):\n    assert user.id is not None\n    assert user.name\n\n\ndef test_creates_user():\n    user = make_user(\"ana\")\n    save(user)\n    check_user(user)\n"
+    },
+    {
+      "name": "ts: fake timers in one suite do not excuse a real wait in another",
+      "filename": "mixed-timers.test.ts",
+      "source": "\ndescribe(\"debounce\", () => {\n  beforeEach(() => { jest.useFakeTimers(); });\n  it(\"debounces\", () => {\n    const fn = debounce(cb, 100);\n    setTimeout(() => {}, 100);\n    expect(cb).toHaveBeenCalled();\n  });\n});\n\ndescribe(\"server readiness\", () => {\n  it(\"becomes ready eventually\", async () => {\n    startServer();\n    await new Promise((r) => setTimeout(r, 2000));\n    expect(isReady()).toBe(true);\n  });\n});\n"
+    },
+    {
+      "name": "py: freeze_time does not excuse a blocking time.sleep",
+      "filename": "test_freeze.py",
+      "source": "\ndef test_a():\n    freeze_time(\"2020-01-01\")\n    assert now() == \"2020-01-01\"\n\ndef test_b():\n    start_server()\n    time.sleep(5)\n    assert is_ready()\n"
+    },
+    {
+      "name": "ts: template literal mentioning time.sleep is not flagged",
+      "filename": "k.test.ts",
+      "source": "it(\"builds a message\", () => {\n  const msg = `retrying, use time.sleep(2) if flaky`;\n  expect(msg).toContain(\"retrying\");\n});\n"
+    },
+    {
+      "name": "ts: multi-line template literal mentioning banned patterns is not flagged",
+      "filename": "l.test.ts",
+      "source": "\nit(\"documents the banned patterns\", () => {\n  const help = `\n    Do not write:\n      it.skip(\"...\", () => {});\n      time.sleep(2);\n      expect(true).toBe(true);\n  `;\n  expect(help).toContain(\"Do not write\");\n});\n"
+    },
+    {
+      "name": "py: except pass in test",
+      "filename": "test_h.py",
+      "source": "\ndef test_handles_bad_input():\n    try:\n        parse(\"garbage\")\n    except ValueError:\n        pass\n    assert True\n"
+    },
+    {
+      "name": "ts: empty catch block",
+      "filename": "j.test.ts",
+      "source": "\nit(\"handles bad input\", () => {\n  try {\n    parse(\"garbage\");\n  } catch (e) {}\n  expect(state()).toBe(\"clean\");\n});\n"
+    },
+    {
+      "name": "py: pytest.raises is clean",
+      "filename": "test_i.py",
+      "source": "\ndef test_handles_bad_input():\n    with pytest.raises(ValueError):\n        parse(\"garbage\")\n"
+    },
+    {
+      "name": "py: mock-heavy test",
+      "filename": "test_j.py",
+      "source": "\ndef test_checkout_flow():\n    gateway = MagicMock()\n    mailer = MagicMock()\n    ledger = MagicMock()\n    inventory = MagicMock()\n    audit = MagicMock()\n    checkout(gateway, mailer, ledger, inventory, audit)\n    assert gateway.charge.called\n"
+    },
+    {
+      "name": "py: two mocks and real assertions is clean",
+      "filename": "test_k.py",
+      "source": "\ndef test_checkout_charges_once():\n    gateway = MagicMock()\n    order = build_order(total=100)\n    result = checkout(order, gateway)\n    assert result.status == \"paid\"\n    assert result.total == 100\n    assert gateway.charge.call_count == 1\n"
+    },
+    {
+      "name": "py: many bare assertions is not flagged (assertion-roulette deliberately removed)",
+      "filename": "test_l.py",
+      "source": "\ndef test_user_shape():\n    u = make_user(\"ana\")\n    assert u.name == \"ana\"\n    assert u.email is not None\n    assert u.id > 0\n    assert u.active is True\n    assert u.role == \"member\"\n"
+    },
+    {
+      "name": "py: assertions with messages are clean",
+      "filename": "test_m.py",
+      "source": "\ndef test_user_shape():\n    u = make_user(\"ana\")\n    assert u.name == \"ana\", \"name should round-trip\"\n    assert u.email is not None, \"email must be generated\"\n    assert u.id > 0, \"id must be assigned by the store\"\n    assert u.active is True, \"new users start active\"\n    assert u.role == \"member\", \"default role is member\"\n"
+    },
+    {
+      "name": "py: three bare assertions is under threshold",
+      "filename": "test_n.py",
+      "source": "\ndef test_user_shape():\n    u = make_user(\"ana\")\n    assert u.name == \"ana\"\n    assert u.email is not None\n    assert u.id > 0\n"
+    },
+    {
+      "name": "non-test file is not scanned",
+      "filename": "helpers.py",
+      "source": "\ndef build():\n    try:\n        risky()\n    except Exception:\n        pass\n"
+    },
+    {
+      "name": "commented-out smell is ignored",
+      "filename": "test_o.py",
+      "source": "\ndef test_real():\n    # time.sleep(5)  -- removed, we poll now\n    # assertTrue(True)\n    wait_until(is_ready)\n    assert is_ready()\n"
+    }
+  ],
+  "cross_file": [
+    {
+      "name": "py: assertion inherited from a mixin in a sibling module is recognised",
+      "files": {
+        "widget_tests.py": "\nclass AbstractWidgetTest:\n    def checkParam(self, widget, name, value):\n        widget[name] = value\n        assert widget[name] == value\n",
+        "test_widgets.py": "\nfrom widget_tests import AbstractWidgetTest\n\nclass ButtonTest(AbstractWidgetTest):\n    def test_text_param(self):\n        widget = self.create()\n        self.checkParam(widget, \"text\", \"hello\")\n"
+      },
+      "target": "test_widgets.py"
+    },
+    {
+      "name": "py: mixin reached through a dotted package path is recognised",
+      "files": {
+        "pkg/test_tk/widget_tests.py": "\nclass AbstractWidgetTest:\n    def checkParam(self, widget, name, value):\n        assert widget[name] == value\n",
+        "pkg/test_ttk/test_widgets.py": "\nfrom pkg.test_tk.widget_tests import AbstractWidgetTest\n\nclass ComboTest(AbstractWidgetTest):\n    def test_values_param(self):\n        widget = self.create()\n        self.checkParam(widget, \"values\", \"a b c\")\n"
+      },
+      "target": "pkg/test_ttk/test_widgets.py"
+    },
+    {
+      "name": "ts: assertion inherited from a relative import is recognised",
+      "files": {
+        "helpers.ts": "\nexport function expectRendered(el: HTMLElement, html: string) {\n  expect(el.innerHTML).toBe(html);\n}\n",
+        "widget.test.ts": "\nimport { expectRendered } from \"./helpers\";\n\nclass Base {\n  assertRendered(el: HTMLElement, html: string) {\n    expectRendered(el, html);\n  }\n}\n\ntest(\"renders\", () => {\n  const el = mount(App);\n  flush();\n  this.assertRendered(el, \"<div>ok</div>\");\n});\n"
+      },
+      "target": "widget.test.ts"
+    },
+    {
+      "name": "cross-file delegation does NOT excuse a helper that never asserts",
+      "files": {
+        "helpers.py": "\nclass SupportBase:\n    def prepare(self, widget):\n        widget.pack()\n        return widget\n",
+        "test_thing.py": "\nfrom helpers import SupportBase\n\nclass ThingTest(SupportBase):\n    def test_prepares(self):\n        widget = make_widget()\n        self.prepare(widget)\n        log_event(widget)\n"
+      },
+      "target": "test_thing.py"
+    },
+    {
+      "name": "cross-file names only count via a receiver, not a bare call",
+      "files": {
+        "utils.py": "\ndef check(value):\n    assert value is not None\n",
+        "test_bare.py": "\nfrom utils import check\n\ndef test_unrelated_bare_call():\n    widget = make_widget()\n    other = build()\n    render(widget, other)\n"
+      },
+      "target": "test_bare.py"
+    },
+    {
+      "name": "py: calling a locally-declared abstract method suppresses no-assertion",
+      "files": {
+        "util.py": "\nclass CommonTests:\n    def execute(self, package, path):\n        \"\"\"Subclasses implement this and assert on the result.\"\"\"\n\n    def test_package_object(self):\n        package = make_package()\n        path = make_path()\n        self.execute(package, path)\n"
+      },
+      "target": "util.py"
+    }
+  ]
+}
