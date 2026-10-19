@@ -279,11 +279,22 @@ pub struct Outcome {
     pub stdout: String,
 }
 
+/// Runs `cmd` with stdout going to a file: the TypeScript calls process.exit before a pipe has
+/// drained, which cut piped output at 64 KiB (seen on check-api-surface in viby-flow).
 fn run(cmd: &mut Command) -> Outcome {
-    let out = cmd.stdin(Stdio::null()).output().expect("spawn");
+    let path = std::env::temp_dir().join(format!("viby-parity-{}.out", std::process::id()));
+    let file = std::fs::File::create(&path).expect("temp file");
+    let status = cmd
+        .stdin(Stdio::null())
+        .stdout(file)
+        .stderr(Stdio::null())
+        .status()
+        .expect("spawn");
+    let stdout = String::from_utf8_lossy(&std::fs::read(&path).unwrap_or_default()).into_owned();
+    let _ = std::fs::remove_file(&path);
     Outcome {
-        code: out.status.code(),
-        stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+        code: status.code(),
+        stdout,
     }
 }
 
