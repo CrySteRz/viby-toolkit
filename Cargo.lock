@@ -506,6 +506,7 @@ dependencies = [
  "agentgrep",
  "base64",
  "fancy-regex",
+ "libc",
  "regex",
  "serde",
  "serde_json",

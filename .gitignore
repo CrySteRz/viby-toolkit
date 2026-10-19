@@ -17,3 +17,6 @@ tests/routing/runs*/
 __pycache__/
 *.pyc
 /target
+
+# agent worktrees
+/.claude/worktrees/

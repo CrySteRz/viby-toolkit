@@ -20,6 +20,9 @@ fancy-regex = "0.14"
 agentgrep = { git = "https://github.com/1jehuang/agentgrep", tag = "v0.1.7" }
 base64 = "0.22"
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Pipes", "Win32_System_Threading"] }
 

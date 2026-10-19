@@ -1,0 +1,131 @@
+#!/bin/sh
+# Runs this plugin version's `viby` binary, getting it first if this machine does not have it.
+#
+#   1. $CLAUDE_PLUGIN_DATA/bin/<version>/viby (else ~/.viby/bin/<version>/viby): run it.
+#   2. Download viby-<target>.tar.gz from the GitHub release v<version>, check its SHA-256
+#      against launcher/checksums.txt (shipped in the plugin, not in the release, so a swapped
+#      asset is refused), unpack it beside the cache entry and rename it into place.
+#   3. No asset, no network or a bad checksum: build it with cargo from the plugin's rust/.
+#   4. No cargo: say in one line what to run, so Claude can do it.
+#
+# The cache is keyed on the plugin version, so a plugin update brings a new binary on its next
+# call. Older versions are removed except the one before, which a running session may still use.
+#
+# Windows (Git Bash): Windows starts MCP servers without a shell and adds .exe to a command with
+# no extension, so `launcher/viby` there means `launcher/viby.exe`. `viby --install` (run by the
+# SessionStart hook) puts the binary in the cache and copies it beside this script. The plugin
+# folder is per version, so the copy goes away with the version it belongs to.
+#
+# VIBY_RELEASE_URL overrides the download base (tests).
+set -u
+
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+root=$(dirname -- "$here")
+version=$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' "$root/.claude-plugin/plugin.json" | head -n 1)
+data=${CLAUDE_PLUGIN_DATA:-$HOME/.viby}
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*) windows=1 name=viby.exe; command -v cygpath >/dev/null 2>&1 && data=$(cygpath -u "$data") ;;
+  *) windows='' name=viby ;;
+esac
+cache="$data/bin"
+exe="$cache/$version/$name"
+
+# Windows needs the copy beside this script for MCP servers (see above).
+place_beside() {
+  [ -n "$windows" ] || return 0
+  cmp -s "$exe" "$here/$name" 2>/dev/null || cp -f "$exe" "$here/$name" 2>/dev/null || true
+}
+
+if [ "${1:-}" = --install ]; then
+  if [ -x "$exe" ]; then place_beside; exit 0; fi
+elif [ -x "$exe" ]; then
+  exec "$exe" "$@"
+fi
+
+command=${1:-}
+say() { printf 'viby: %s\n' "$*" >&2; }
+
+# The statusline must always print something and never fail.
+give_up() {
+  say "$1"
+  if [ "$command" = statusline ]; then printf 'viby-toolkit\n'; exit 0; fi
+  exit 1
+}
+
+target() {
+  os=$(uname -s)
+  arch=$(uname -m)
+  # A shell under Rosetta reports x86_64 on Apple silicon; the native binary is the better choice.
+  if [ "$os" = Darwin ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = 1 ]; then arch=arm64; fi
+  case "$os-$arch" in
+    Darwin-arm64) echo aarch64-apple-darwin ;;
+    Darwin-x86_64) echo x86_64-apple-darwin ;;
+    Linux-x86_64 | Linux-amd64) echo x86_64-unknown-linux-musl ;;
+    Linux-aarch64 | Linux-arm64) echo aarch64-unknown-linux-musl ;;
+    MINGW*-x86_64 | MSYS*-x86_64 | CYGWIN*-x86_64) echo x86_64-pc-windows-msvc ;;
+    *) echo "" ;;
+  esac
+}
+
+sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
+
+mkdir -p "$cache" || give_up "cannot create $cache"
+work=$(mktemp -d "$cache/.get.XXXXXX") || give_up "cannot create a work folder in $cache"
+trap 'rm -rf "$work"' EXIT
+
+# Put a working binary at $exe; a rename is atomic, so two sessions starting together never run
+# a half-written file.
+install_binary() {
+  mkdir -p "$cache/$version" && chmod +x "$1" && mv -f "$1" "$exe"
+}
+
+download() {
+  t=$(target)
+  [ -n "$t" ] || return 1
+  asset="viby-$t.tar.gz"
+  want=$(sed -n "s/^\([0-9a-f]\{64\}\)[[:space:]]\{1,\}$asset\$/\1/p" "$here/checksums.txt" 2>/dev/null | head -n 1)
+  [ -n "$want" ] || return 1 # no published build for this version and target
+  command -v curl >/dev/null 2>&1 || return 1
+  url="${VIBY_RELEASE_URL:-https://github.com/CrySteRz/viby-toolkit/releases/download}/v$version/$asset"
+  curl -fsSL --retry 2 --connect-timeout 10 -o "$work/$asset" "$url" 2>/dev/null || return 1
+  got=$(sha256 "$work/$asset")
+  if [ "$got" != "$want" ]; then
+    say "refused $asset: its SHA-256 is $got, the plugin expects $want"
+    return 1
+  fi
+  tar -xzf "$work/$asset" -C "$work" "$name" || return 1
+  # Apple silicon kills a binary without a signature; an ad-hoc one is enough.
+  if [ "$(uname -s)" = Darwin ]; then codesign --force --sign - "$work/$name" >/dev/null 2>&1 || true; fi
+  install_binary "$work/$name"
+}
+
+build() {
+  command -v cargo >/dev/null 2>&1 || return 1
+  say "building viby $version from source (once, 1-2 minutes)"
+  cargo build --release --locked --quiet --manifest-path "$root/rust/Cargo.toml" --target-dir "$cache/.build" >&2 || return 1
+  cp "$cache/.build/release/$name" "$work/$name" && install_binary "$work/$name"
+}
+
+prune() {
+  # Keep this version and the newest other one.
+  keep_other=$(ls -t "$cache" 2>/dev/null | grep -v -e "^$version\$" -e '^\.' | head -n 1)
+  for d in "$cache"/*; do
+    name=$(basename -- "$d")
+    [ "$name" = "$version" ] || [ "$name" = "$keep_other" ] || rm -rf "$d"
+  done
+}
+
+if download || build; then
+  prune
+  place_beside
+  rm -rf "$work"
+  trap - EXIT
+  [ "${1:-}" = --install ] && exit 0
+  exec "$exe" "$@"
+fi
+
+give_up "viby $version is not installed and could not be built: Rust is missing. Install it with: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y   then retry."
