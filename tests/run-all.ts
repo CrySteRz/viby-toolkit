@@ -60,6 +60,12 @@ const CHECKS: Check[] = [
     minPassing: 48,
   },
   {
+    name: "agentgrep server contract",
+    cmd: [...NODE_RUNNER, "--test", "tests/agentgrep.test.ts"],
+    ok: new Set([0]),
+    minPassing: 6,
+  },
+  {
     name: "test-scanner contract",
     cmd: [...NODE_RUNNER, "--test", "tests/scanner.test.ts"],
     ok: new Set([0]),

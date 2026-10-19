@@ -40,3 +40,17 @@ classifier model ("Jev", paid key) picks the next action from a menu.
   part jcode adds in its harness. Not a TypeScript port, not guidance-only.
 - The owner's "JCode Browser Bridge" means 1jehuang/jcode's Firefox Agent Bridge. cnjack/jcode's
   Chrome Web Store "jcode Browser Bridge" is an unrelated project with the same name.
+- **How "already seen" works (built 2026-10-19).** agentgrep 0.1.7 already shortens repeated
+  structure and regions when given a harness context (`--context-json`), which is what jcode's
+  harness builds from its session. So the server does the same with its own results: it
+  remembers the file structures and full regions it returned (with each file's mtime) and passes
+  them to `trace`. It does not rewrite agentgrep's output into `[seen: …]` lines as the plan
+  first sketched, because agentgrep's own note already says the same. A file changed since, an
+  `outline` (always an explicit ask), and `force: true` are never shortened. `grep` and `find`
+  take no context in 0.1.7.
+- **agentgrep is not routed to yet.** In a measured comparison it did not save tokens against
+  grep/Read: `docs/research/2026-10-19-agentgrep-measurement.md`.
+- **`open` keeps a background tab by default.** The plan raised making `new_window` the default
+  for a session (JCode binds a window per session). Left as is: a new window per Claude session
+  is more intrusive than a background tab, and `new_window` is one call away. The owner can
+  reverse this.

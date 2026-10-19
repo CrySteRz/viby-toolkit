@@ -76,6 +76,19 @@ usable instead of failing, a closed tab is replaced, and the extension updates i
 are masked in what Claude reads and never typed by it.
 Reference: `skills/ui/references/browser.md`.
 
+### Code search (MCP tool `agentgrep`)
+
+Wraps [1jehuang/agentgrep](https://github.com/1jehuang/agentgrep) (MIT), the structure-aware search
+JCode uses: `grep` (matches grouped under their enclosing symbols), `find` (files ranked for a
+topic), `outline` (a file's symbols with line ranges) and `trace` (follow a symbol, e.g.
+`subject:parseConfig relation:called_from`, and get the regions in full). Like JCode, the session
+remembers what it was shown and hands that to agentgrep, so a repeated `trace` comes back shortened
+(about a third smaller, measured) until the file changes; `force: true` gets everything in full.
+Needs the binary once: `cargo install --git https://github.com/1jehuang/agentgrep --tag v0.1.7 --locked`
+(the tool says so when it is missing). It understands Rust, TypeScript/JavaScript and Python only;
+on other languages it is plain grep. Measured against Grep/Read it did not save tokens, so nothing
+routes agents to it yet: `docs/research/2026-10-19-agentgrep-measurement.md`.
+
 ### Agents (dispatched by the skills; cheap models by design)
 
 `scout` (sonnet at low effort, read-only recon) · `researcher` (sonnet, one web-research angle) ·

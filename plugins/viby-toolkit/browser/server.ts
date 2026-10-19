@@ -27,6 +27,7 @@ import {
 } from "./actions.ts";
 import { BROWSER_APPS, chromiumExtensionState, defaultBrowser, detectBrowsers, extensionVersion, install, installedApp, installedVersion, pluginVersion, safariInstalled } from "./install.ts";
 import { BROWSER_NAMES, LineDecoder, REQUEST_TIMEOUT_MS, browserHome, socketPath } from "./protocol.ts";
+import { serveTool } from "../lib/mcp-stdio.ts";
 
 type Reply = { ok: boolean; result?: any; error?: string };
 
@@ -388,50 +389,6 @@ export async function callTool(input: Json): Promise<{ content: Json[]; isError?
   }
 }
 
-// ── MCP over stdio: newline-delimited JSON-RPC 2.0 ──────────────────────────────────────
-
-function send(message: Json): void {
-  process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", ...message })}\n`);
-}
-
-async function handle(message: Json): Promise<void> {
-  const { id, method, params } = message;
-  if (id === undefined) return; // notifications (initialized, cancelled) need no reply
-  switch (method) {
-    case "initialize":
-      return send({
-        id,
-        result: {
-          protocolVersion: params?.protocolVersion ?? "2025-06-18",
-          capabilities: { tools: {} },
-          serverInfo: { name: "viby-browser", version: pluginVersion() },
-        },
-      });
-    case "ping":
-      return send({ id, result: {} });
-    case "tools/list":
-      return send({ id, result: { tools: [{ name: "browser", description: TOOL_DESCRIPTION, inputSchema: INPUT_SCHEMA }] } });
-    case "tools/call":
-      if (params?.name !== "browser") return send({ id, error: { code: -32602, message: `Unknown tool: ${params?.name}` } });
-      return send({ id, result: await callTool(params.arguments ?? {}) });
-    default:
-      return send({ id, error: { code: -32601, message: `Method not found: ${method}` } });
-  }
-}
-
 if (process.argv[1] && realpathSync(process.argv[1]) === import.meta.filename) {
-  const decoder = new LineDecoder();
-  const inFlight = new Set<Promise<void>>();
-  process.stdin.on("data", (chunk: Buffer) => {
-    for (const message of decoder.push(chunk) as Json[]) {
-      if ("__invalid" in message) {
-        send({ id: null, error: { code: -32700, message: "Parse error" } });
-        continue;
-      }
-      const job = handle(message).finally(() => inFlight.delete(job));
-      inFlight.add(job);
-    }
-  });
-  // Answer what was already asked before exiting; a closed stdin must not drop a reply.
-  process.stdin.on("end", () => void Promise.allSettled([...inFlight]).then(() => process.exit(0)));
+  serveTool({ name: "viby-browser", version: pluginVersion() }, { name: "browser", description: TOOL_DESCRIPTION, inputSchema: INPUT_SCHEMA }, callTool);
 }
