@@ -436,17 +436,17 @@ fn touch(path: &Path) {
         .expect("touch");
 }
 
-/// The 14 live steps of the TypeScript server's 2.27.0 run, in order, over a copy of the browser
-/// plugin: a repeated trace is shorter, force is full, touched files are full again, an outline
-/// is never shortened, and the errors read clearly.
+/// The 14 live steps of the TypeScript server's 2.27.0 run, in order: a repeated trace is shorter,
+/// force is full, touched files are full again, an outline is never shortened, and the errors read
+/// clearly. The corpus was the TypeScript browser plugin; since 3.0.0 it is its Rust port.
 #[test]
-fn live_steps_over_a_copy_of_the_browser_plugin() {
+fn live_steps_over_a_copy_of_the_browser_sources() {
     let dir = tempfile::tempdir().expect("temp dir");
     let repo = dir.path().join("repo");
-    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../browser");
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/browser");
     copy_dir(&source, &repo);
     let session = Session::new();
-    let trace = trace_input(&repo);
+    let trace = json!({ "mode": "trace", "terms": ["subject:call_host", "relation:called_from"], "path": &repo });
     let ok = |name: &str, input: Value| {
         let (error, text) = call(&session, input);
         assert!(!error, "{name}: {text}");
@@ -460,7 +460,7 @@ fn live_steps_over_a_copy_of_the_browser_plugin() {
 
     let text = ok(
         "grep",
-        json!({ "mode": "grep", "query": "bridgeRequest", "path": &repo }),
+        json!({ "mode": "grep", "query": "call_host", "path": &repo }),
     );
     assert!(
         regex::Regex::new(r"matches: \d+ in \d+ files")
@@ -490,13 +490,13 @@ fn live_steps_over_a_copy_of_the_browser_plugin() {
     assert!(!forced.contains("harness context"));
     assert_eq!(forced.len(), first.len());
 
-    touch(&repo.join("actions.ts"));
-    touch(&repo.join("server.ts"));
+    touch(&repo.join("server.rs"));
+    touch(&repo.join("host.rs"));
     let after = ok("trace after the files changed: full again", trace);
     assert!(!after.contains("harness context"));
     assert_eq!(after.len(), first.len());
 
-    let outline = json!({ "mode": "outline", "file": "host.ts", "path": &repo });
+    let outline = json!({ "mode": "outline", "file": "host.rs", "path": &repo });
     let outline_first = ok("outline is never shortened", outline.clone());
     assert!(outline_first.contains("structure:") && !outline_first.contains("harness context"));
     let outline_again = ok("outline again: still full", outline);
@@ -504,7 +504,7 @@ fn live_steps_over_a_copy_of_the_browser_plugin() {
 
     let text = ok(
         "trace in a file whose outline was seen: structure reduced",
-        json!({ "mode": "trace", "terms": ["subject:handleClient", "relation:defined"], "path": &repo }),
+        json!({ "mode": "trace", "terms": ["subject:handle_client", "relation:defined"], "path": &repo }),
     );
     assert!(
         text.contains("reduced repeated structure from harness context"),
@@ -513,12 +513,12 @@ fn live_steps_over_a_copy_of_the_browser_plugin() {
 
     fails(
         "bad trace DSL is a clear error",
-        json!({ "mode": "trace", "terms": ["handleClient"], "path": &repo }),
+        json!({ "mode": "trace", "terms": ["handle_client"], "path": &repo }),
         "expected key:value",
     );
     fails(
         "missing file",
-        json!({ "mode": "outline", "file": "nope.ts", "path": &repo }),
+        json!({ "mode": "outline", "file": "nope.rs", "path": &repo }),
         "file not found",
     );
     fails(

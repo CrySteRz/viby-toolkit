@@ -52,7 +52,7 @@ echo "→ Installing $PLUGIN from: $ROOT"
 # The repo is public, so installing from GitHub is the normal path and this folder-based install is
 # the deliberate exception (air-gapped machines). An exception should not overwrite the normal path
 # by accident, so this refuses unless asked twice.
-SETTINGS="$HOME/.claude/settings.json"
+SETTINGS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
 read_source() {
   # Prints the registered source for $MARKET, or nothing. Best-effort: no runtime, no check.
   if command -v node >/dev/null 2>&1; then
@@ -116,7 +116,7 @@ fi
 #
 # The effect was a fix sitting in this folder, absent from the running agent, with the script
 # reporting success. Clearing the cached copy first makes the documented update path real.
-CACHE="$HOME/.claude/plugins/cache/$MARKET/$PLUGIN"
+CACHE="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/cache/$MARKET/$PLUGIN"
 if [ -d "$CACHE" ]; then
   rm -rf "$CACHE"
   echo "  ✓ cleared stale cached copy"

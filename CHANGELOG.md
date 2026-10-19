@@ -1,5 +1,54 @@
 # Changelog
 
+## 3.0.0
+
+**Everything executable is now one Rust binary, `viby`; Node is no longer needed.** The 19
+checkers, the statusline, the format hook, the browser MCP server and native host, and the agentgrep
+server are subcommands with the old scripts' names and contracts: the same arguments, `--json` and
+`--quiet`, exit 0 clean / 1 findings / 2 nothing to check, and the same output. Before the
+TypeScript was deleted, both versions ran on the same inputs (this repo, viby, viby-flow, viby-shot
+and every suite's fixtures): 41 same, 0 different. 579 tests, ported from the node:test suites.
+Plan: `docs/plans/2026-10-19-rust-port.md`.
+
+**Nothing to install by hand.** `launcher/viby` runs on every call. On a machine without this
+version's binary it downloads it from the GitHub release, checks its SHA-256 against
+`launcher/checksums.txt` in the plugin (not in the release, so a swapped asset is refused), and
+caches it per version. If there is no release asset or no network, it builds the binary with cargo
+from the plugin's own source (about 1–2 minutes, once). If cargo is missing too, it prints the one
+line that installs Rust. Targets: macOS arm64 and x86-64, Linux x86-64 and arm64 (static musl), and
+Windows x86-64, where the SessionStart hook places `viby.exe` beside the launcher for the MCP
+servers. CI checks all of this on a fresh machine of each OS after every release.
+
+**Updates follow the plugin.** The binary cache is keyed on the plugin version, so the next call
+after a plugin update fetches the new binary, and the version before stays for running sessions.
+The browser's native host follows too: the server now asks the host its version and reloads the
+extension once when it is older, which restarts the host. Before this, the old host kept running
+until the browser quit. The README says how to turn marketplace auto-update on; it is off by
+default for third-party marketplaces.
+
+**Kept working:** settings that run `hooks/run.sh … statusline.ts` (or any other 2.x `.ts` path)
+are mapped to the matching subcommand through 3.x. agentgrep is linked into `viby`, so there is no
+`cargo install`.
+
+**Fixed along the way:**
+- Skills and the README's statusline line look for the plugin under `$CLAUDE_CONFIG_DIR` when it
+  is set. They found nothing before.
+- The old locator aborted under zsh when a glob matched nothing, and picked the oldest cached
+  version.
+- `scan-test-quality` read Rust's `#[ignore]` as a `#` comment, so it never reported a skipped Rust
+  test.
+
+**Differences in output, all intended:**
+- Directory walks are sorted.
+- An escaped newline in a string no longer shifts later line numbers.
+- Output piped to another program is no longer cut at 64 KiB.
+- Malformed input gives an error message instead of a crash.
+- check-orchestration takes its skills folder as an argument.
+
+**Removed:** the TypeScript, `package.json`, `tsconfig.json`, the node tests and
+`tools/host-port.ts` (now `viby host-port`). `cargo xtask check` replaces `npm run check`; it also
+checks formatting now.
+
 ## 2.27.0
 
 **The browser tool reaches parity with upstream.** New actions: `new_window` (a window of its own)

@@ -507,7 +507,7 @@ pub fn check_orphan_scripts(hooks_dir: &str, config: &HooksConfig, readme: &str)
             continue;
         }
         if file == "run.sh" {
-            continue; // the TS runtime shim, not a hook script itself
+            continue; // maps 2.x entry points to `viby`, not a hook script itself
         }
         if registered.contains(&file) {
             continue;

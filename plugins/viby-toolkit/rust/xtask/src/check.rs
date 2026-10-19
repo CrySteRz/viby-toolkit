@@ -1,8 +1,7 @@
 //! `cargo xtask check`: everything that must pass before a commit, with one verdict.
 //!
 //! Exit 0 when every check passed (or was skipped with its reason shown), 1 when at least one
-//! failed, with its output. It replaces `tests/run-all.ts`, `tests/check-references.ts` and
-//! `tests/check-version.ts`.
+//! failed, with its output.
 
 use regex::Regex;
 use std::collections::HashMap;
@@ -36,7 +35,7 @@ const MIN_PASSING: &[(&str, usize)] = &[
     ("tests/migration.rs", 19),
     ("tests/read_cost.rs", 20),
     ("tests/release.rs", 20),
-    ("tests/scanner.rs", 67),
+    ("tests/scanner.rs", 69),
     ("tests/skill_safety.rs", 22),
     ("tests/statusline.rs", 19),
     ("tests/strip.rs", 3),

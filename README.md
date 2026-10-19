@@ -433,7 +433,7 @@ because one case makes a champion and two make a rule.
 
 - **SessionStart** injects the accuracy/fan-out defaults (~400 tokens) so the working style
   applies even when no skill is invoked. This is the only hook enabled by default.
-- **Opt-in** (shipped, not enabled): `viby format-hook` (2.x: `hooks/post-tool-use-format.ts`) auto-formats edited
+- **Opt-in** (shipped, not enabled): `viby format-hook` (2.x settings that name its old `.ts` script still work) auto-formats edited
   files *only* when the formatter is already installed and the project uses it (never
   installs anything, never blocks). Enable by adding a `PostToolUse` matcher if you want it.
 
@@ -447,7 +447,7 @@ contract are still in git history if it's ever wanted back.)
 
 The context discipline is measurable, not just asserted:
 
-- **Statusline** (`viby statusline`; opt-in, 2.x: `hooks/statusline.ts`) — shows
+- **Statusline** (`viby statusline`; opt-in; 2.x settings that name its old `.ts` script still work) — shows
   `model · ctx NN% · cache NN% · 5h NN% · 7d NN% · $cost`. `ctx` is
   `context_window.used_percentage` (input tokens: fresh + cache creation + cache read, as a
   share of the window) colour-banded green <60 / yellow <80 / red — watching it is how you
@@ -620,7 +620,7 @@ plugins/viby-toolkit/
     crates/viby/src/browser/         # browser MCP server, native host and its installer
     crates/viby/src/agentgrep.rs     # agentgrep MCP server
     crates/viby/tests/               # contract tests, one file per suite
-    xtask/                           # `cargo xtask check` (the pre-push gate), `cargo xtask parity`
+    xtask/                           # `cargo xtask check` (the pre-push gate)
 ```
 
 ### How the executable half runs
@@ -635,8 +635,11 @@ A plugin install copies only `plugins/viby-toolkit`, so the Cargo workspace live
 the launcher's cargo fallback needs the source to be there.
 
 After editing, bump `version` in `plugin.json`, `marketplace.json` and `rust/Cargo.toml`
-(all three carry it; the gate fails when they disagree), commit, push. Machines pick up the change on next session (or `/plugin update
-viby-toolkit`).
+(all three carry it; the gate fails when they disagree), commit, push. **Pushing a new version is
+the release:** `.github/workflows/release.yml` builds `viby` for the five targets, commits their
+SHA-256 sums to `launcher/checksums.txt`, tags that commit and publishes the binaries, then
+`launcher.yml` runs the launcher on a fresh machine of each OS. Machines with auto-update on pick
+the new version up on their next session; others with `/plugin update viby-toolkit`.
 
 ### Verify before pushing
 

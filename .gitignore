@@ -8,9 +8,6 @@ node_modules/
 *.key
 credentials*
 
-# typescript / node
-*.tsbuildinfo
-.node_repl_history
 tests/routing/runs*/
 
 # the routing harness is Python
