@@ -92,16 +92,8 @@ Assume you will be wrong about something. Make being wrong cheap:
   implementation, is what tells you whether this is breaking — and it is mechanical, so run it:
 
   ```bash
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-SURFACE="$VIBY_HOME/skills/api/scripts/check-api-surface.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-  sh "$RUN" "$SURFACE" --base main src        # added / removed / re-signatured exports
+  VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+  sh "$VIBY" check-api-surface --base main src        # added / removed / re-signatured exports
   ```
 
   Treat a clean result as *no syntactic break found*, not as *compatible*: the defaults,

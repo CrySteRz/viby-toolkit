@@ -116,7 +116,7 @@ or abandon. Full procedure, including how to keep the graph when context is comp
 1. **The user's explicit instructions** win. If they conflict with convention, follow the
    instruction and say plainly which convention you broke and where.
 2. **The target language's own idiom** comes next — detect it mechanically rather than assuming
-   (`skills/verify/scripts/detect-stack.ts`), and write what a native of *that* language would
+   (`viby detect-stack`), and write what a native of *that* language would
    write. Do not carry one language's patterns into another: a Python file full of Java ceremony,
    or a Go file full of inheritance, is worse than what you inherited, because it is now uncanny
    as well as unfamiliar.
@@ -141,16 +141,8 @@ reformats and restructures at once is unreviewable, and unreviewable is where in
 - **Then check what they did to the safety net, not just whether it is green:**
 
 ```bash
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-DRIFT="$VIBY_HOME/skills/adopt/scripts/check-test-drift.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-sh "$RUN" "$DRIFT" --base <ref-before-the-agents> .     # exit 1 = the net shrank
+VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+sh "$VIBY" check-test-drift --base <ref-before-the-agents> .     # exit 1 = the net shrank
 ```
 
 Deleted test files, removed test cases, removed assertions, new skips, a new `.only`, or a
@@ -163,7 +155,7 @@ the net.
 In order, and none of them optional:
 
 1. Characterization suite green — the recorded behaviour is unchanged.
-2. `check-test-drift.ts` clean — the net grew or held.
+2. `viby check-test-drift` clean — the net grew or held.
 3. **The held-out acceptance suite green**, run once, at the end, by you rather than the agents.
 4. Every row of the functionality matrix demonstrated, with the evidence attached.
 5. `/viby-toolkit:verify` over the whole thing, to catch the silent-pass modes — zero tests

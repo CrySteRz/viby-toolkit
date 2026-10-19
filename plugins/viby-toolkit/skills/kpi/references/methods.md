@@ -121,7 +121,7 @@ labelled here so nobody later cites a book that was not opened.
 ## Measured on real code (this repo's own doing, 2026-07-29)
 
 Measured here, against a real client-work data repo — 62 SQL files — the first version of
-`check-analytics-sql.ts` produced **126 findings, 117 of them one rule** (`now-in-definition`),
+`viby check-analytics-sql` produced **126 findings, 117 of them one rule** (`now-in-definition`),
 93% of the total. Every one was legitimate: `NOW()` in a migration default or a dated backfill is
 correct SQL. `null-equality` also fired on `SET col = NULL`, which is assignment, not comparison.
 Both rules were narrowed and the same repo now yields **8 findings**. Precision over coverage, and

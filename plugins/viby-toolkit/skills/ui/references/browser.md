@@ -74,4 +74,4 @@ globals), `list_frames` + `frame_id` / `all_frames` for iframes, `get_active_tab
 | `No tab with id` | The tab was closed and the session forgot it. `open` with a url opens a new one by itself; for anything else, `open` or `list_tabs`. |
 | `Receiving end does not exist` | The tab predates the extension or is still loading: `open` it again. |
 | `Request timed out` after a click or submit | Snapshot before repeating — it may have worked. |
-| Extension loaded but never connects | Run `setup` again (it rewrites the host's node path), then reload the extension. |
+| Extension loaded but never connects | Run `setup` again (it reinstalls the host), then reload the extension. |

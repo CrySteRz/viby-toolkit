@@ -114,8 +114,8 @@ prune() {
   # Keep this version and the newest other one.
   keep_other=$(ls -t "$cache" 2>/dev/null | grep -v -e "^$version\$" -e '^\.' | head -n 1)
   for d in "$cache"/*; do
-    name=$(basename -- "$d")
-    [ "$name" = "$version" ] || [ "$name" = "$keep_other" ] || rm -rf "$d"
+    entry=$(basename -- "$d") # not $name: place_beside needs it after this
+    [ "$entry" = "$version" ] || [ "$entry" = "$keep_other" ] || rm -rf "$d"
   done
 }
 

@@ -29,16 +29,8 @@ joined to anything else is decoration.
 ## 0. Audit what is already there before adding more
 
 ```bash
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-LOG="$VIBY_HOME/skills/observe/scripts/check-logging.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-sh "$RUN" "$LOG" src/
+VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+sh "$VIBY" check-logging src/
 ```
 
 P1 is the part that is not a style question: **personal data or a credential reaching the logs**, and

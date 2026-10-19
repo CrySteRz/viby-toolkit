@@ -45,16 +45,8 @@ declared.
 These are the mechanically checkable ones, and they all produce a plausible answer:
 
 ```bash
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-LINT="$VIBY_HOME/skills/analytics/scripts/check-analytics-sql.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-sh "$RUN" "$LINT" models/          # exit 1 = findings
+VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+sh "$VIBY" check-analytics-sql models/          # exit 1 = findings
 ```
 
 - **`BETWEEN` on time is closed at both ends.** The boundary row lands in two buckets, so monthly

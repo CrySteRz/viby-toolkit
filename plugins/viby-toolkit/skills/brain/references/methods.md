@@ -37,7 +37,7 @@ distinct new observation". Also noted across this literature: real memory system
 drop facts when they go stale, merge duplicates, and reconcile contradictions".
 
 In a coding project a useful slice of this is mechanical — an obsolete memory usually cites a path
-that no longer exists — which is what `check-memory.ts` exploits.
+that no longer exists — which is what `viby check-memory` exploits.
 
 ## Poisoning is defended with provenance
 
@@ -64,7 +64,7 @@ so a failed approach is not retrieved as precedent (§3).
 
 ## Measured here (2026-07-29)
 
-`check-memory.ts` was run against **five real memory stores, 53 entries**, and the run corrected the
+`viby check-memory` was run against **five real memory stores, 53 entries**, and the run corrected the
 checker twice:
 
 1. First pass reported **23 stale references**. Almost all were false: a store's relative paths belong

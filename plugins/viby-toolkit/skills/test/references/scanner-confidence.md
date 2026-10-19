@@ -1,4 +1,4 @@
-# How much to trust each check in `scan-test-quality.ts`
+# How much to trust each check in `viby scan-test-quality`
 
 Read when you have run the scanner and are deciding which findings to act on. Every finding is a
 heuristic; this file is what separates the ones you can act on directly from the ones that are only

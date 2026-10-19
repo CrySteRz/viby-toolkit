@@ -143,7 +143,7 @@ itself not fetched):
 instruction-following and readability, plus citation accuracy and effective citation count
 (search-summary). The follow-up work's critique is the part that matters here: rubrics defined
 by LLMs **misalign with human expert judgement, are coarse and weakly interpretable, and push
-the judge onto unverifiable internal knowledge**. So `check-study.ts` checks structural
+the judge onto unverifiable internal knowledge**. So `viby check-study` checks structural
 properties that are mechanically decidable, and leaves the quality judgement to a person.
 
 ## Query framing

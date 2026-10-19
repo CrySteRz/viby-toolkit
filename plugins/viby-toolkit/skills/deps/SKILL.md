@@ -63,11 +63,11 @@ The single highest-value step, and the one most often skipped:
 1. **Pin the exact target version.** "Latest" is not a change anyone can review or revert.
 2. **Bump it alone.** No opportunistic edits in the same commit.
 3. **Run the project's real checks** — found mechanically, not guessed
-   (`/viby-toolkit:verify`, `detect-stack.ts`).
+   (`/viby-toolkit:verify`, `viby detect-stack`).
 4. **Exercise the actual behaviour the library provides**, not just the build. A dependency that
    compiles and misbehaves at runtime is the normal failure, especially for anything doing dates,
    money, serialisation, or HTTP.
-5. **Check the safety net did not shrink** — `check-test-drift.ts` from `/viby-toolkit:adopt`.
+5. **Check the safety net did not shrink** — `viby check-test-drift` from `/viby-toolkit:adopt`.
    "Tests pass" after someone skipped the failing one is the shape this takes.
 6. **Commit with the version and why**, so `git log` answers "when did we move to v4, and what
    for?".

@@ -47,7 +47,7 @@ Then prove it, in this order:
 
 ```bash
 # 1. no shadowing, no trigger collision, no listing-budget regression (gate)
-node --experimental-strip-types plugins/viby-toolkit/skills/principles/scripts/check-skills.ts plugins/viby-toolkit/skills
+cargo run -q --manifest-path plugins/viby-toolkit/rust/Cargo.toml -p viby -- check-skills plugins/viby-toolkit/skills
 # 2. add a row to tests/routing/probes.tsv — a prompt in the user's words, and the expected skill
 # 3. MEASURE it. Ship and install first: a fresh subprocess reads the installed cache, not this tree.
 git push --tags && claude plugin update viby-toolkit@viby-toolkit
@@ -73,7 +73,7 @@ a script either passes or fails. So ask: **what in this skill is mechanically de
 Rules for the checker, all learned by breaking them here:
 
 - **Decide on parsed code, never raw text** — blank strings and comments first
-  (`lib/strip-noncode.ts`). Four separate defects came from matching text that merely *mentioned*
+  (`rust/crates/viby/src/core/strip.rs`). Four separate defects came from matching text that merely *mentioned*
   what the checker hunts. Exception with a rule: for constructs whose value lives *inside* a
   string (a module path, `__all__`), decide **where** from blanked code and read **what** from the
   raw text at the same offset.
@@ -91,15 +91,15 @@ For every rule: a case that **must** flag and a case that **must not**. The must
 one that keeps the checker switched on, and it is where the real bugs are found — dates tripping a
 figure check, hedging flagged inside a limitations section, a moved file read as deleted coverage.
 
-- Add the suite to `tests/run-all.ts` with a `minPassing` count. **Raise it when you add cases;
-  never lower it to make a run green** — that gate exists because `node --test` exits 0 for a file
-  whose tests were emptied.
+- Add the test binary to `MIN_PASSING` in `rust/xtask/src/check.rs`. **Raise the count when you
+  add cases; never lower it to make a run green** — that gate exists because `cargo test` exits 0
+  for a file whose tests were emptied.
 - **Validate a noisy heuristic against a large real corpus** before shipping it, not against your
   own fixtures. Fixtures agree with you.
 
 ## 5. Run it on something that is not this repo
 
-This repo is a friendly target: TypeScript, zero dependencies, written by the same process being
+This repo is a friendly target: one Rust crate, few dependencies, written by the same process being
 tested. Point the new checker at a real, messy, polyglot repository read-only before believing it.
 That step has found, on first contact: a Kubernetes repo reported as "Python 100%" off a single
 stray script, and a base-ref typo reported as a suite that had grown from zero.
@@ -110,21 +110,23 @@ Easy to half-finish, and each omission is silent:
 
 - `references/` for anything long — sources, tables, routing detail. The skill body carries
   doctrine; the reference carries evidence. Keep the body under the **directive budget** (~40
-  bullets is a redesign threshold; `check-skills.ts` reports the heaviest skill).
-- Cross-references: name the sibling skills, and check they resolve — `tests/check-references.ts`
+  bullets is a redesign threshold; `viby check-skills` reports the heaviest skill).
+- Cross-references: name the sibling skills, and check they resolve — `cargo xtask check`
   verifies that every `/viby-toolkit:<name>` exists **and is model-invocable**, that no skill body
   expands the hooks-only `CLAUDE_PLUGIN_ROOT` variable (it is empty in a skill body, so any path
   built from it silently breaks), and that a skill instructing a capability names an agent that
   actually has the tools for it.
 - If the skill fans out, confirm an **agent exists that can do the work**. `study` once instructed
   a web-search fan-out when every agent was filesystem-only.
-- Invoke scripts through the cache-path + `run.sh` pattern the other skills use, never a bare path.
-- Bump the version in **all three** manifests, write the changelog entry, and let
-  `check-api-surface.ts` decide major/minor from the actual surface diff.
+- A checker is a module in `rust/crates/viby/src/checks/` with a row in `COMMANDS` (`lib.rs`).
+  Skills run it as `sh "$VIBY" <command>` after the one-line locator the other skills use, never a
+  bare path.
+- Bump the version in `plugin.json`, `.claude-plugin/marketplace.json` and `rust/Cargo.toml`, write the changelog entry, and let
+  `viby check-api-surface` decide major/minor from the actual surface diff.
 
 ## 7. Then the honest part
 
-Run `npm run check` (all gates), and write down **what is still unverified**. Every release here
+Run `cargo xtask check` in `plugins/viby-toolkit/rust` (all gates), and write down **what is still unverified**. Every release here
 claims "code and contracts verified", never "live routing proven", because the second has never
 been measured. Record durable lessons with `/viby-toolkit:learn`; a defect class you hit once
 belongs in the checker, and a preference the user stated belongs in memory.

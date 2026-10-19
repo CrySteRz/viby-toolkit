@@ -6,5 +6,6 @@ license.workspace = true
 publish = false
 
 [dependencies]
+viby = { path = "../crates/viby" }
 regex = "1"
 serde_json = { version = "1", features = ["preserve_order"] }

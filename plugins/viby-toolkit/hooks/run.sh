@@ -1,39 +1,25 @@
 #!/bin/sh
-# viby-toolkit TypeScript runner shim.
+# Compatibility shim from 2.x, when hooks and skills ran `.ts` files through this script.
 #
-# Hooks and skill scripts are shell commands, so a .ts entrypoint needs a runtime. This
-# picks the best one available and — critically — **exits 0 silently when none is found**,
-# so a machine without a TS runtime degrades to "no hook" rather than a wedged session.
-#
-# Order: node (ubiquitous; also runs the test suite) -> bun -> npx tsx -> give up.
-#
-# Node is probed for CAPABILITY, not version. Type stripping needs Node >= 22.6 built with
-# amaro, and distro builds ship a new-enough Node with amaro compiled out: it clears a
-# version check and then dies with ERR_NO_TYPESCRIPT. Because the next line is `exec`, that
-# death is terminal — bun and tsx are never reached. So the probe runs first and any node
-# that cannot strip types falls through to them.
+# Settings written for 2.x still call `run.sh <path>/statusline.ts` and friends, so an old path
+# is mapped to its `viby` subcommand and run through the launcher. Anything else passes through
+# unchanged: `run.sh check-plan docs/plans/x.md` is `viby check-plan docs/plans/x.md`.
 set -u
 
-script="${1:-}"
-[ -n "$script" ] || exit 0
+[ $# -gt 0 ] || exit 0
+command=$1
 shift
 
-if command -v node >/dev/null 2>&1 && node -e '
-  const [maj, min] = process.versions.node.split(".").map(Number);
-  const newEnough = maj > 22 || (maj === 22 && min >= 6);
-  const hasAmaro = process.config.variables.node_use_amaro !== false;
-  process.exit(newEnough && hasAmaro ? 0 : 1);
-' >/dev/null 2>&1; then
-    exec node --experimental-strip-types --disable-warning=ExperimentalWarning "$script" "$@"
-fi
+case "$command" in
+  *.ts)
+    name=$(basename -- "$command" .ts)
+    case "$name" in
+      post-tool-use-format) name=format-hook ;;
+      server) name=$(basename -- "$(dirname -- "$command")")-server ;; # browser/, agentgrep/
+      host) name=browser-host ;;
+    esac
+    command=$name
+    ;;
+esac
 
-if command -v bun >/dev/null 2>&1; then
-    exec bun "$script" "$@"
-fi
-
-if command -v npx >/dev/null 2>&1 && npx --no-install tsx --version >/dev/null 2>&1; then
-    exec npx --no-install tsx "$script" "$@"
-fi
-
-# No TS runtime: emit nothing and succeed, so the hook is a no-op.
-exit 0
+exec sh "$(dirname -- "$0")/../launcher/viby" "$command" "$@"

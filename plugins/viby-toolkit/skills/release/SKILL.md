@@ -36,16 +36,8 @@ silently and no tool will tell you. So this skill spends its effort there.
 ## 1. Run the mechanical pre-flight first
 
 ```bash
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-CHECK="$VIBY_HOME/skills/release/scripts/check-release.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-sh "$RUN" "$CHECK" .
+VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+sh "$VIBY" check-release .
 ```
 
 It reports only what is exactly decidable, so anything it flags is real: version drift
@@ -81,9 +73,7 @@ reading the whole change. It is faster and it is what the version number actuall
 Compute it rather than eyeballing it:
 
 ```bash
-SURFACE="$VIBY_HOME/skills/api/scripts/check-api-surface.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-sh "$RUN" "$SURFACE" --base "$(git describe --tags --abbrev=0)" src   # exit 1 = breaking
+sh "$VIBY" check-api-surface --base "$(git describe --tags --abbrev=0)" src   # exit 1 = breaking
 ```
 
 It reports added / removed / re-signatured exports for TS/JS, Python, Go and Rust, tells a

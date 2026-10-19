@@ -128,17 +128,9 @@ The build phase produces a diff, and a diff can be correct and still unlandable.
 artifact, not just the behaviour:
 
 ```bash
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-HYG="$VIBY_HOME/skills/orchestrate/scripts/check-diff-hygiene.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-sh "$RUN" "$HYG"                      # working tree + staged
-sh "$RUN" "$HYG" --base main          # the whole branch
+VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+sh "$VIBY" check-diff-hygiene                      # working tree + staged
+sh "$VIBY" check-diff-hygiene --base main          # the whole branch
 ```
 
 It flags a conflict marker or a credential being committed (P1), debug prints and formatting

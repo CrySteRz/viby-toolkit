@@ -392,7 +392,7 @@ pub fn main(args: &[String]) -> i32 {
     let (json_out, quiet) = (parsed.flag("json"), parsed.flag("quiet"));
     if parsed.positionals.is_empty() {
         if !quiet {
-            println!("usage: check-skill-safety.ts <skill-dir-or-file>...");
+            println!("usage: viby check-skill-safety <skill-dir-or-file>...");
         }
         return 2;
     }

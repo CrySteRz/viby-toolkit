@@ -76,7 +76,7 @@ over-trim and drop something load-bearing.
   reconcile. Use extra agents for *intelligence, not actions.*
 - **The trap is naive partitioning, not parallel writing as such.** Parallel writes do work when the
   cut is right: one agreed architecture, each task owning files exclusively, ordered into dependency
-  waves — and you take the hub files yourself, sequentially. `skills/plan/scripts/check-plan.ts`
+  waves — and you take the hub files yourself, sequentially. `viby check-plan`
   fails a plan whose parallel tasks share a file, so this is checkable rather than aspirational.
 - **Don't fan out for what you already know.** Known file, known symbol → read it inline.
 - **The biggest failure category is system design (44.2%), not the agents' reasoning** — with
@@ -132,7 +132,7 @@ Adding a skill is not free, but the cost is not where intuition puts it. Two dis
 
 Both point one way: **a description is a trigger, not a summary** — and when two skills look alike,
 add distinguishing words as *triggers*, never as summaries. Checked by
-`skills/principles/scripts/check-skills.ts` in the pre-push gate.
+`viby check-skills` in the pre-push gate.
 
 ## 9. Authored vs derived — know which of your artifacts is which
 

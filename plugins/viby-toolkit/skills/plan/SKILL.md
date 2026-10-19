@@ -62,16 +62,8 @@ Each task on one line, with what it **owns**, how it is **proved**, and what it 
 Then check it is actually dispatchable before anything is spawned:
 
 ```bash
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-CP="$VIBY_HOME/skills/plan/scripts/check-plan.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-sh "$RUN" "$CP" docs/plans/<this-plan>.md
+VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+sh "$VIBY" check-plan docs/plans/<this-plan>.md
 ```
 
 It fails on the things that turn a plan into a reconciliation problem: **two tasks with no

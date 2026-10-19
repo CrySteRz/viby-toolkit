@@ -1,4 +1,4 @@
-//! `viby <command> [args]`. The launcher in `plugins/viby-toolkit/bin/` starts this binary.
+//! `viby <command> [args]`. The launcher in `plugins/viby-toolkit/launcher/` starts this binary.
 
 use std::process::ExitCode;
 

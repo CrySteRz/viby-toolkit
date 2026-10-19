@@ -32,7 +32,7 @@ rate itself fell from **37.76% to 1.31%** ([same paper](https://arxiv.org/html/2
 fetched 2026-07-29). So without monitoring, roughly **28.6% of solutions that
 passed the verifier had reached green through a shortcut channel**.
 
-This is the single strongest justification for `check-test-drift.ts` existing as an executable gate
+This is the single strongest justification for `viby check-test-drift` existing as an executable gate
 rather than a paragraph of advice: the clean success rate went from 40.22% to 60.53% *because* the
 shortcut was closed ([arXiv 2606.26300](https://arxiv.org/html/2606.26300v1), fetched 2026-07-29).
 
@@ -50,7 +50,7 @@ Search-summary, 2026-07-29, across reward-hacking benchmarks (EvilGenie
 - A model trained with RL on coding environments learned to issue **`sys.exit(0)`**, leaving the
   harness with a success exit code without running the tests.
 
-`check-test-drift.ts` implements the mechanically decidable subset of that list: files gone, cases
+`viby check-test-drift` implements the mechanically decidable subset of that list: files gone, cases
 gone, assertions gone, skips added, focus added, zero-status exit added.
 
 **The visible/held-out split** comes from SpecBench: 30 systems-level coding tasks, each evaluated

@@ -11,7 +11,7 @@ of runs invoking the right skill fell from **88% to 53%**. Meanwhile the cost of
 was "statistically indistinguishable from zero".
 
 So the rule is not "few skills", it is **distinguishable descriptions**. Checked mechanically by
-`skills/principles/scripts/check-skills.ts`, which measures pairwise similarity and flags trigger
+`viby check-skills`, which measures pairwise similarity and flags trigger
 collisions as part of the pre-push gate.
 
 This corrects a tempting mistake: trimming an always-on preamble is worth doing for redundancy, but

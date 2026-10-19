@@ -87,17 +87,9 @@ the same month. Official marketplaces are reviewed and signed; community ones ge
 Before installing anything — or when auditing what is already installed:
 
 ```bash
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-AUD="$VIBY_HOME/skills/secure/scripts/check-skill-safety.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-sh "$RUN" "$AUD" <path-to-the-skill-or-plugin>
-sh "$RUN" "$AUD" "$HOME"/.claude/plugins/cache/*        # what you already trust
+VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+sh "$VIBY" check-skill-safety <path-to-the-skill-or-plugin>
+sh "$VIBY" check-skill-safety "$HOME"/.claude/plugins/cache/*        # what you already trust
 ```
 
 It flags the patterns malicious and careless skills share: a credential path meeting a network call,

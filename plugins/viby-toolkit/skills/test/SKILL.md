@@ -137,27 +137,15 @@ Locate the scanner first. `CLAUDE_PLUGIN_ROOT` is only set for hooks, **not** fo
 bodies, so resolve the path from the plugin cache (or your checkout) instead:
 
 ```bash
-# Glob for the script itself, not for a version directory — an older cached version may
-# not contain it, and matching the file guarantees the one you pick does.
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-SCAN="$VIBY_HOME/skills/test/scripts/scan-test-quality.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-
-sh "$RUN" "$SCAN"            # test files changed vs HEAD
-sh "$RUN" "$SCAN" --all      # every test file in the repo
-sh "$RUN" "$SCAN" --json     # machine-readable
+# The most recently installed launcher; it fetches its version's viby binary on first use.
+VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+sh "$VIBY" scan-test-quality            # test files changed vs HEAD
+sh "$VIBY" scan-test-quality --all      # every test file in the repo
+sh "$VIBY" scan-test-quality --json     # machine-readable
 ```
 
-`run.sh` picks whatever TypeScript runtime the machine has (node ≥22.6, else bun, else
-`tsx`) and no-ops silently if there is none, so this is safe to invoke anywhere. If `$SCAN` or
-`$RUN` comes out empty — the plugin cache has not been updated yet — say so and fall back to
-reviewing the tests by hand. Never report a clean audit you did not actually run.
+If `$VIBY` comes out empty, or the launcher says it could not get `viby`, say so and fall back
+to reviewing the tests by hand. Never report a clean audit you did not actually run.
 
 Flags no-assertion tests, tautologies, over-mocking, `.only`/`.skip` left in, sleep-based
 waits, and swallowed errors — with `file:line`. Exit 1 on findings, so it can gate.

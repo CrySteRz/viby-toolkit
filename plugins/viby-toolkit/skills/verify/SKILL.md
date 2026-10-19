@@ -25,16 +25,8 @@ misleading failure. **Run the detector first** — it works for any language and
 each answer came from:
 
 ```bash
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-DETECT="$VIBY_HOME/skills/verify/scripts/detect-stack.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-sh "$RUN" "$DETECT" .
+VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+sh "$VIBY" detect-stack .
 ```
 
 It ranks **[ci] above [task-runner] above [convention]**, and prints `unknown` rather than

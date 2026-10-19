@@ -46,7 +46,7 @@ files it exclusively owns, and order the items into dependency waves.**
 
 With all three, fan-out needs no coordination; with any one missing, you pay reconciliation.
 
-This is checkable rather than aspirational: `skills/plan/scripts/check-plan.ts` reads a task list and
+This is checkable rather than aspirational: `viby check-plan` reads a task list and
 fails if two tasks with no dependency between them own the same file, if the dependency graph has a
 cycle, or if a task does not say what it owns and how it is verified.
 

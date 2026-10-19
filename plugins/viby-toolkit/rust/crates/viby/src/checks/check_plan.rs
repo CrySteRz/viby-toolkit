@@ -297,7 +297,7 @@ pub fn main(args: &[String]) -> i32 {
         .collect();
     if files.is_empty() {
         if !quiet {
-            println!("usage: check-plan.ts <plan.md>");
+            println!("usage: viby check-plan <plan.md>");
         }
         return 2;
     }

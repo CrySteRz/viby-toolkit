@@ -22,16 +22,8 @@ that this repo does not actually use. Every claim needs a location. Follow
 ## 1. Get the ground truth mechanically, before reading anything
 
 ```bash
-VIBY_HOME=$(
-  for d in "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/ "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/; do
-    d=${d%/}
-    [ -f "$d/hooks/run.sh" ] && [ -d "$d/skills" ] && { echo "$d"; break; }
-  done
-)
-
-DETECT="$VIBY_HOME/skills/verify/scripts/detect-stack.ts"
-RUN="$VIBY_HOME/hooks/run.sh"
-sh "$RUN" "$DETECT" .          # languages, package manager, monorepo tool, real commands
+VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+sh "$VIBY" detect-stack .          # languages, package manager, monorepo tool, real commands
 ```
 
 That gives you the languages and their shares, the package manager, monorepo layout, test
@@ -52,8 +44,7 @@ Before reading a whole subsystem, price it — the answer decides whether you re
 a scout:
 
 ```bash
-METER="$VIBY_HOME/skills/evaluate/scripts/measure-read-cost.ts"
-sh "$RUN" "$METER" src/some-subsystem --budget 40000
+sh "$VIBY" measure-read-cost src/some-subsystem --budget 40000
 ```
 
 Over budget means fan out (§2) instead of reading — a decision that used to be made by feel,

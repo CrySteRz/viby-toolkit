@@ -432,6 +432,7 @@ fn references(root: &Path) -> Outcome {
     let agent_ref =
         Regex::new(r"`(scout|reviewer|skeptic|implementer|debugger|researcher|worker)`").unwrap();
     let script_ref = Regex::new(r"[\w/.-]*/[\w-]+\.ts\b").unwrap();
+    let viby_ref = Regex::new(r#"`viby ([a-z][a-z-]*)|"\$VIBY" ([a-z][a-z-]*)"#).unwrap();
 
     let mut problems: Vec<String> = Vec::new();
     for file in &files {
@@ -517,7 +518,7 @@ fn references(root: &Path) -> Outcome {
         }
 
         // 4. Referenced .ts scripts in skills/, hooks/ or tests/ must exist. A shell expansion
-        //    (`"$VIBY_HOME/skills/.../script.ts"`) is a runtime path, preceded by `$`.
+        //    (`"$DIR/skills/.../script.ts"`) is a runtime path, preceded by `$`.
         for m in script_ref.find_iter(&text) {
             let whole = m.as_str();
             if !["skills/", "hooks/", "tests/"]
@@ -541,6 +542,23 @@ fn references(root: &Path) -> Outcome {
                     m.start(),
                     format!("referenced script {whole} does not exist"),
                 );
+            }
+        }
+    }
+
+    // 4b. `viby <command>` in prose and `sh "$VIBY" <command>` in a skill's block must name a
+    //     subcommand the binary has.
+    for file in &files {
+        let text = read(file);
+        let rel = file.strip_prefix(root).unwrap_or(file).to_string_lossy();
+        for c in viby_ref.captures_iter(&text) {
+            let command = c.get(1).or(c.get(2)).unwrap();
+            if !viby::COMMANDS.iter().any(|(n, _)| *n == command.as_str()) {
+                problems.push(format!(
+                    "✗ {rel}:{}  viby has no subcommand {}",
+                    line_of(&text, command.start()),
+                    command.as_str()
+                ));
             }
         }
     }
@@ -572,6 +590,89 @@ fn references(root: &Path) -> Outcome {
     }
 }
 
+/// The `.ts` entry points of 2.x, which settings written then still pass to `hooks/run.sh`, and
+/// the subcommand each must reach.
+const OLD_ENTRY_POINTS: &[(&str, &str)] = &[
+    ("agentgrep/server.ts", "agentgrep-server"),
+    ("browser/host.ts", "browser-host"),
+    ("browser/server.ts", "browser-server"),
+    ("hooks/post-tool-use-format.ts", "format-hook"),
+    ("hooks/statusline.ts", "statusline"),
+    ("skills/adopt/scripts/check-test-drift.ts", "check-test-drift"),
+    ("skills/analytics/scripts/check-analytics-sql.ts", "check-analytics-sql"),
+    ("skills/api/scripts/check-api-surface.ts", "check-api-surface"),
+    ("skills/brain/scripts/check-memory.ts", "check-memory"),
+    ("skills/docs/scripts/check-docs.ts", "check-docs"),
+    ("skills/evaluate/scripts/measure-read-cost.ts", "measure-read-cost"),
+    ("skills/extend/scripts/check-hooks.ts", "check-hooks"),
+    ("skills/observe/scripts/check-logging.ts", "check-logging"),
+    ("skills/orchestrate/scripts/check-diff-hygiene.ts", "check-diff-hygiene"),
+    ("skills/plan/scripts/check-plan.ts", "check-plan"),
+    ("skills/principles/scripts/check-agents.ts", "check-agents"),
+    ("skills/principles/scripts/check-orchestration.ts", "check-orchestration"),
+    ("skills/principles/scripts/check-skills.ts", "check-skills"),
+    ("skills/release/scripts/check-release.ts", "check-release"),
+    ("skills/schema/scripts/check-migration.ts", "check-migration"),
+    ("skills/secure/scripts/check-skill-safety.ts", "check-skill-safety"),
+    ("skills/study/scripts/check-study.ts", "check-study"),
+    ("skills/test/scripts/scan-test-quality.ts", "scan-test-quality"),
+    ("skills/verify/scripts/detect-stack.ts", "detect-stack"),
+];
+
+/// `hooks/run.sh <old .ts path> args` must reach `viby <subcommand> args` through the launcher.
+/// A fake binary in a fake cache prints what it was given, so nothing is downloaded.
+fn run_sh(root: &Path) -> Outcome {
+    let name = "run.sh maps 2.x .ts paths to subcommands";
+    let plugin = root.join("plugins/viby-toolkit");
+    let version = serde_json::from_str::<serde_json::Value>(
+        &std::fs::read_to_string(plugin.join(".claude-plugin/plugin.json")).unwrap_or_default(),
+    )
+    .ok()
+    .and_then(|v| v["version"].as_str().map(String::from))
+    .unwrap_or_default();
+    let data = std::env::temp_dir().join(format!("viby-xtask-run-sh-{}", std::process::id()));
+    let bin = data.join("bin").join(&version);
+    let fake = bin.join(if cfg!(windows) { "viby.exe" } else { "viby" });
+    let made = std::fs::create_dir_all(&bin)
+        .and_then(|()| std::fs::write(&fake, "#!/bin/sh\necho \"$*\"\n"))
+        .and_then(|()| {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755))?;
+            }
+            Ok(())
+        });
+    if let Err(e) = made {
+        return Outcome::fail(name, format!("cannot make a fake cache in {}: {e}", data.display()));
+    }
+    let mut problems = Vec::new();
+    for (path, command) in OLD_ENTRY_POINTS {
+        if !viby::COMMANDS.iter().any(|(n, _)| n == command) {
+            problems.push(format!("{path} maps to {command}, which viby does not have"));
+            continue;
+        }
+        let (_, out) = run(
+            Command::new("sh")
+                .arg(plugin.join("hooks/run.sh"))
+                .arg(plugin.join(path))
+                .arg("--json")
+                .env("CLAUDE_PLUGIN_DATA", &data),
+            &[0],
+        );
+        let want = format!("{command} --json");
+        if out.trim() != want {
+            problems.push(format!("run.sh {path} --json ran `viby {}`, not `viby {want}`", out.trim()));
+        }
+    }
+    let _ = std::fs::remove_dir_all(&data);
+    if problems.is_empty() {
+        Outcome::pass(name, format!("{} paths", OLD_ENTRY_POINTS.len()))
+    } else {
+        Outcome::fail(name, problems.join("\n"))
+    }
+}
+
 fn session_start(root: &Path) -> Outcome {
     let name = "SessionStart emits valid JSON";
     let (ok, out) = run(
@@ -600,6 +701,7 @@ pub fn main(root: &Path) -> i32 {
     results.push(self_audit(root, workspace));
     results.push(version(root));
     results.push(references(root));
+    results.push(run_sh(root));
     results.push(session_start(root));
 
     for r in &results {

@@ -34,6 +34,13 @@
 # of gaps up to 60 min but 77% at 60-65 min, hence a single wake-up at ~55 min while a run is in
 # flight; sleep-polling and reading big outputs inline were the other two main-session leaks.
 
+# Windows starts the MCP servers without a shell, so `launcher/viby` there has to be a real
+# viby.exe already: put it beside the launcher before they start. Its output would corrupt the
+# JSON below. $OS is set by Windows itself, so other systems pay for no extra process.
+if [ "${OS:-}" = Windows_NT ]; then
+  sh "$(dirname -- "$0")/../launcher/viby" --install >/dev/null 2>&1 || true
+fi
+
 cat <<'EOF'
 {
   "hookSpecificOutput": {

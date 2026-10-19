@@ -47,7 +47,7 @@ A clean session with a better prompt beats a long session full of accumulated co
 - **Cost is payload × cadence.** A 15k-token payload re-sent after every step of a six-step flow is
   90k, and loses to a 40k one-shot read. Measure the *flow you will actually run*, not one call. This
   is what makes a tool that "returns less per call" the more expensive option, and it is invisible
-  until you count the repeats. `skills/evaluate/scripts/measure-read-cost.ts` prices a read set
+  until you count the repeats. `viby measure-read-cost` prices a read set
   (`--repeat` for cadence, `--budget` to gate it) so this stays a measurement rather than a feeling.
 
 Hold references (paths, queries); load content on demand with targeted reads/grep/`head`/`tail`.

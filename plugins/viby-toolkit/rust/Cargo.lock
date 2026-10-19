@@ -627,6 +627,7 @@ version = "2.27.0"
 dependencies = [
  "regex",
  "serde_json",
+ "viby",
 ]
 
 [[package]]
