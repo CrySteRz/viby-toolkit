@@ -635,11 +635,13 @@ A plugin install copies only `plugins/viby-toolkit`, so the Cargo workspace live
 the launcher's cargo fallback needs the source to be there.
 
 After editing, bump `version` in `plugin.json`, `marketplace.json` and `rust/Cargo.toml`
-(all three carry it; the gate fails when they disagree), commit, push. **Pushing a new version is
-the release:** `.github/workflows/release.yml` builds `viby` for the five targets, commits their
-SHA-256 sums to `launcher/checksums.txt`, tags that commit and publishes the binaries, then
-`launcher.yml` runs the launcher on a fresh machine of each OS. Machines with auto-update on pick
-the new version up on their next session; others with `/plugin update viby-toolkit`.
+(all three carry it; the gate fails when they disagree), commit, and push **to a branch, never to
+`main`**. Pushing a new version is the release: `.github/workflows/release.yml` builds `viby` for
+the five targets, commits their SHA-256 sums to `launcher/checksums.txt`, tags that commit and
+publishes the binaries, then `launcher.yml` runs the launcher on a fresh machine of each OS. A
+final version (no `-rc`) then fast-forwards `main` by itself, so `main` never names a version
+whose binaries are not out yet. Machines with auto-update on pick it up on their next session;
+others with `/plugin update viby-toolkit`.
 
 ### Verify before pushing
 

@@ -3,8 +3,9 @@ name: launcher
 # A machine that has never run viby, on each OS a release targets, runs the launcher the way
 # Claude Code does: .github/launcher-fresh.sh (hook, MCP spawn without a shell, download and
 # verify, a tampered asset, the cargo fallback, no cargo). release.yml calls this once a release
-# is published. A push that changes this file or the script runs it against plugin.json's
-# version, whose release must already exist.
+# is published. A push that changes this file or the script runs it against the published tag of
+# plugin.json's version, and is skipped when that version is not released yet: the pushed commit
+# may still carry the previous version's checksums.
 on:
   workflow_call:
     inputs:
@@ -19,7 +20,29 @@ permissions:
   contents: read
 
 jobs:
+  pick:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.ref.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - id: ref
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          if [ -n "$INPUT_REF" ]; then echo "ref=$INPUT_REF" >> "$GITHUB_OUTPUT"; exit 0; fi
+          version=$(jq -r .version plugins/viby-toolkit/.claude-plugin/plugin.json)
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "ref=v$version" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$version is not released yet; release.yml runs this after it publishes."
+          fi
+
   fresh:
+    needs: pick
+    if: needs.pick.outputs.ref != ''
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || github.sha }}
+          ref: ${{ needs.pick.outputs.ref }}
       # Claude Code's native build is Bun; both runtimes must start launcher/viby without a shell.
       - uses: oven-sh/setup-bun@v2
       - run: bash .github/launcher-fresh.sh

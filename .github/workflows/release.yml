@@ -5,9 +5,15 @@ name: release
 # that commit v<version> and publishes the assets under it. The launcher trusts checksums.txt in
 # the plugin, not anything in the release, so the sums must be in the tagged commit.
 #
-# It runs on a push (from any branch) rather than only on workflow_dispatch, because GitHub only
-# dispatches workflows that are already on the default branch. A version that is already tagged
-# is skipped, so a re-push or an unrelated edit to plugin.json releases nothing.
+# It runs on a push rather than only on workflow_dispatch, because GitHub only dispatches
+# workflows that are already on the default branch. A version that is already tagged is skipped,
+# so a re-push or an unrelated edit to plugin.json releases nothing.
+#
+# Bump on a branch, never on main. Machines update from main, and until the checksums commit
+# lands, a new version there carries the previous version's sums: every launcher refuses the
+# download (seen with 3.0.0, for about five minutes). So a bump pushed to main fails here, and
+# once a final version's binaries have passed launcher.yml, `land` fast-forwards main to the
+# tagged commit. Prereleases stay on their branch.
 on:
   push:
     paths: [plugins/viby-toolkit/.claude-plugin/plugin.json]
@@ -31,6 +37,10 @@ jobs:
       - id: v
         run: |
           version=$(jq -r .version plugins/viby-toolkit/.claude-plugin/plugin.json)
+          if [ "$GITHUB_REF_NAME" = main ] && ! git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "::error::v$version was pushed to main before its release. Bump the version on a branch; main gets it from the release."
+            exit 1
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
             echo "v$version is already tagged; nothing to release."
@@ -137,3 +147,16 @@ jobs:
     uses: ./.github/workflows/launcher.yml
     with:
       ref: v${{ needs.plan.outputs.version }}
+
+  # A final version reaches main only now: published, and run on a fresh machine of every OS.
+  land:
+    needs: [plan, launcher]
+    if: ${{ !contains(needs.plan.outputs.version, '-') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: v${{ needs.plan.outputs.version }}
+          fetch-depth: 0
+      # Fast-forward only: a main that moved on meanwhile is refused, and that is merged by hand.
+      - run: git push origin HEAD:refs/heads/main
