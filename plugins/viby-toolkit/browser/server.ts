@@ -10,6 +10,7 @@ import { homedir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 import { createConnection } from "node:net";
 import { join } from "node:path";
+import { setTimeout as pause } from "node:timers/promises";
 import {
   INPUT_SCHEMA,
   InputError,
@@ -17,18 +18,21 @@ import {
   TOOL_DESCRIPTION,
   bridgeRequest,
   explainError,
+  failedResult,
   formatResult,
   isAction,
   needsTab,
   type Action,
   type Json,
 } from "./actions.ts";
-import { BROWSER_APPS, chromiumExtensionState, defaultBrowser, detectBrowsers, install, installedApp, installedVersion, pluginVersion, safariInstalled } from "./install.ts";
+import { BROWSER_APPS, chromiumExtensionState, defaultBrowser, detectBrowsers, extensionVersion, install, installedApp, installedVersion, pluginVersion, safariInstalled } from "./install.ts";
 import { BROWSER_NAMES, LineDecoder, REQUEST_TIMEOUT_MS, browserHome, socketPath } from "./protocol.ts";
 
 type Reply = { ok: boolean; result?: any; error?: string };
 
-const session: { tabId?: number; browser?: string } = {};
+const session: { tabId?: number; browser?: string; forks: Map<string, number> } = { forks: new Map() };
+/** The extension keeps one fork list for every session; this prefix keeps each session to its own. */
+const FORK_PREFIX = `s${process.pid}-`;
 let requestCounter = 0;
 
 /** One request over a fresh socket connection; the host routes replies by id. */
@@ -76,6 +80,35 @@ async function chooseBrowser(requested: unknown): Promise<string> {
 function ensureInstalled(): void {
   if (installedVersion() !== pluginVersion()) install();
 }
+
+const synced = new Set<string>();
+const RELOAD_WAIT_MS = 10_000;
+
+/**
+ * A browser still running an older extension gets the new files and is told to reload itself,
+ * once per browser per session. The reload restarts the native host too, so this waits for the
+ * new one to answer. A browser that loads the extension from somewhere else keeps its version;
+ * the call then goes ahead with it.
+ */
+async function syncExtension(browser: string): Promise<void> {
+  if (synced.has(browser)) return;
+  synced.add(browser);
+  const running = (await callHost(socketPath(browser), "ping", {}, 3000)).result?.extensionVersion;
+  if (typeof running !== "string" || running === extensionVersion()) return;
+  install();
+  await callHost(socketPath(browser), "reload", {}, 3000);
+  for (const end = Date.now() + RELOAD_WAIT_MS; Date.now() < end; ) {
+    await pause(500);
+    if ((await callHost(socketPath(browser), "ping", {}, 1500)).result?.extensionVersion === extensionVersion()) return;
+  }
+}
+
+function noFork(name: unknown): string {
+  return `No fork named ${String(name)} in this session.${session.forks.size ? ` Forks: ${[...session.forks.keys()].join(", ")}.` : ""} Make one with action='fork'.`;
+}
+
+const SANDBOX_HINT =
+  "\nPrivate windows need Viby Browser allowed in them: on the browser's extensions page, open Details on Viby Browser and turn on Allow in Private (Brave) or Allow in Incognito (Chrome, Edge). Ask the person to do that, or drop sandbox.";
 
 /** AppleScript that opens `page` in a new front tab of a Chromium browser, launching it if needed. */
 export function chromiumTabScript(appPath: string, page: string): string {
@@ -302,20 +335,54 @@ export async function callTool(input: Json): Promise<{ content: Json[]; isError?
     if (browser !== session.browser) {
       session.browser = browser;
       delete session.tabId;
+      session.forks.clear();
     }
-    const tabId: number | undefined = Number.isInteger(input.tab_id) ? input.tab_id : session.tabId;
+    await syncExtension(browser);
+    const inFork = typeof input.fork === "string" && action !== "kill_fork";
+    const tabId: number | undefined = inFork ? session.forks.get(input.fork) : Number.isInteger(input.tab_id) ? input.tab_id : session.tabId;
+    if (inFork && tabId === undefined) throw new InputError(noFork(input.fork));
     if (needsTab(action) && tabId === undefined) {
       throw new InputError("No tab yet. Use action='open' with a url, or list_tabs then select_tab.");
     }
+    if (action === "kill_fork" && !session.forks.has(input.fork)) throw new InputError(noFork(input.fork));
+    const taken = action === "fork" && (input.forks as Json[] | undefined)?.find((f) => session.forks.has(f?.name));
+    if (taken) throw new InputError(`A fork named ${taken.name} already exists; kill_fork it first or pick another name.`);
+
     const [bridgeAction, params] = bridgeRequest(action as Action, input, tabId);
-    const reply = await callHost(socketPath(browser), bridgeAction, params);
-    if (!reply.ok) return fail(explainError(action, reply.error ?? "unknown error"));
-    if ((action === "open" || action === "new_tab" || action === "select_tab") && Number.isInteger(reply.result?.tabId)) {
-      session.tabId = reply.result.tabId;
+    if (action === "fork") params.paths = params.paths.map((p: Json) => ({ ...p, name: FORK_PREFIX + p.name }));
+    if (action === "kill_fork") params.fork = FORK_PREFIX + params.fork;
+    const sessionTab = tabId !== undefined && tabId === session.tabId && !inFork;
+    let reply = await callHost(socketPath(browser), bridgeAction, params);
+    let note = "";
+    if (!reply.ok && /no tab with id/i.test(reply.error ?? "") && tabId !== undefined) {
+      // The tab is gone: forget it, so the session does not keep failing on it.
+      if (sessionTab) delete session.tabId;
+      for (const [name, id] of session.forks) if (id === tabId) session.forks.delete(name);
+      if (action === "open" && sessionTab) {
+        note = "The session's tab had been closed, so this opened a new background tab.\n";
+        const [retryAction, retryParams] = bridgeRequest(action, input, undefined);
+        reply = await callHost(socketPath(browser), retryAction, retryParams);
+      }
+    }
+    if (!reply.ok) return fail(explainError(action, reply.error ?? "unknown error") + (input.sandbox === true ? SANDBOX_HINT : ""));
+
+    const result = reply.result;
+    if (["open", "new_tab", "new_window", "select_tab"].includes(action) && Number.isInteger(result?.tabId) && !inFork) {
+      session.tabId = result.tabId;
     } else if (action === "select_tab") {
       session.tabId = input.tab_id;
     }
-    return { content: formatResult(action, reply.result) };
+    if ((action === "fork" || action === "list_forks") && Array.isArray(result?.forks)) {
+      result.forks = result.forks
+        .filter((f: Json) => String(f.name).startsWith(FORK_PREFIX))
+        .map((f: Json) => ({ ...f, name: String(f.name).slice(FORK_PREFIX.length) }));
+      if (action === "list_forks") session.forks.clear();
+      for (const f of result.forks) if (f.alive !== false) session.forks.set(f.name, f.tabId);
+    }
+    if (action === "kill_fork") session.forks.delete(input.fork);
+    const content = formatResult(action, result, input);
+    if (note) content[0]!.text = note + content[0]!.text;
+    return failedResult(action, result) ? { content, isError: true } : { content };
   } catch (err) {
     return fail(err instanceof InputError ? err.message : `browser ${action} failed: ${(err as Error).message}`);
   }

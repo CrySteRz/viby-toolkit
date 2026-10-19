@@ -69,8 +69,11 @@ the first call opens your default browser on its extensions page with the folder
 (selected in Finder on macOS, on the clipboard elsewhere) and shows four steps in that browser's own
 words (Developer mode, Load unpacked, pick the folder, Select); with no supported browser it opens
 Brave's download page. Each
-Claude session works in its own background tab. Snapshot, click, type, forms and rich editors,
-uploads, screenshots, eval. Passwords are masked in what Claude reads and never typed by it.
+Claude session works in its own background tab (or its own window, or a private one). Snapshot,
+click, type, forms and rich editors, uploads and drag-and-drop, screenshots, eval, reload; `batch`,
+`try_until`, `fork` and `parallel` do several steps or pages in one call. Slow pages come back
+usable instead of failing, a closed tab is replaced, and the extension updates itself. Passwords
+are masked in what Claude reads and never typed by it.
 Reference: `skills/ui/references/browser.md`.
 
 ### Agents (dispatched by the skills; cheap models by design)

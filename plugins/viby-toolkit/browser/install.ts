@@ -255,6 +255,11 @@ export function nativeHostManifest(family: Family, hostPath: string): Json {
     : { ...base, allowed_extensions: [FIREFOX_EXTENSION_ID] };
 }
 
+/** The vendored extension's version: what a connected browser should report once it is up to date. */
+export function extensionVersion(): string {
+  return String(JSON.parse(readFileSync(join(EXTENSION_SOURCE, "manifest.json"), "utf8")).version);
+}
+
 export function pluginVersion(): string {
   const manifest = join(HERE, "..", ".claude-plugin", "plugin.json");
   try {

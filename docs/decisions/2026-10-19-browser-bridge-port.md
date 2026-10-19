@@ -27,3 +27,16 @@ classifier model ("Jev", paid key) picks the next action from a menu.
 - Both MIT notices are kept beside the vendored code.
 - No credential handling is ported (no autologin, no password typing); a sensitive page hands
   back to the person, as JCode's handoff does.
+
+## Follow-up decisions (2026-10-19, later the same day)
+
+- **Feature parity with upstream**, all four groups chosen by the owner: `new_window` (a window
+  per session), `sandbox` (private window), `reload`; `batch` and `try_until`; `fork`/`kill_fork`/
+  `list_forks` and `parallel`; `drop_file`, slow-page and closed-tab recovery, and the extension
+  reloading itself after an update. Still out: auto-login, vault and auth prompts (they fill
+  passwords); `--record` screen recording (not asked for).
+- **agentgrep**: wrap the real tool (`1jehuang/agentgrep`, MIT per its Cargo.toml, v0.1.7) as an
+  `agentgrep` MCP server in viby-toolkit, plus our own per-session "already seen" trimming, the
+  part jcode adds in its harness. Not a TypeScript port, not guidance-only.
+- The owner's "JCode Browser Bridge" means 1jehuang/jcode's Firefox Agent Bridge. cnjack/jcode's
+  Chrome Web Store "jcode Browser Bridge" is an unrelated project with the same name.

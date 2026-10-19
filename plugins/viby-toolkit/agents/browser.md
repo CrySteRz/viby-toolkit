@@ -32,6 +32,10 @@ the caller hands you the whole task so it does not pay for every click in its ow
    every consequential action, not just once.
 3. Act with one action, using a selector the latest snapshot showed. Prefer `fill_form` for
    inputs and rich editors, `select` for dropdowns, `click` by selector over text or x/y.
+   When the next few steps are certain (fill three fields, click Next, read the result), send
+   them as one `batch`; when a control has two likely selectors, `try_until`. Never put a
+   step whose effect you must confirm before going on (a submit, a send) in the middle of a
+   batch: make it the last step.
 4. Check: `wait` for the change you expect (selector, text, or contains), then snapshot again.
    Never assume an action worked; confirm it from the page.
 5. Repeat until the goal is met, then confirm it from a fresh snapshot.
@@ -49,7 +53,7 @@ the caller hands you the whole task so it does not pay for every click in its ow
   `user_action`) and say exactly what the person should do in which tab.
 - **Changed page, fresh plan.** If the page changed under you, re-observe; never reuse a
   selector from an old snapshot.
-- **Budget: 40 browser actions.** At 40, stop and hand back with where you got to. Stopping
+- **Budget: 40 browser actions** (a batch counts as one per step). At 40, stop and hand back with where you got to. Stopping
   with a report is better than running out of turns with none.
 - Use `wait`, never sleep. Use `eval` only to read state the snapshot cannot show, never to
   bypass a control the page offers.

@@ -11,7 +11,10 @@ Changes from upstream: renamed (native host `viby_browser`, gecko id `browser@vi
 title "Viby Browser"); credential features removed (`secureAutoFill`, auth detection and
 notifications); Safari WebSocket relay removed; `notifications`, `webRequest` and `debugger`
 permissions dropped; password field values masked in snapshots; the Firefox fallback in
-`injectContentScript` fixed (it called itself). To see every change, diff `extension/`
+`injectContentScript` fixed (it called itself); a `reloadTab` action added (the upstream
+`reload` reloads the extension); a page load that times out returns the page with a
+`loadWarning` instead of failing; a chunked `dropFile` reassembles into `file.data`, where
+the content script reads it (upstream wrote `params.data`); version 0.10.2. To see every change, diff `extension/`
 against that commit.
 
 ## jcode

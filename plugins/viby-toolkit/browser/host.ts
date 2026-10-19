@@ -25,10 +25,27 @@ import {
 /** Actions the extension may be asked to run. Anything else is refused here, not in the page. */
 const ALLOWED_ACTIONS = new Set([
   "ping", "reload", "listFrames", "listTabs", "switchTab", "newSession", "newWindow",
-  "setActiveTab", "getActiveTab", "navigate", "click", "type", "fillForm", "waitFor",
+  "setActiveTab", "getActiveTab", "navigate", "reloadTab", "click", "type", "fillForm", "waitFor",
   "tryUntil", "getContent", "getInteractables", "screenshot", "evaluate", "scroll",
-  "uploadFile",
+  "uploadFile", "dropFile", "batch", "fork", "killFork", "listForks", "parallel",
 ]);
+
+/**
+ * What batch, fork and parallel may run inside one tab. The extension dispatches their commands
+ * itself, past this allow-list, so they are checked here: no nesting, no tab management, and no
+ * file actions (the host reads those files, and only for a top-level request).
+ */
+const NESTED_ACTIONS = new Set([
+  "navigate", "reloadTab", "click", "type", "fillForm", "waitFor", "getContent", "getInteractables", "evaluate", "scroll",
+]);
+
+function nestedCommands(action: string, params: Json): unknown[] {
+  const list = (value: unknown) => (Array.isArray(value) ? value : []);
+  if (action === "batch") return list(params.commands);
+  if (action === "fork") return list(params.paths).flatMap((p) => list((p as Json)?.commands));
+  if (action === "parallel") return list(params.branches).flatMap((b) => list((b as Json)?.commands));
+  return [];
+}
 
 const MIME: Record<string, string> = {
   ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
@@ -56,20 +73,26 @@ function reply(socket: Socket, message: Json): void {
   if (!socket.destroyed) socket.write(`${JSON.stringify(message)}\n`);
 }
 
-/** Turns `uploadFile {path, selector}` into the extension's fillForm file field, chunked if large. */
-function uploadMessages(id: string, params: Json): unknown[] {
+/**
+ * Turns `uploadFile {path, selector}` into the extension's fillForm file field, and
+ * `dropFile {path, selector}` into its dropFile file, chunked if large.
+ */
+function fileMessages(id: string, action: string, params: Json): unknown[] {
   const path = params.path;
-  if (typeof path !== "string" || !path) throw new Error("uploadFile needs `path`");
+  if (typeof path !== "string" || !path) throw new Error(`${action} needs \`path\``);
   const data = readFileSync(path).toString("base64");
   const file: Json = {
     name: basename(path),
     type: MIME[extname(path).toLowerCase()] ?? "application/octet-stream",
   };
-  const selector = typeof params.selector === "string" ? params.selector : 'input[type="file"]';
   const rest = { ...params };
   delete rest.path;
-  delete rest.selector;
-  const request = (f: Json) => ({ id, action: "fillForm", params: { ...rest, fields: [{ selector, file: f }] } });
+  const request = (f: Json) => {
+    if (action === "dropFile") return { id, action, params: { ...rest, file: f } };
+    const selector = typeof params.selector === "string" ? params.selector : 'input[type="file"]';
+    delete rest.selector;
+    return { id, action: "fillForm", params: { ...rest, fields: [{ selector, file: f }] } };
+  };
   if (data.length <= CHUNK_SIZE) return [request({ ...file, data })];
 
   const transferId = `chunk_${id}`;
@@ -96,10 +119,14 @@ function handleClient(socket: Socket, message: Json): void {
     return reply(socket, { id: clientId, ok: false, error: `Action not allowed: ${action}` });
   }
   const params = (message.params && typeof message.params === "object" ? message.params : {}) as Json;
+  const refused = nestedCommands(action, params).find((c) => !NESTED_ACTIONS.has((c as Json | null)?.action as string));
+  if (refused !== undefined) {
+    return reply(socket, { id: clientId, ok: false, error: `Action not allowed inside ${action}: ${String((refused as Json | null)?.action ?? "malformed command")}` });
+  }
   const id = `h${process.pid}_${++counter}`;
   let frames: unknown[];
   try {
-    frames = action === "uploadFile" ? uploadMessages(id, params) : [{ id, action, params }];
+    frames = action === "uploadFile" || action === "dropFile" ? fileMessages(id, action, params) : [{ id, action, params }];
   } catch (err) {
     return reply(socket, { id: clientId, ok: false, error: (err as Error).message });
   }

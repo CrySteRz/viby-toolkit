@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Viby Browser",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "Lets viby-toolkit drive this browser for Claude Code, through native messaging.",
   "icons": {
     "16": "icons/icon-16.png",

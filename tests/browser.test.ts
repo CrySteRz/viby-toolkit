@@ -31,8 +31,8 @@ process.env.VIBY_BROWSER_DEFAULT = ""; // nor depend on its default browser
 
 const { CHROMIUM_EXTENSION_ID, CHROMIUM_PUBLIC_KEY, FIREFOX_EXTENSION_ID, NATIVE_HOST_NAME, NativeDecoder, LineDecoder, encodeNative, socketPath, CHUNK_SIZE } =
   await import("../plugins/viby-toolkit/browser/protocol.ts");
-const { bridgeRequest, explainError, formatResult, InputError } = await import("../plugins/viby-toolkit/browser/actions.ts");
-const { browserForHandler, buildExtension, chromiumExtensionState, chromiumManifest, detectBrowsers, hostLauncher, install, installedApp, nativeHostManifest, registryArgs, stableNodePath } = await import("../plugins/viby-toolkit/browser/install.ts");
+const { bridgeRequest, explainError, failedResult, formatResult, InputError } = await import("../plugins/viby-toolkit/browser/actions.ts");
+const { browserForHandler, buildExtension, chromiumExtensionState, chromiumManifest, detectBrowsers, extensionVersion, hostLauncher, install, installedApp, nativeHostManifest, registryArgs, stableNodePath } = await import("../plugins/viby-toolkit/browser/install.ts");
 const { callTool, chromiumTabScript } = await import("../plugins/viby-toolkit/browser/server.ts");
 
 const children: ChildProcess[] = [];
@@ -170,7 +170,7 @@ test("host: when a second host for the same browser exits, the first takes the s
 
 test("host: refuses credential actions and anything off the allow-list", async () => {
   const { host, c, stop } = await readyHost();
-  for (const action of ["secureAutoFill", "autoLogin", "getAuthContext", "dropFile"]) {
+  for (const action of ["secureAutoFill", "autoLogin", "getAuthContext", "scout", "listDownloads"]) {
     c.send({ id: action, action, params: {} });
     const reply = await c.reply();
     assert.equal(reply.ok, false);
@@ -228,6 +228,47 @@ test("host: a missing upload file is an error to the caller, not a crash", async
   await stop();
 });
 
+
+test("host: drops a file as the extension's dropFile file, chunked the same way as uploads", async () => {
+  const { host, c, stop } = await readyHost();
+  const small = path.join(HOME, "pic.png");
+  fs.writeFileSync(small, "png");
+  c.send({ id: 1, action: "dropFile", params: { path: small, selector: "#editor", tabId: 3 } });
+  const frame = await host.next();
+  assert.deepEqual(frame.params, { selector: "#editor", tabId: 3, file: { name: "pic.png", type: "image/png", data: Buffer.from("png").toString("base64") } });
+  const big = path.join(HOME, "big.pdf");
+  fs.writeFileSync(big, Buffer.alloc(1_200_000, 1));
+  c.send({ id: 2, action: "dropFile", params: { path: big } });
+  const start = await host.next();
+  for (let i = 0; i < start.totalChunks; i++) await host.next();
+  const request = await host.next();
+  assert.equal(request.action, "dropFile");
+  assert.deepEqual(request.params.file, { name: "big.pdf", type: "application/pdf", chunkedTransfer: start.transferId });
+  await stop();
+});
+
+test("host: batch, fork and parallel may only nest in-tab commands", async () => {
+  const { host, c, stop } = await readyHost();
+  const refused = [
+    ["batch", { commands: [{ action: "click" }, { action: "uploadFile", params: { path: "/etc/hosts" } }] }],
+    ["batch", { commands: [{ action: "batch", params: { commands: [] } }] }],
+    ["batch", { commands: [{ action: "reload" }] }],
+    ["batch", { commands: [null] }],
+    ["fork", { paths: [{ name: "a", commands: [{ action: "newSession" }] }] }],
+    ["parallel", { branches: [{ url: "https://a.test", commands: [{ action: "scout" }] }] }],
+  ] as const;
+  for (const [action, params] of refused) {
+    c.send({ id: action, action, params });
+    const reply = await c.reply();
+    assert.equal(reply.ok, false, JSON.stringify(params));
+    assert.match(reply.error, /not allowed inside/);
+  }
+  assert.equal(host.frames.length, 0, "nothing reached the extension");
+  c.send({ id: "ok", action: "batch", params: { commands: [{ action: "click", params: { tabId: 1 } }, { action: "getContent", params: { tabId: 1 } }] } });
+  assert.equal((await host.next()).action, "batch");
+  await stop();
+});
+
 // ── action mapping ─────────────────────────────────────────────────────────────────────
 
 test("actions: open with no tab opens a background tab instead of taking over the current one", () => {
@@ -274,6 +315,64 @@ test("actions: screenshots come back as an image block; errors name the next ste
   assert.equal(explainError("click", "Element not found: #x"), "Element not found: #x");
 });
 
+
+test("actions: windows, private windows and reload", () => {
+  assert.deepEqual(bridgeRequest("new_window", { url: "https://a.test" }, undefined), ["newWindow", { url: "https://a.test", focus: false, wait: true }]);
+  assert.deepEqual(bridgeRequest("open", { url: "https://a.test", sandbox: true }, 4), ["newSession", { url: "https://a.test", focus: false, wait: true, sandbox: true }], "a private page never reuses the session's tab");
+  assert.deepEqual(bridgeRequest("reload", { bypass_cache: true }, 4), ["reloadTab", { tabId: 4, wait: true, bypassCache: true }]);
+  assert.deepEqual(bridgeRequest("drop_file", { path: "/tmp/a.png", selector: "#ed" }, 4), ["dropFile", { tabId: 4, selector: "#ed", path: "/tmp/a.png" }]);
+});
+
+test("actions: batch steps map like top-level calls, in the session's tab", () => {
+  const [action, params] = bridgeRequest("batch", { steps: [{ action: "click", selector: "#a" }, { action: "wait", contains: "Done" }, { action: "open", url: "https://b.test", new_tab: true }] }, 7);
+  assert.equal(action, "batch");
+  assert.deepEqual(params, {
+    stopOnError: true,
+    commands: [
+      { action: "click", params: { tabId: 7, selector: "#a" } },
+      { action: "waitFor", params: { tabId: 7, contains: "Done" } },
+      { action: "navigate", params: { tabId: 7, url: "https://b.test", wait: true } },
+    ],
+  }, "an open step navigates this tab, never a new one");
+  for (const step of [{ action: "screenshot" }, { action: "upload", path: "/x" }, { action: "batch", steps: [] }, { action: "new_tab" }, { action: "list_tabs" }]) {
+    assert.throws(() => bridgeRequest("batch", { steps: [step] }, 7), /cannot run there/, step.action);
+  }
+  assert.throws(() => bridgeRequest("batch", { steps: [] }, 7), /non-empty steps/);
+  assert.throws(() => bridgeRequest("batch", { steps: [{ action: "click" }] }, 7), /click requires/, "each step is checked like a call");
+});
+
+test("actions: try_until, fork and parallel", () => {
+  assert.deepEqual(bridgeRequest("try_until", { alternatives: [{ action: "click", selector: "#a" }, { action: "wait", text: "Hi" }], timeout_ms: 3000 }, 2), [
+    "tryUntil",
+    { tabId: 2, alternatives: [{ action: "click", params: { selector: "#a" } }, { action: "waitFor", params: { text: "Hi" } }], timeout: 3000 },
+  ]);
+  assert.throws(() => bridgeRequest("try_until", { alternatives: [{ action: "eval", script: "1" }] }, 2), /can try click, type, wait/);
+  assert.deepEqual(bridgeRequest("fork", { forks: [{ name: "a" }, { name: "b", steps: [{ action: "click", text: "Next" }] }] }, 2), [
+    "fork",
+    { tabId: 2, paths: [{ name: "a", commands: [] }, { name: "b", commands: [{ action: "click", params: { text: "Next" } }] }] },
+  ], "a fork's steps get the fork's tab from the extension");
+  assert.throws(() => bridgeRequest("fork", { forks: [{ steps: [] }] }, 2), /needs a name/);
+  assert.deepEqual(bridgeRequest("parallel", { branches: [{ url: "https://a.test", steps: [{ action: "get_content", format: "title" }] }] }, undefined), [
+    "parallel",
+    { branches: [{ url: "https://a.test", commands: [{ action: "getContent", params: { format: "title" } }] }] },
+  ]);
+  assert.throws(() => bridgeRequest("parallel", { branches: [{ url: "https://a.test" }] }, undefined), /non-empty steps/, "a branch closes its tab, so it needs steps");
+  assert.deepEqual(bridgeRequest("kill_fork", { fork: "a" }, undefined), ["killFork", { fork: "a" }]);
+});
+
+test("actions: step results read like their own actions; a failed step or try is an error", () => {
+  const batch = { results: [{ index: 0, action: "getContent", ok: true, result: { title: "T", url: "u", content: "body" } }, { index: 1, action: "click", ok: false, error: "Element not found: #x" }], completed: 2, total: 3 };
+  const [block] = formatResult("batch", batch, { steps: [{ action: "get_content" }, { action: "click" }, { action: "snapshot" }] });
+  assert.match(block!.text, /step 1 get_content: T\nu\n\nbody/);
+  assert.match(block!.text, /step 2 click FAILED: Element not found: #x/);
+  assert.match(block!.text, /last 1 of 3 steps did not run/);
+  assert.equal(failedResult("batch", batch), true);
+  assert.equal(failedResult("try_until", { success: false, errors: [] }), true);
+  assert.equal(failedResult("try_until", { success: true }), false);
+  const [slow] = formatResult("open", { tabId: 1, windowId: 2, loadWarning: "Timed out waiting for page load", content: { title: "Dash", url: "u", content: "rows" } });
+  assert.match(slow!.text, /never reported loaded[\s\S]*rows/, "a slow page still comes back with its content");
+});
+
 // ── MCP server tool calls against a fake host ──────────────────────────────────────────
 
 function fakeHost(browser: string, answer: (action: string, params: any) => any): Promise<{ seen: any[]; close: () => void }> {
@@ -284,7 +383,8 @@ function fakeHost(browser: string, answer: (action: string, params: any) => any)
     const decoder = new LineDecoder();
     conn.on("data", (chunk) => {
       for (const m of decoder.push(chunk) as any[]) {
-        if (m.action !== "hostInfo") seen.push(m);
+        // hostInfo and ping are the server checking in, not work it was asked to do.
+        if (m.action !== "hostInfo" && m.action !== "ping") seen.push(m);
         const result = m.action === "hostInfo" ? { browser } : answer(m.action, m.params);
         conn.write(`${JSON.stringify(result instanceof Error ? { id: m.id, ok: false, error: result.message } : { id: m.id, ok: true, result })}\n`);
       }
@@ -307,6 +407,82 @@ test("server: refuses tab actions until the session has a tab, then keeps using 
   assert.match(opened.content[0]!.text, /tab 42[\s\S]*selector: #go/);
   await callTool({ action: "click", selector: "#go" });
   assert.deepEqual(host.seen.at(-1), { id: host.seen.at(-1).id, action: "click", params: { tabId: 42, selector: "#go" } });
+  host.close();
+});
+
+test("server: forks belong to this session: namespaced in the extension, targeted by name", async () => {
+  const forks = new Map<string, number>();
+  const host = await fakeHost("brave", (action, params) => {
+    if (action === "newSession" || action === "navigate") return { tabId: 5, windowId: 1, url: params.url };
+    if (action === "fork") {
+      return { forks: params.paths.map((p: any, i: number) => (forks.set(p.name, 60 + i), { name: p.name, tabId: 60 + i, url: "u", commandResults: [] })) };
+    }
+    if (action === "listForks") return { forks: [...[...forks].map(([name, tabId]) => ({ name, tabId, alive: true })), { name: "s1-theirs", tabId: 99, alive: true }] };
+    if (action === "killFork") return (forks.delete(params.fork), { killed: true });
+    return { clicked: true };
+  });
+  await callTool({ action: "open", url: "https://a.test" });
+  const made = await callTool({ action: "fork", forks: [{ name: "left" }, { name: "right" }] });
+  assert.match(made.content[0]!.text, /fork left: tab 60[\s\S]*fork right: tab 61/);
+  const sent = host.seen.at(-1);
+  assert.deepEqual(sent.params.paths.map((p: any) => p.name), [`s${process.pid}-left`, `s${process.pid}-right`]);
+  assert.match((await callTool({ action: "fork", forks: [{ name: "left" }] })).content[0]!.text, /already exists/);
+
+  await callTool({ action: "click", selector: "#go", fork: "right" });
+  assert.equal(host.seen.at(-1).params.tabId, 61);
+  await callTool({ action: "click", selector: "#go" });
+  assert.equal(host.seen.at(-1).params.tabId, 5, "the session's own tab is unchanged");
+
+  const listed = await callTool({ action: "list_forks" });
+  assert.match(listed.content[0]!.text, /^left: tab 60/m);
+  assert.doesNotMatch(listed.content[0]!.text, /theirs/, "another session's forks are not listed");
+  assert.match((await callTool({ action: "kill_fork", fork: "theirs" })).content[0]!.text, /No fork named theirs/);
+  await callTool({ action: "kill_fork", fork: "left" });
+  assert.equal(host.seen.at(-1).params.fork, `s${process.pid}-left`);
+  assert.match((await callTool({ action: "click", selector: "#a", fork: "left" })).content[0]!.text, /No fork named left/);
+  host.close();
+});
+
+test("server: a closed session tab is forgotten; open retries once in a new background tab", async () => {
+  let open = 0;
+  const host = await fakeHost("brave", (action, params) => {
+    if (action === "newSession") return { tabId: 10 + ++open, windowId: 1, url: params.url };
+    return new Error(`No tab with id: ${params.tabId}.`);
+  });
+  await callTool({ action: "open", url: "https://a.test" });
+  const reopened = await callTool({ action: "open", url: "https://b.test" });
+  assert.equal(reopened.isError, undefined);
+  assert.match(reopened.content[0]!.text, /had been closed[\s\S]*tab 12/);
+  assert.deepEqual(host.seen.slice(-2).map((m) => m.action), ["navigate", "newSession"]);
+  const clicked = await callTool({ action: "click", selector: "#go" });
+  assert.equal(clicked.isError, true, "a click is never repeated on its own");
+  assert.equal(host.seen.filter((m) => m.action === "click").length, 1);
+  assert.match((await callTool({ action: "snapshot" })).content[0]!.text, /No tab yet/, "the dead tab is not tried again");
+  host.close();
+});
+
+test("server: a failed private window says how to allow the extension there", async () => {
+  const host = await fakeHost("brave", () => new Error("Cannot read properties of undefined (reading '0')"));
+  const result = await callTool({ action: "new_window", url: "https://a.test", sandbox: true });
+  assert.equal(result.isError, true);
+  assert.match(result.content[0]!.text, /Allow in Private/);
+  host.close();
+});
+
+test("server: a browser running an older extension is updated and reloaded once", async () => {
+  fs.rmSync(path.join(HOME, "VERSION"), { force: true });
+  let version = "0.0.1";
+  const host = await fakeHost("chrome", (action) => {
+    if (action === "ping") return { extensionVersion: version };
+    if (action === "reload") return (setTimeout(() => (version = extensionVersion()), 300), { reloading: true });
+    return { tabs: [] };
+  });
+  const result = await callTool({ action: "list_tabs", browser: "chrome" });
+  assert.equal(result.isError, undefined);
+  assert.equal(fs.readFileSync(path.join(HOME, "VERSION"), "utf8").trim().length > 0, true, "the new files were installed first");
+  assert.deepEqual(host.seen.map((m) => m.action), ["reload", "listTabs"], "reload, wait for the new version, then the call");
+  await callTool({ action: "list_tabs", browser: "chrome" });
+  assert.equal(host.seen.filter((m) => m.action === "reload").length, 1, "once per session");
   host.close();
 });
 
@@ -533,6 +709,24 @@ test("extension: snapshots never carry a password field's value", () => {
   assert.equal(visibleValue({ type: "text", value: "hello" }), "hello");
   assert.equal(visibleValue({}), "");
   assert.ok(!/\bel\.value\b(?!\.length)/.test(content.replace(source, "").replace(/el\.value = /g, "")), "every other read of el.value goes through visibleValue");
+});
+
+test("extension: a chunked drop reassembles into the file the content script reads", () => {
+  const source = /function reassembleChunkedData\(message\) \{[\s\S]*?\n\}/.exec(background)![0];
+  const pendingChunks = new Map([["t1", { chunks: ["QU", "JD"] }]]);
+  const reassemble = new Function("pendingChunks", `${source}; return reassembleChunkedData;`)(pendingChunks) as (m: unknown) => void;
+  const message = { action: "dropFile", params: { selector: "#ed", file: { name: "a.png", type: "image/png", chunkedTransfer: "t1" } } };
+  reassemble(message);
+  assert.deepEqual(message.params.file, { name: "a.png", type: "image/png", data: "QUJD" });
+  assert.equal(pendingChunks.size, 0);
+});
+
+test("extension: a page that never finishes loading is a warning, not a failure", () => {
+  for (const fn of ["openSessionTarget", "navigateTo", "reloadTab"]) {
+    const body = new RegExp(`async function ${fn}\\(params[^)]*\\) \\{([\\s\\S]*?)\\n\\}`).exec(background)![1]!;
+    assert.match(body, /waitForLoadOrWarn\(/, fn);
+    assert.doesNotMatch(body, /await waitForTabComplete\(/, fn);
+  }
 });
 
 // ── Windows (pure parts; no Windows machine runs this suite yet) ───────────────────────

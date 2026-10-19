@@ -273,13 +273,14 @@ function reassembleChunkedData(message) {
         }
       }
     }
-  } else if (action === "dropFile" && message.params.chunkedTransfer) {
-    const transferId = message.params.chunkedTransfer;
-    const transfer = pendingChunks.get(transferId);
+  } else if (action === "dropFile" && message.params.file && message.params.file.chunkedTransfer) {
+    // The content script reads params.file.data, so the reassembled data goes there.
+    const file = message.params.file;
+    const transfer = pendingChunks.get(file.chunkedTransfer);
     if (transfer) {
-      message.params.data = transfer.chunks.join("");
-      delete message.params.chunkedTransfer;
-      pendingChunks.delete(transferId);
+      file.data = transfer.chunks.join("");
+      pendingChunks.delete(file.chunkedTransfer);
+      delete file.chunkedTransfer;
     }
   }
 }
@@ -403,6 +404,8 @@ async function dispatchAction(action, params, profile) {
     // Navigation
     case "navigate":
       return navigateTo(params);
+    case "reloadTab":
+      return reloadTab(params);
 
     // Interaction
     case "click":
@@ -831,9 +834,9 @@ async function openSessionTarget(params, options = {}) {
     tab = await browser.tabs.create(createProps);
   }
 
-  if (url !== "about:blank" && params?.wait !== false) {
-    await waitForTabComplete(tab.id, params?.timeoutMs || 15000);
-  }
+  const loadWarning = url !== "about:blank" && params?.wait !== false
+    ? await waitForLoadOrWarn(tab.id, params?.timeoutMs || 15000)
+    : undefined;
 
   if (!Number.isInteger(params?.windowId)) {
     cachedActiveTabId = tab.id;
@@ -845,7 +848,8 @@ async function openSessionTarget(params, options = {}) {
     windowId: tab.windowId,
     url: tab.url,
     title: tab.title,
-    sandbox
+    sandbox,
+    ...(loadWarning ? { loadWarning } : {})
   };
 
   // Return content by default (or if explicitly requested)
@@ -1033,6 +1037,43 @@ async function waitForTabComplete(tabId, timeoutMs = 15000) {
   });
 }
 
+/**
+ * A page that never reports complete (long-polling dashboards) is usually usable already, so a
+ * load timeout becomes a warning on the result and the caller still gets the page's content.
+ */
+async function waitForLoadOrWarn(tabId, timeoutMs) {
+  try {
+    await waitForTabComplete(tabId, timeoutMs);
+    return undefined;
+  } catch (err) {
+    if (err && err.message === "Timed out waiting for page load") return err.message;
+    throw err;
+  }
+}
+
+// Reload a tab (not the extension: that is the "reload" action) and return its content
+async function reloadTab(params) {
+  const tabId = await resolveTabId(params || {});
+  // Listen before reloading, so a fast reload's "complete" is not missed.
+  const loaded = params?.wait !== false ? waitForLoadOrWarn(tabId, params?.timeoutMs) : Promise.resolve(undefined);
+  try {
+    await browser.tabs.reload(tabId, { bypassCache: params?.bypassCache === true });
+  } catch (err) {
+    loaded.catch(() => {});
+    throw err;
+  }
+  const loadWarning = await loaded;
+  const tab = await browser.tabs.get(tabId);
+  const result = { tabId, windowId: tab.windowId, url: tab.url, ...(loadWarning ? { loadWarning } : {}) };
+  await new Promise(r => setTimeout(r, 100)); // content script
+  try {
+    result.content = await sendToContent("getContent", { format: "annotated", tabId }, false);
+  } catch (err) {
+    result.contentError = err.message;
+  }
+  return result;
+}
+
 async function navigateTo(params) {
   if (!params || !params.url) throw new Error("Missing url parameter");
   let tabId;
@@ -1042,12 +1083,11 @@ async function navigateTo(params) {
     if (Number.isInteger(params.windowId)) createProps.windowId = params.windowId;
     const tab = await browser.tabs.create(createProps);
     tabId = tab.id;
-    if (params.wait !== false) await waitForTabComplete(tabId, params.timeoutMs);
   } else {
     tabId = await resolveTabId(params);
     await browser.tabs.update(tabId, { url: params.url });
-    if (params.wait !== false) await waitForTabComplete(tabId, params.timeoutMs);
   }
+  const loadWarning = params.wait !== false ? await waitForLoadOrWarn(tabId, params.timeoutMs) : undefined;
 
   // Update cache to the tab we actually navigated
   const tab = await browser.tabs.get(tabId);
@@ -1056,7 +1096,7 @@ async function navigateTo(params) {
     cachedWindowId = tab.windowId;
   }
 
-  const result = { tabId, windowId: tab.windowId, url: params.url };
+  const result = { tabId, windowId: tab.windowId, url: params.url, ...(loadWarning ? { loadWarning } : {}) };
 
   // Small delay to ensure content script is ready
   await new Promise(r => setTimeout(r, 100));
