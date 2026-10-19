@@ -35,4 +35,4 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
       # Claude Code's native build is Bun; both runtimes must start launcher/viby without a shell.
       - uses: oven-sh/setup-bun@v2
-      - run: .github/launcher-fresh.sh
+      - run: bash .github/launcher-fresh.sh
