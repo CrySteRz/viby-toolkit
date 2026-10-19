@@ -161,8 +161,8 @@ fn file_detection() {
 #[test]
 fn self_scan_of_tests_is_clean_not_merely_non_crashing() {
     // This previously accepted exit 1 — which means "findings were found" — while being named
-    // "runs cleanly". It would have stayed green if a real defect appeared under tests/.
-    let tests = root().join("tests");
+    // "runs cleanly". It would have stayed green if a real defect appeared in this suite.
+    let tests = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
     let r = run_cli(&["--json", tests.to_str().expect("utf-8 path")], &root());
     assert_eq!(
         r.status,
@@ -290,6 +290,21 @@ fn ts_node_assert_deepstrictequal_counts_as_an_assertion() {
 #[test]
 fn ts_it_with_expect_is_clean() {
     assert_case("ts: it() with expect is clean", &[]);
+}
+
+// `#` opens a comment in Python, shell and Ruby, but `#[ignore]` is a Rust attribute: treating
+// it as a comment meant the `#[ignore]` pattern could never fire.
+#[test]
+fn rs_ignore_attribute_is_a_skipped_test() {
+    assert_case(
+        "rs: #[ignore] is a skipped test, not a comment",
+        &["focused-or-skipped"],
+    );
+}
+
+#[test]
+fn py_comment_naming_ignore_is_still_a_comment() {
+    assert_case("py: a # comment naming #[ignore] is still a comment", &[]);
 }
 
 #[test]

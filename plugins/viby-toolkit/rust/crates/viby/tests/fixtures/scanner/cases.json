@@ -289,6 +289,16 @@
       "name": "commented-out smell is ignored",
       "filename": "test_o.py",
       "source": "\ndef test_real():\n    # time.sleep(5)  -- removed, we poll now\n    # assertTrue(True)\n    wait_until(is_ready)\n    assert is_ready()\n"
+    },
+    {
+      "name": "rs: #[ignore] is a skipped test, not a comment",
+      "filename": "skipped_test.rs",
+      "source": "\n#[test]\n#[ignore]\nfn creates_a_user() {\n    let user = make_user(\"ana\");\n    assert_eq!(user.name, \"ana\");\n}\n"
+    },
+    {
+      "name": "py: a # comment naming #[ignore] is still a comment",
+      "filename": "test_c.py",
+      "source": "\ndef test_creates_user():\n    # Rust would write #[ignore] here\n    user = make_user(\"ana\")\n    assert user.name == \"ana\"\n"
     }
   ],
   "cross_file": [

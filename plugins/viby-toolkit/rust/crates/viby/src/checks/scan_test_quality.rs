@@ -587,7 +587,11 @@ re!(HANDLER_NOOP_PY, [r"^\s*(?:pass|\.\.\.)\s*(?:#.*)?$"]);
 re!(HANDLER_NOOP_JS, [r"^\s*\}\s*(?:\/\/.*)?$"]);
 
 // Lines that are comments or strings-only are poor evidence; skip the obvious ones.
-re!(COMMENT_ONLY, [r#"^\s*(#|\/\/|\*|\/\*|"""|'''|--)"#]);
+// `#[` and `#!` are Rust attributes (`#[ignore]`), not comments.
+re!(
+    COMMENT_ONLY,
+    [r#"^\s*(#(?:[^\[!]|$)|\/\/|\*|\/\*|"""|'''|--)"#]
+);
 
 // Callables defined in the file under scan, so delegated assertions can be recognised.
 re!(
