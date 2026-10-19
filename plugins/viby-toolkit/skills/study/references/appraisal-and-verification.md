@@ -51,7 +51,7 @@ figure as **a hypothesis to reproduce, never a result to cite**, and say which i
   mechanical audit instead, and a human bar:
 
 ```bash
-VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+VIBY=$(sh -c 'ls -t "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
 sh "$VIBY" check-study docs/studies/my-study.md
 ```
 

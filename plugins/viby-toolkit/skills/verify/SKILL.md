@@ -25,7 +25,7 @@ misleading failure. **Run the detector first** — it works for any language and
 each answer came from:
 
 ```bash
-VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+VIBY=$(sh -c 'ls -t "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
 sh "$VIBY" detect-stack .
 ```
 

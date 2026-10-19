@@ -47,7 +47,7 @@ Also record the **baseline**: what it costs to do this the way you do it today. 
 don't estimate by feel:
 
 ```bash
-VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+VIBY=$(sh -c 'ls -t "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
 sh "$VIBY" measure-read-cost src/ --top 10                  # what grep-and-read actually costs
 sh "$VIBY" measure-read-cost src/ --repeat 6 --budget 60000 # a tool that re-sends state every step
 ```

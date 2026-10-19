@@ -138,7 +138,7 @@ bodies, so resolve the path from the plugin cache (or your checkout) instead:
 
 ```bash
 # The most recently installed launcher; it fetches its version's viby binary on first use.
-VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+VIBY=$(sh -c 'ls -t "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
 sh "$VIBY" scan-test-quality            # test files changed vs HEAD
 sh "$VIBY" scan-test-quality --all      # every test file in the repo
 sh "$VIBY" scan-test-quality --json     # machine-readable

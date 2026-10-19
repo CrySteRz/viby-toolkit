@@ -92,7 +92,7 @@ Assume you will be wrong about something. Make being wrong cheap:
   implementation, is what tells you whether this is breaking — and it is mechanical, so run it:
 
   ```bash
-  VIBY=$(sh -c 'ls -t "$HOME"/.claude/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
+  VIBY=$(sh -c 'ls -t "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/viby-toolkit/*/launcher/viby "$HOME"/Projects/*/*/viby-toolkit/plugins/viby-toolkit/launcher/viby 2>/dev/null | head -n 1')
   sh "$VIBY" check-api-surface --base main src        # added / removed / re-signatured exports
   ```
 

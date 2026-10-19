@@ -459,7 +459,7 @@ The context discipline is measurable, not just asserted:
   runs `hooks/run.sh … statusline.ts` keeps working through 3.x:
   ```json
   { "statusLine": { "type": "command",
-      "command": "sh \"$(ls -t \"$HOME\"/.claude/plugins/cache/viby-toolkit/viby-toolkit/*/launcher/viby | head -n 1)\" statusline" } }
+      "command": "sh \"$(ls -t \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/plugins/cache/viby-toolkit/viby-toolkit/*/launcher/viby | head -n 1)\" statusline" } }
   ```
 - **OpenTelemetry** — set `CLAUDE_CODE_ENABLE_TELEMETRY=1` and export
   `claude_code.token.usage`; group by `query_source` (`main` vs `subagent`) and `agent.name`
