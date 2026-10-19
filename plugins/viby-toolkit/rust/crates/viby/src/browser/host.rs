@@ -258,7 +258,7 @@ fn handle_client(client: &Client, message: &Value) {
         return reply(
             client,
             &client_id,
-            json!({ "ok": true, "result": { "browser": browser, "pid": std::process::id() } }),
+            json!({ "ok": true, "result": { "browser": browser, "pid": std::process::id(), "version": env!("CARGO_PKG_VERSION") } }),
         );
     }
     let Some(action) = action.and_then(Value::as_str) else {

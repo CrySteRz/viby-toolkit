@@ -55,6 +55,11 @@ impl Reply {
     fn extension_version(&self) -> Option<&str> {
         self.result.as_ref()?.get("extensionVersion")?.as_str()
     }
+
+    /// The viby version of the host that answered `hostInfo`; hosts before 3.0.0-rc.2 say none.
+    fn host_version(&self) -> Option<&str> {
+        self.result.as_ref()?.get("version")?.as_str()
+    }
 }
 
 static REQUEST_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -231,6 +236,8 @@ impl Session {
 
 const SANDBOX_HINT: &str = "\nPrivate windows need Viby Browser allowed in them: on the browser's extensions page, open Details on Viby Browser and turn on Allow in Private (Brave) or Allow in Incognito (Chrome, Edge). Ask the person to do that, or drop sandbox.";
 const RELOAD_WAIT_MS: u64 = 10_000;
+/// This binary's version, which its native host reports too.
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HELP_EVERY_MS: u64 = 60_000;
 const SETUP_WAIT_MS: u64 = 120_000;
 const MAC: bool = cfg!(target_os = "macos");
@@ -611,10 +618,12 @@ impl BrowserServer {
         }
     }
 
-    /// A browser still running an older extension gets the new files and is told to reload itself,
-    /// once per browser per session. The reload restarts the native host too, so this waits for the
-    /// new one to answer. A browser that loads the extension from somewhere else keeps its version;
-    /// the call then goes ahead with it.
+    /// A browser still running an older extension or an older native host gets the new files and is
+    /// told to reload itself, once per browser per session. The reload restarts the native host
+    /// too, from the binary just installed, so this waits for the new one to answer. The host has to
+    /// be checked on its own: a plugin update that leaves the extension's version alone would
+    /// otherwise keep the old host running until the browser quits. A browser that loads the
+    /// extension from somewhere else keeps its version; the call then goes ahead with it.
     fn sync_extension(&self, browser: &str) -> Result<(), String> {
         if !lock(&self.synced).insert(browser.to_string()) {
             return Ok(());
@@ -622,9 +631,11 @@ impl BrowserServer {
         let socket = socket_path(browser);
         let wanted = extension_version();
         let ping = call_host(&socket, "ping", json!({}), ms(3000));
-        match ping.extension_version() {
-            Some(running) if running != wanted => {}
-            _ => return Ok(()),
+        let info = call_host(&socket, "hostInfo", json!({}), ms(1500));
+        let old_extension = ping.extension_version().is_some_and(|v| v != wanted);
+        let old_host = info.ok && info.host_version() != Some(VERSION);
+        if !old_extension && !old_host {
+            return Ok(());
         }
         self.install()?;
         call_host(&socket, "reload", json!({}), ms(3000));
@@ -633,6 +644,8 @@ impl BrowserServer {
             std::thread::sleep(ms(500));
             if call_host(&socket, "ping", json!({}), ms(1500)).extension_version()
                 == Some(wanted.as_str())
+                && call_host(&socket, "hostInfo", json!({}), ms(1500)).host_version()
+                    == Some(VERSION)
             {
                 return Ok(());
             }

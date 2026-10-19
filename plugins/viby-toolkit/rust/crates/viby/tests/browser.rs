@@ -875,6 +875,16 @@ fn fake_host(
     browser: &'static str,
     answer: impl Fn(&str, &Value) -> Result<Value, String> + Send + Sync + 'static,
 ) -> FakeHost {
+    let current = Some(env!("CARGO_PKG_VERSION").to_string());
+    fake_host_of_version(browser, Arc::new(Mutex::new(current)), answer)
+}
+
+/// A fake host whose `hostInfo` reports `version` (none, as hosts before 3.0.0-rc.2 do).
+fn fake_host_of_version(
+    browser: &'static str,
+    version: Arc<Mutex<Option<String>>>,
+    answer: impl Fn(&str, &Value) -> Result<Value, String> + Send + Sync + 'static,
+) -> FakeHost {
     let path = socket_path(browser);
     std::fs::create_dir_all(Path::new(&path).parent().expect("run dir")).expect("mkdir");
     let _ = std::fs::remove_file(&path);
@@ -891,7 +901,11 @@ fn fake_host(
                 continue;
             };
             let _ = conn.set_nonblocking(false);
-            let (seen, answer) = (Arc::clone(&seen_in), Arc::clone(&answer));
+            let (seen, answer, version) = (
+                Arc::clone(&seen_in),
+                Arc::clone(&answer),
+                Arc::clone(&version),
+            );
             std::thread::spawn(move || {
                 let mut decoder = LineDecoder::default();
                 let mut buf = vec![0u8; 64 * 1024];
@@ -908,7 +922,11 @@ fn fake_host(
                                 .push(m.clone());
                         }
                         let result = if action == "hostInfo" {
-                            Ok(json!({ "browser": browser }))
+                            let version = version.lock().unwrap_or_else(|e| e.into_inner());
+                            Ok(match version.as_deref() {
+                                Some(v) => json!({ "browser": browser, "version": v }),
+                                None => json!({ "browser": browser }),
+                            })
                         } else {
                             answer(&action, &m["params"])
                         };
@@ -1127,6 +1145,49 @@ fn server_a_browser_running_an_older_extension_is_updated_and_reloaded_once() {
         actions,
         [json!("reload"), json!("listTabs")],
         "reload, wait for the new version, then the call"
+    );
+    server.call_tool(&json!({ "action": "list_tabs", "browser": "chrome" }));
+    assert_eq!(
+        host.seen()
+            .iter()
+            .filter(|m| m["action"] == "reload")
+            .count(),
+        1,
+        "once per session"
+    );
+    host.close();
+}
+
+#[test]
+fn server_an_older_host_behind_a_current_extension_is_reloaded_once() {
+    // A plugin update that leaves the extension's version alone: the browser keeps the old host
+    // process running until the extension reloads, so the new binary would otherwise never start.
+    let _env = setup();
+    let server = server();
+    let host_version: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let reloaded = Arc::clone(&host_version);
+    let host = fake_host_of_version("chrome", Arc::clone(&host_version), move |action, _| {
+        Ok(match action {
+            "ping" => json!({ "extensionVersion": extension_version() }),
+            "reload" => {
+                let reloaded = Arc::clone(&reloaded);
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(300));
+                    *reloaded.lock().unwrap_or_else(|e| e.into_inner()) =
+                        Some(env!("CARGO_PKG_VERSION").to_string());
+                });
+                json!({ "reloading": true })
+            }
+            _ => json!({ "tabs": [] }),
+        })
+    });
+    let result = server.call_tool(&json!({ "action": "list_tabs", "browser": "chrome" }));
+    assert!(!result.is_error, "{}", text_of(&result));
+    let actions: Vec<Value> = host.seen().iter().map(|m| m["action"].clone()).collect();
+    assert_eq!(
+        actions,
+        [json!("reload"), json!("listTabs")],
+        "reload, wait for the new host, then the call"
     );
     server.call_tool(&json!({ "action": "list_tabs", "browser": "chrome" }));
     assert_eq!(

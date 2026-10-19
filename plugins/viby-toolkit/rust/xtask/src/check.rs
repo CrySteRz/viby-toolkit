@@ -18,7 +18,7 @@ const MIN_PASSING: &[(&str, usize)] = &[
     ("tests/agentgrep.rs", 8),
     ("tests/analytics_sql.rs", 25),
     ("tests/api_surface.rs", 20),
-    ("tests/browser.rs", 49),
+    ("tests/browser.rs", 50),
     ("tests/check_agents.rs", 26),
     ("tests/check_docs.rs", 14),
     ("tests/check_hooks.rs", 32),
@@ -207,6 +207,20 @@ fn clippy(workspace: &Path) -> Outcome {
                 "-D",
                 "warnings",
             ])
+            .current_dir(workspace),
+        &[0],
+    ) {
+        (true, _) => Outcome::pass(name, ""),
+        (false, out) => Outcome::fail(name, out),
+    }
+}
+
+/// Unformatted code passed the gate once (after the move into the plugin), so formatting is checked.
+fn fmt(workspace: &Path) -> Outcome {
+    let name = "cargo fmt --check";
+    match run(
+        cargo()
+            .args(["fmt", "--all", "--check"])
             .current_dir(workspace),
         &[0],
     ) {
@@ -733,6 +747,7 @@ pub fn main(root: &Path) -> i32 {
     let mut results = vec![manifests(root)];
     results.extend(tests(workspace));
     results.push(clippy(workspace));
+    results.push(fmt(workspace));
     results.push(self_audit(root, workspace));
     results.push(version(root));
     results.push(references(root));
