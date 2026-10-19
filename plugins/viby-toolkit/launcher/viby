@@ -2,9 +2,10 @@
 # Runs this plugin version's `viby` binary, getting it first if this machine does not have it.
 #
 #   1. $CLAUDE_PLUGIN_DATA/bin/<version>/viby (else ~/.viby/bin/<version>/viby): run it.
-#   2. Download viby-<target>.tar.gz from the GitHub release v<version>, check its SHA-256
-#      against launcher/checksums.txt (shipped in the plugin, not in the release, so a swapped
-#      asset is refused), unpack it beside the cache entry and rename it into place.
+#   2. Take viby-<target>.tar.gz from launcher/dist/ (the offline bundle) or download it from the
+#      GitHub release v<version>. Check its SHA-256 against launcher/checksums.txt (shipped in the
+#      plugin, not in the release, so a swapped asset is refused), unpack it beside the cache entry
+#      and rename it into place.
 #   3. No asset, no network or a bad checksum: build it with cargo from the plugin's rust/.
 #   4. No cargo: say in one line what to run, so Claude can do it.
 #
@@ -89,9 +90,14 @@ download() {
   asset="viby-$t.tar.gz"
   want=$(sed -n "s/^\([0-9a-f]\{64\}\)[[:space:]]\{1,\}$asset\$/\1/p" "$here/checksums.txt" 2>/dev/null | head -n 1)
   [ -n "$want" ] || return 1 # no published build for this version and target
-  command -v curl >/dev/null 2>&1 || return 1
-  url="${VIBY_RELEASE_URL:-https://github.com/CrySteRz/viby-toolkit/releases/download}/v$version/$asset"
-  curl -fsSL --retry 2 --connect-timeout 10 -o "$work/$asset" "$url" 2>/dev/null || return 1
+  if [ -f "$here/dist/$asset" ]; then
+    # The offline bundle ships every asset in launcher/dist/; it passes the same check below.
+    cp "$here/dist/$asset" "$work/$asset" || return 1
+  else
+    command -v curl >/dev/null 2>&1 || return 1
+    url="${VIBY_RELEASE_URL:-https://github.com/CrySteRz/viby-toolkit/releases/download}/v$version/$asset"
+    curl -fsSL --retry 2 --connect-timeout 10 -o "$work/$asset" "$url" 2>/dev/null || return 1
+  fi
   got=$(sha256 "$work/$asset")
   if [ "$got" != "$want" ]; then
     say "refused $asset: its SHA-256 is $got, the plugin expects $want"

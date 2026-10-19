@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.0.1
+
+**Offline machines get the binary too.** Each release now also publishes
+`viby-toolkit-<version>-offline.tar.gz`: the source with every platform's `viby` in
+`launcher/dist/`. The launcher takes the build from there before trying to download, and checks it
+against `launcher/checksums.txt` exactly like a download. A tampered bundled file is refused.
+Before, `install.sh` on a machine with no network gave you the skills but no checkers, browser tool
+or code search.
+
+**Releases reach `main` only once their binaries are out.** A version bump pushed to `main` now
+fails the release. A final version fast-forwards `main` by itself after its binaries pass the
+fresh-machine checks on every OS. With 3.0.0, `main` named the new version for about five minutes
+while it still carried the old checksums.
+
 ## 3.0.0
 
 **Everything executable is now one Rust binary, `viby`; Node is no longer needed.** The 19

@@ -8,6 +8,7 @@
 #   3. a tampered asset is refused; the statusline still prints
 #   4. no download, cargo present: it builds from the plugin's rust/
 #   5. no download, no cargo: one line saying what to run; the statusline still prints
+#   6. the offline bundle: assets in launcher/dist/, no download, no cargo
 set -u
 
 plugin=$PWD/plugins/viby-toolkit
@@ -122,6 +123,22 @@ if [ "$code" = 1 ] && printf '%s' "$out" | grep -q 'sh.rustup.rs'; then pass "on
 line=$(echo '{}' | PATH=$no_cargo_path sh "$launcher" statusline 2>/dev/null)
 code=$?
 if [ "$code" = 0 ] && [ "$line" = viby-toolkit ]; then pass "statusline prints viby-toolkit, exit 0"; else fail "statusline: exit $code: $line"; fi
+
+echo "== 6. Offline bundle: the assets in launcher/dist/, no download, no cargo"
+mkdir -p "$plugin/launcher/dist"
+for asset in $(sed -n 's/^[0-9a-f]\{64\}[[:space:]]\{1,\}//p' "$plugin/launcher/checksums.txt"); do
+  curl -fsSL --retry 2 -o "$plugin/launcher/dist/$asset" \
+    "https://github.com/CrySteRz/viby-toolkit/releases/download/v$version/$asset"
+done
+export CLAUDE_PLUGIN_DATA=$tmp/offline VIBY_RELEASE_URL=http://127.0.0.1:9
+out=$(PATH=$no_cargo_path sh "$launcher" detect-stack . 2>&1)
+code=$?
+if [ "$code" = 0 ] && printf '%s' "$out" | grep -q languages && ! printf '%s' "$out" | grep -q building; then
+  pass "installed from launcher/dist and ran"
+else
+  fail "offline bundle: exit $code: $out"
+fi
+rm -rf "$plugin/launcher/dist"
 
 echo
 if [ "$failed" = 0 ]; then echo "all passed"; else echo "$failed failed"; fi

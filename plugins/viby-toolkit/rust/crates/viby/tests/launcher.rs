@@ -166,6 +166,53 @@ fn a_tampered_asset_is_refused_and_never_run() {
     assert!(!f.data.join("bin/9.9.9/viby").exists());
 }
 
+/// Moves the release asset into the plugin's launcher/dist/, as the offline bundle ships it, and
+/// takes the release away.
+fn bundle(f: &Fixture) {
+    let asset = format!("viby-{}.tar.gz", target());
+    fs::create_dir_all(f.root.join("launcher/dist")).unwrap();
+    fs::rename(
+        f.release.join(format!("v9.9.9/{asset}")),
+        f.root.join(format!("launcher/dist/{asset}")),
+    )
+    .unwrap();
+    fs::remove_dir_all(&f.release).unwrap();
+}
+
+#[test]
+fn a_bundled_asset_installs_with_no_network_and_no_cargo() {
+    let f = fixture("9.9.9");
+    bundle(&f);
+    let out = f.run(&["check-plan", "a.md"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    assert_eq!(stdout(&out), "downloaded check-plan a.md\n");
+    assert!(f.data.join("bin/9.9.9/viby").exists());
+}
+
+#[test]
+fn a_tampered_bundled_asset_is_refused_like_a_download() {
+    let f = fixture("9.9.9");
+    bundle(&f);
+    let asset = f
+        .root
+        .join(format!("launcher/dist/viby-{}.tar.gz", target()));
+    let stage = f._tmp.path().join("evil");
+    write_exe(&stage.join("viby"), "#!/bin/sh\necho evil\n");
+    assert!(Command::new("tar")
+        .arg("-czf")
+        .arg(&asset)
+        .arg("-C")
+        .arg(&stage)
+        .arg("viby")
+        .status()
+        .unwrap()
+        .success());
+    let out = f.run(&["check-plan"]);
+    assert!(!stdout(&out).contains("evil"));
+    assert!(stderr(&out).contains("refused"), "{}", stderr(&out));
+    assert!(!f.data.join("bin/9.9.9/viby").exists());
+}
+
 #[test]
 fn without_a_build_or_cargo_it_says_what_to_run_and_the_statusline_still_prints() {
     let f = fixture("9.9.9");

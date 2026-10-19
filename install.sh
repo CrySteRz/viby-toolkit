@@ -33,7 +33,8 @@ fi
 if sh "$ROOT/plugins/viby-toolkit/launcher/viby" --install; then
   echo "  ✓ viby binary ready"
 else
-  echo "⚠ Could not get the viby binary (no network, and no Rust to build it)."
+  echo "⚠ Could not get the viby binary: this folder has no launcher/dist/ (use the release's"
+  echo "  viby-toolkit-<version>-offline.tar.gz), there is no network, and no Rust to build it."
   echo "  Skills, agents and commands will work fine — they're plain markdown."
   echo "  The checkers, statusline and MCP servers will say what to install when first used."
 fi

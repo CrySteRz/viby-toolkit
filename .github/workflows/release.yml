@@ -134,12 +134,22 @@ jobs:
           git commit -m "release v$VERSION: checksums for the viby binaries"
           git tag "v$VERSION"
           git push origin "HEAD:$GITHUB_REF_NAME" "v$VERSION"
+      # For machines with no network: the tagged source with every binary in launcher/dist/, where
+      # the launcher looks before downloading. install.sh in it installs the plugin.
+      - name: Offline bundle
+        run: |
+          mkdir bundle
+          git archive --format=tar --prefix=viby-toolkit/ "v$VERSION" | tar -x -C bundle
+          mkdir -p bundle/viby-toolkit/plugins/viby-toolkit/launcher/dist
+          cp dist/*.tar.gz bundle/viby-toolkit/plugins/viby-toolkit/launcher/dist/
+          tar -czf "viby-toolkit-$VERSION-offline.tar.gz" -C bundle viby-toolkit
+          tar -tzf "viby-toolkit-$VERSION-offline.tar.gz" | grep launcher/
       - name: Publish the release
         run: |
           prerelease=()
           case "$VERSION" in *-*) prerelease=(--prerelease) ;; esac
-          gh release create "v$VERSION" dist/*.tar.gz "${prerelease[@]}" --verify-tag \
-            --title "v$VERSION" --notes "Binaries for the viby launcher. Each asset's SHA-256 is in plugins/viby-toolkit/launcher/checksums.txt at this tag."
+          gh release create "v$VERSION" dist/*.tar.gz "viby-toolkit-$VERSION-offline.tar.gz" "${prerelease[@]}" --verify-tag \
+            --title "v$VERSION" --notes "Binaries for the viby launcher. Each binary's SHA-256 is in plugins/viby-toolkit/launcher/checksums.txt at this tag. For a machine with no network, copy viby-toolkit-$VERSION-offline.tar.gz over, extract it and run bash viby-toolkit/install.sh."
 
   # The published binaries on a fresh machine of every OS, through the launcher.
   launcher:

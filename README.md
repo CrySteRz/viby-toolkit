@@ -39,11 +39,20 @@ session, after your first message and a random delay of up to ten minutes, and t
 loads in your next session. `claude -p` never triggers it. To update right away:
 `/plugin update viby-toolkit`.
 
-**No network** (an air-gapped machine): copy this folder over and run `bash install.sh` inside
-it. The skills, agents and hook work. The `viby` binary does not yet: downloading it and building
-it with cargo both need the network, so the checkers, the browser tool and code search are
-unavailable there. If the machine already has the GitHub install, the script refuses to replace
-it; `VIBY_INSTALL_FORCE_LOCAL=1 bash install.sh` overrides that.
+**No network** (an air-gapped machine): on a connected machine, download
+`viby-toolkit-<version>-offline.tar.gz` from the
+[latest release](https://github.com/CrySteRz/viby-toolkit/releases/latest). It is the source plus
+the binaries for every platform, about 11 MB. Copy it over, then:
+
+```sh
+tar -xzf viby-toolkit-*-offline.tar.gz
+bash viby-toolkit/install.sh
+```
+
+Keep the extracted folder, since the plugin is installed from it. To update, extract a newer
+bundle over it and run `install.sh` again. If the machine already has the GitHub install, the
+script refuses to replace it; `VIBY_INSTALL_FORCE_LOCAL=1 bash viby-toolkit/install.sh`
+overrides that.
 
 ## What you get
 
@@ -114,7 +123,8 @@ checkers, the two MCP servers, the statusline and the format hook.
 `plugins/viby-toolkit/launcher/viby` starts it, and on the first call of each plugin version it
 gets the binary:
 
-1. It downloads the build for this machine from the GitHub release and checks its SHA-256
+1. It takes the build for this machine from the offline bundle if there is one, otherwise
+   downloads it from the GitHub release, and checks its SHA-256
    against `plugins/viby-toolkit/launcher/checksums.txt`, which ships inside the plugin. A
    mismatch is refused.
 2. If there is no build or no network, it builds from the plugin's own source with cargo, once
