@@ -1,5 +1,76 @@
 # Changelog
 
+## 2.26.0
+
+**Browser control without Playwright: a port of JCode's bridge.** A new MCP tool, `browser`,
+drives the person's own Brave, Chrome, Edge or Firefox — their logins and tabs — through a browser
+extension and a native-messaging host. The extension is vendored from
+`1jehuang/firefox-agent-bridge` (MIT, v0.10.1). The Rust CLI and host are rewritten as
+zero-dependency Node (`browser/host.ts`, `server.ts`). The tool surface (`snapshot`, `click`,
+`type`, `fill_form`, `select`, `wait`, `screenshot`, `eval`, `scroll`, `upload`, `press`, tabs
+and frames) follows `1jehuang/jcode`'s `browser` tool. JCode's `handoff`, which hands a whole task
+to a paid hosted classifier, becomes the `browser` agent (Sonnet) with the same contract: page
+text is evidence, never authorization; navigation is not completion; passwords, 2FA and payment
+hand back. Provenance and every change from upstream: `browser/NOTICE.md`; the decision record:
+`docs/decisions/2026-10-19-browser-bridge-port.md`.
+
+**Safer than what it ports.** The host talks to MCP servers over a unix socket only this user can
+open (0600 in a 0700 folder; a per-user named pipe on Windows) instead of the bridge's WebSocket
+on port 8766, which had an origin check and no token. Removed: auto-login and credential filling
+(`secureAutoFill`, vault access), auth notifications, the Safari relay, and the `debugger`,
+`notifications` and `webRequest` permissions. The host refuses any action off an allow-list.
+Password field values are masked in every snapshot. Each Claude session works in its own
+background tab, and a call with no tab is refused rather than run on whatever the person is
+looking at. Also fixed: upstream's Firefox content-script injection called itself forever.
+
+**Guided first run.** Browsers do not allow any program to install an extension silently (no-admin
+routes all need a store listing; `--load-extension` still works in Brave but lasts one launch,
+measured), so the install is Developer mode plus Load unpacked, as in JCode, made as short as it
+gets. The first call that finds nothing connected installs what it needs, opens the browser on its
+extensions page (through its AppleScript on macOS, since `open -a Brave brave://extensions` drops
+internal addresses), puts the folder's path on the clipboard, and returns one numbered list for the
+person, worded for that browser (Edge keeps Developer mode in its side menu): switch on Developer
+mode, Load unpacked, pick the folder, Select. The person's default browser (LaunchServices, the
+Windows UserChoice key, `xdg-settings`) is the one guided when supported. On macOS the folder is
+shown selected in Finder to drag onto the picker: ⌘⇧G and paste did nothing in Brave's picker on
+macOS 26. Steps fit the state read from the
+browser profile (not loaded, switched off, loaded from another folder). With no usable browser it
+opens Brave's download page and lists the alternatives, naming Safari as unsupported. Claude shows
+the list and stops; the next call connects. Dragging the folder onto the page was tried first and
+dropped (a drop that misses the list just browses the folder as `file:///`), and so was a blocking
+`setup` right after the steps (Claude ran it before showing them). New command
+`/viby-toolkit:browser` walks through it and proves it on a page. opencode gets the same server
+through `tools/host-port.ts`.
+
+**Fixed in the vendored bridge, found by the live run.** Snapshots only annotated controls inside
+the viewport (upstream `isElementVisible` in `getContent annotated`), so anything below the fold
+came back as bare text with no selector, and empty inputs were dropped: they now cover every
+rendered control, and so do `interactables` and click-by-text (on-screen matches still win ties).
+Every click ran the page's handler twice (a synthetic click event, then `target.click()`), so a
+toggle opened and closed itself: one click now. Two hosts for one browser name (a second profile or instance) left the first
+unreachable once the second quit, because the newest host takes the socket and removes it on exit:
+a host now takes its socket back within two seconds when it disappears.
+
+**Verified, with its limits.** `tests/browser.test.ts`: 36 tests, no browser involved: the real host
+process with the test playing the extension, the MCP server against a fake host on a real socket,
+the built manifests and the extension id derived from the committed key, and the Windows paths,
+launcher and registry commands as pure functions. First use was simulated with real `claude -p`
+sessions on throwaway homes (Brave installed but never set up; Firefox only; Safari only; nothing):
+each relayed the right step or the install list, and Claude ran `setup` itself instead of offering
+it. Live on Brave 1.97 (macOS 26) against the bridge's challenge page: 39/39 steps covering every
+action (open and re-open, snapshot and interactables below the fold, text and selector clicks, a
+custom dropdown, native select, checkbox, form fill, type and Enter, rich editor, modal, file upload,
+waits for selector and text, page-world eval, frames, page and container scroll, password masking,
+a missing-element error, screenshot, new tab, tab list), and a real `claude -p` session that read
+the top Hacker News story through it in 9 s and two tool calls. Not yet verified: a live run on Windows (no
+Windows machine was available) and on Firefox (not installed on the build Mac).
+
+Considered and not adopted: publishing to the Chrome Web Store for a one-click install (needs a
+developer account and review; can come later without code changes beyond an update URL); driving
+Chrome's remote-debugging consent instead of an extension (a prompt and a banner every session,
+and no bridge to port); the bridge's `fork`/`parallel`/`scout`/`batch` macros (the agent covers
+multi-step work; the extension still has them).
+
 ## 2.25.0
 
 **How much code to write, finally stated.** Until now nothing in the toolkit said it: a scout grep of

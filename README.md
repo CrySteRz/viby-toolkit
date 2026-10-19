@@ -55,9 +55,23 @@ TypeScript with zero runtime dependencies and no build step — see
 | `/viby-toolkit:worktrees` | Isolates work (parallel implementers, risky experiments) — detect existing isolation first, prefer the native worktree tool, never fight the harness. |
 | `/viby-toolkit:principles` | The operating contract everything follows: accuracy rules, the fan-out law, model-routing + escalation ladder, context discipline, the evidence gate. Read-only reference. |
 
-### Command
+### Commands
 
 - `/viby-toolkit:ship <task>` — run the whole pipeline autonomously and don't stop until verified.
+- `/viby-toolkit:browser [page]` — connect the `browser` tool to your own browser, guided, then prove it on a page.
+
+### Browser control (MCP tool `browser`)
+
+Drives your real Brave, Chrome, Edge or Firefox — your logins, your tabs — on macOS, Linux and
+Windows, through a small extension and a native host. A port of JCode's bridge
+(`plugins/viby-toolkit/browser/NOTICE.md`); no Playwright, nothing headless. First use is guided:
+the first call opens your default browser on its extensions page with the folder to pick ready
+(selected in Finder on macOS, on the clipboard elsewhere) and shows four steps in that browser's own
+words (Developer mode, Load unpacked, pick the folder, Select); with no supported browser it opens
+Brave's download page. Each
+Claude session works in its own background tab. Snapshot, click, type, forms and rich editors,
+uploads, screenshots, eval. Passwords are masked in what Claude reads and never typed by it.
+Reference: `skills/ui/references/browser.md`.
 
 ### Agents (dispatched by the skills; cheap models by design)
 
@@ -65,7 +79,8 @@ TypeScript with zero runtime dependencies and no build step — see
 `implementer` (sonnet) · `reviewer` (sonnet, one per review dimension) · `skeptic` (sonnet,
 adversarial false-positive filter) · `debugger` (sonnet, evidence gathering) · `worker` (the
 general `Workflow` stage agent: the stage's own model and effort, minus six tools workflow agents
-never call, no turn cap). Each is colour-coded in the transcript so a parallel fan-out is readable
+never call, no turn cap) · `browser` (sonnet, owns one browser task in one tab and returns the trace —
+JCode's handoff). Each is colour-coded in the transcript so a parallel fan-out is readable
 at a glance.
 
 ### Hooks
