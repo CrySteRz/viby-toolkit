@@ -24,7 +24,14 @@ pub fn git_within(cwd: &Path, args: &[&str], limit: Duration) -> Output {
 }
 
 fn run(cwd: &Path, args: &[&str], limit: Option<Duration>) -> Output {
-    let Ok(mut child) = Command::new("git").args(args).current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() else {
+    let Ok(mut child) = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+    else {
         return Output::default();
     };
     // Read both pipes on their own threads, so a large output cannot fill a pipe and stall git.
@@ -55,7 +62,11 @@ fn run(cwd: &Path, args: &[&str], limit: Option<Duration>) -> Output {
     };
     let stdout = String::from_utf8_lossy(&out_reader.join().unwrap_or_default()).into_owned();
     let stderr = String::from_utf8_lossy(&err_reader.join().unwrap_or_default()).into_owned();
-    Output { ok: status.is_some_and(|s| s.success()), stdout, stderr }
+    Output {
+        ok: status.is_some_and(|s| s.success()),
+        stdout,
+        stderr,
+    }
 }
 
 #[cfg(test)]

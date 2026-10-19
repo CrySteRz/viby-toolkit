@@ -22,15 +22,27 @@ pub struct Opt {
 }
 
 pub const fn flag(name: &'static str) -> Opt {
-    Opt { name, kind: Kind::Flag, default: None }
+    Opt {
+        name,
+        kind: Kind::Flag,
+        default: None,
+    }
 }
 
 pub const fn value(name: &'static str, default: Option<&'static str>) -> Opt {
-    Opt { name, kind: Kind::Value, default }
+    Opt {
+        name,
+        kind: Kind::Value,
+        default,
+    }
 }
 
 pub const fn values(name: &'static str) -> Opt {
-    Opt { name, kind: Kind::Values, default: None }
+    Opt {
+        name,
+        kind: Kind::Values,
+        default: None,
+    }
 }
 
 #[derive(Debug, Default)]
@@ -47,7 +59,10 @@ impl Parsed {
 
     /// The last value given, else the default.
     pub fn value(&self, name: &str) -> Option<&str> {
-        self.values.get(name).and_then(|v| v.last()).map(String::as_str)
+        self.values
+            .get(name)
+            .and_then(|v| v.last())
+            .map(String::as_str)
     }
 
     pub fn values(&self, name: &str) -> &[String] {
@@ -82,7 +97,10 @@ pub fn parse(args: &[String], opts: &[Opt]) -> Result<Parsed, String> {
             Some((n, v)) => (n, Some(v.to_string())),
             None => (body, None),
         };
-        let opt = opts.iter().find(|o| o.name == name).ok_or_else(|| format!("Unknown option '--{name}'"))?;
+        let opt = opts
+            .iter()
+            .find(|o| o.name == name)
+            .ok_or_else(|| format!("Unknown option '--{name}'"))?;
         match opt.kind {
             Kind::Flag => {
                 if inline.is_some() {
@@ -94,7 +112,10 @@ pub fn parse(args: &[String], opts: &[Opt]) -> Result<Parsed, String> {
                 let v = match inline {
                     Some(v) => v,
                     None => {
-                        let next = args.get(i).filter(|n| !n.starts_with('-')).ok_or_else(|| format!("Option '--{name} <value>' argument missing"))?;
+                        let next = args
+                            .get(i)
+                            .filter(|n| !n.starts_with('-'))
+                            .ok_or_else(|| format!("Option '--{name} <value>' argument missing"))?;
                         i += 1;
                         next.clone()
                     }
@@ -141,7 +162,11 @@ mod tests {
 
     #[test]
     fn repeated_values_accumulate_and_dashdash_ends_options() {
-        let p = parse(&s(&["--against", "x", "--against", "y", "--", "--json"]), OPTS).unwrap();
+        let p = parse(
+            &s(&["--against", "x", "--against", "y", "--", "--json"]),
+            OPTS,
+        )
+        .unwrap();
         assert_eq!(p.values("against"), s(&["x", "y"]));
         assert!(!p.flag("json"));
         assert_eq!(p.positionals, s(&["--json"]));
@@ -149,10 +174,14 @@ mod tests {
 
     #[test]
     fn strict_errors() {
-        assert!(parse(&s(&["--nope"]), OPTS).unwrap_err().contains("Unknown option"));
+        assert!(parse(&s(&["--nope"]), OPTS)
+            .unwrap_err()
+            .contains("Unknown option"));
         assert!(parse(&s(&["-x"]), OPTS).is_err());
         assert!(parse(&s(&["--json=1"]), OPTS).is_err());
-        assert!(parse(&s(&["--base"]), OPTS).unwrap_err().contains("argument missing"));
+        assert!(parse(&s(&["--base"]), OPTS)
+            .unwrap_err()
+            .contains("argument missing"));
         assert_eq!(parse(&s(&["-"]), OPTS).unwrap().positionals, s(&["-"]));
     }
 }

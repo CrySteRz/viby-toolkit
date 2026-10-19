@@ -7,7 +7,14 @@ fn main() -> ExitCode {
     let command = args.next().unwrap_or_default();
     let rest: Vec<String> = args.collect();
     let Some((_, entry)) = viby::COMMANDS.iter().find(|(name, _)| *name == command) else {
-        eprintln!("usage: viby <command> [args]\ncommands: {}", viby::COMMANDS.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(", "));
+        eprintln!(
+            "usage: viby <command> [args]\ncommands: {}",
+            viby::COMMANDS
+                .iter()
+                .map(|(n, _)| *n)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
         return ExitCode::from(2);
     };
     ExitCode::from(entry(&rest).clamp(0, 255) as u8)
