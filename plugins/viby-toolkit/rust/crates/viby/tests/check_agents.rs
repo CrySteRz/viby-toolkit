@@ -18,7 +18,7 @@ use viby::checks::check_agents::{
 };
 
 fn real_agents_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../plugins/viby-toolkit/agents")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../agents")
 }
 
 fn real_agents_str() -> String {

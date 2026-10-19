@@ -16,7 +16,7 @@ tests/routing/runs*/
 # the routing harness is Python
 __pycache__/
 *.pyc
-/target
+/plugins/viby-toolkit/rust/target/
 
 # agent worktrees
 /.claude/worktrees/

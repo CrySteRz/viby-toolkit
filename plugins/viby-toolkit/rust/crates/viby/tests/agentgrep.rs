@@ -443,7 +443,7 @@ fn touch(path: &Path) {
 fn live_steps_over_a_copy_of_the_browser_plugin() {
     let dir = tempfile::tempdir().expect("temp dir");
     let repo = dir.path().join("repo");
-    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/viby-toolkit/browser");
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../browser");
     copy_dir(&source, &repo);
     let session = Session::new();
     let trace = trace_input(&repo);

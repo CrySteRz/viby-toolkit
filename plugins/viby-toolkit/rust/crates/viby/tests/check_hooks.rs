@@ -17,7 +17,7 @@ use viby::checks::check_hooks::{
 };
 
 fn repo_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../../..")
 }
 
 fn real_plugin_root() -> String {

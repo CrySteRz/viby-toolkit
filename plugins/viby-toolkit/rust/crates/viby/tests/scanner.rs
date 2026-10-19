@@ -21,7 +21,7 @@ use serde_json::Value;
 use viby::checks::scan_test_quality::is_test_file;
 
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../..")
 }
 
 fn fixtures() -> Value {

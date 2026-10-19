@@ -9,7 +9,7 @@ use std::process::{Command, Output, Stdio};
 
 const LAUNCHER: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../plugins/viby-toolkit/launcher/viby"
+    "/../../../launcher/viby"
 );
 
 struct Fixture {

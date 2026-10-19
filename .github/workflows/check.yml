@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Same version as rust-toolchain.toml, so CI cannot drift from local builds.
+      # Same version as plugins/viby-toolkit/rust/rust-toolchain.toml, so CI cannot drift from local builds.
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.98.1
@@ -29,3 +29,4 @@ jobs:
       # validated by the Claude Code CLI, which isn't installed here, so that one check
       # reports as skipped.
       - run: cargo xtask check
+        working-directory: plugins/viby-toolkit/rust

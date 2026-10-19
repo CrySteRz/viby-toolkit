@@ -333,17 +333,19 @@ fn difference(json: bool, ts: &Outcome, rs: &Outcome) -> Option<String> {
 pub fn main(root: &Path, filter: Option<&str>) -> i32 {
     let plugin = root.join("plugins/viby-toolkit");
     let ecosystem = root.parent().expect("the repo has a parent").to_path_buf();
-    let viby = root.join("target/debug/viby");
+    let workspace = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("xtask sits inside the workspace");
+    let viby = workspace.join("target/debug/viby");
     if !Command::new("cargo")
         .args(["build", "-q", "-p", "viby"])
-        .current_dir(root)
+        .current_dir(workspace)
         .status()
         .is_ok_and(|s| s.success())
     {
         eprintln!("parity: cargo build failed");
         return 1;
     }
-    let run_sh = plugin.join("hooks/run.sh");
     let (mut same, mut differ, mut skipped) = (0, 0, 0);
     for (cmd, script, folder, args) in CASES {
         if filter.is_some_and(|f| !cmd.contains(f)) {
@@ -360,8 +362,8 @@ pub fn main(root: &Path, filter: Option<&str>) -> i32 {
             skipped += 1;
             continue;
         }
-        let ts = run(Command::new("sh")
-            .arg(&run_sh)
+        let ts = run(Command::new("node")
+            .args(["--experimental-strip-types", "--disable-warning=ExperimentalWarning"])
             .arg(plugin.join(script))
             .args(*args)
             .current_dir(&dir));

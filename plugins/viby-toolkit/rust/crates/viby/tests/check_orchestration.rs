@@ -283,7 +283,7 @@ fn a_staged_name_with_no_matching_skill_directory_fails_loudly() {
 #[test]
 fn the_real_skill_library_passes_its_own_rules() {
     let real: PathBuf =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../plugins/viby-toolkit/skills");
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../skills");
     let found = check_orchestration(&real.to_string_lossy());
     assert!(
         found.is_empty(),

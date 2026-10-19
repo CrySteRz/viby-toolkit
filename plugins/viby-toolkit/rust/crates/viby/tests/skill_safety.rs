@@ -196,7 +196,7 @@ fn a_clean_ordinary_skill_produces_nothing() {
 fn this_repos_own_30_skills_audit_clean() {
     // Dogfooding: the first run flagged four of its own files. If this ever fails, the rules have
     // started matching documentation again.
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/viby-toolkit");
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let (findings, scanned) = audit_path(&dir.to_string_lossy());
     assert!(scanned > 40, "expected the real plugin, scanned {scanned}");
     let got: Vec<String> = findings

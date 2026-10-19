@@ -27,7 +27,7 @@ macro_rules! extension_file {
         (
             $name,
             include_bytes!(concat!(
-                "../../../../plugins/viby-toolkit/browser/extension/",
+                "../../../../../browser/extension/",
                 $name
             )) as &[u8],
         )
@@ -49,9 +49,9 @@ pub const EXTENSION_FILES: &[(&str, &[u8])] = &[
     extension_file!("icons/icon.svg"),
 ];
 const EXTENSION_MANIFEST: &str =
-    include_str!("../../../../plugins/viby-toolkit/browser/extension/manifest.json");
+    include_str!("../../../../../browser/extension/manifest.json");
 const PLUGIN_MANIFEST: &str =
-    include_str!("../../../../plugins/viby-toolkit/.claude-plugin/plugin.json");
+    include_str!("../../../../../.claude-plugin/plugin.json");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Family {

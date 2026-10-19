@@ -187,7 +187,7 @@ fn a_skill_marked_disable_model_invocation_is_reported_as_not_model_invocable() 
 fn the_real_viby_toolkit_library_is_clean() {
     // Dogfooding: this is the check that would have caught migrate/refactor drifting together.
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../plugins/viby-toolkit/skills")
+        .join("../../../skills")
         .to_string_lossy()
         .into_owned();
     let report = check_skills(&dir);

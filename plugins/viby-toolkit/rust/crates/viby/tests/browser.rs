@@ -36,7 +36,7 @@ use viby::mcp::ToolResult;
 const VIBY: &str = env!("CARGO_BIN_EXE_viby");
 
 fn extension_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/viby-toolkit/browser/extension")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../browser/extension")
 }
 
 // ── per-test environment ────────────────────────────────────────────────────────────────
