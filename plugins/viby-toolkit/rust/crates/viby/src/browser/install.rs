@@ -26,10 +26,7 @@ macro_rules! extension_file {
     ($name:literal) => {
         (
             $name,
-            include_bytes!(concat!(
-                "../../../../../browser/extension/",
-                $name
-            )) as &[u8],
+            include_bytes!(concat!("../../../../../browser/extension/", $name)) as &[u8],
         )
     };
 }
@@ -48,10 +45,8 @@ pub const EXTENSION_FILES: &[(&str, &[u8])] = &[
     extension_file!("icons/icon-96.png"),
     extension_file!("icons/icon.svg"),
 ];
-const EXTENSION_MANIFEST: &str =
-    include_str!("../../../../../browser/extension/manifest.json");
-const PLUGIN_MANIFEST: &str =
-    include_str!("../../../../../.claude-plugin/plugin.json");
+const EXTENSION_MANIFEST: &str = include_str!("../../../../../browser/extension/manifest.json");
+const PLUGIN_MANIFEST: &str = include_str!("../../../../../.claude-plugin/plugin.json");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Family {

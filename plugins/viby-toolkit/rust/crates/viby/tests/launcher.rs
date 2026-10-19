@@ -7,10 +7,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-const LAUNCHER: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../launcher/viby"
-);
+const LAUNCHER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../launcher/viby");
 
 struct Fixture {
     _tmp: tempfile::TempDir,

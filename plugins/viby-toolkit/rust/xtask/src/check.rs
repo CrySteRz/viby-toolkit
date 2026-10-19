@@ -598,24 +598,51 @@ const OLD_ENTRY_POINTS: &[(&str, &str)] = &[
     ("browser/server.ts", "browser-server"),
     ("hooks/post-tool-use-format.ts", "format-hook"),
     ("hooks/statusline.ts", "statusline"),
-    ("skills/adopt/scripts/check-test-drift.ts", "check-test-drift"),
-    ("skills/analytics/scripts/check-analytics-sql.ts", "check-analytics-sql"),
-    ("skills/api/scripts/check-api-surface.ts", "check-api-surface"),
+    (
+        "skills/adopt/scripts/check-test-drift.ts",
+        "check-test-drift",
+    ),
+    (
+        "skills/analytics/scripts/check-analytics-sql.ts",
+        "check-analytics-sql",
+    ),
+    (
+        "skills/api/scripts/check-api-surface.ts",
+        "check-api-surface",
+    ),
     ("skills/brain/scripts/check-memory.ts", "check-memory"),
     ("skills/docs/scripts/check-docs.ts", "check-docs"),
-    ("skills/evaluate/scripts/measure-read-cost.ts", "measure-read-cost"),
+    (
+        "skills/evaluate/scripts/measure-read-cost.ts",
+        "measure-read-cost",
+    ),
     ("skills/extend/scripts/check-hooks.ts", "check-hooks"),
     ("skills/observe/scripts/check-logging.ts", "check-logging"),
-    ("skills/orchestrate/scripts/check-diff-hygiene.ts", "check-diff-hygiene"),
+    (
+        "skills/orchestrate/scripts/check-diff-hygiene.ts",
+        "check-diff-hygiene",
+    ),
     ("skills/plan/scripts/check-plan.ts", "check-plan"),
     ("skills/principles/scripts/check-agents.ts", "check-agents"),
-    ("skills/principles/scripts/check-orchestration.ts", "check-orchestration"),
+    (
+        "skills/principles/scripts/check-orchestration.ts",
+        "check-orchestration",
+    ),
     ("skills/principles/scripts/check-skills.ts", "check-skills"),
     ("skills/release/scripts/check-release.ts", "check-release"),
-    ("skills/schema/scripts/check-migration.ts", "check-migration"),
-    ("skills/secure/scripts/check-skill-safety.ts", "check-skill-safety"),
+    (
+        "skills/schema/scripts/check-migration.ts",
+        "check-migration",
+    ),
+    (
+        "skills/secure/scripts/check-skill-safety.ts",
+        "check-skill-safety",
+    ),
     ("skills/study/scripts/check-study.ts", "check-study"),
-    ("skills/test/scripts/scan-test-quality.ts", "scan-test-quality"),
+    (
+        "skills/test/scripts/scan-test-quality.ts",
+        "scan-test-quality",
+    ),
     ("skills/verify/scripts/detect-stack.ts", "detect-stack"),
 ];
 
@@ -644,12 +671,17 @@ fn run_sh(root: &Path) -> Outcome {
             Ok(())
         });
     if let Err(e) = made {
-        return Outcome::fail(name, format!("cannot make a fake cache in {}: {e}", data.display()));
+        return Outcome::fail(
+            name,
+            format!("cannot make a fake cache in {}: {e}", data.display()),
+        );
     }
     let mut problems = Vec::new();
     for (path, command) in OLD_ENTRY_POINTS {
         if !viby::COMMANDS.iter().any(|(n, _)| n == command) {
-            problems.push(format!("{path} maps to {command}, which viby does not have"));
+            problems.push(format!(
+                "{path} maps to {command}, which viby does not have"
+            ));
             continue;
         }
         let (_, out) = run(
@@ -662,7 +694,10 @@ fn run_sh(root: &Path) -> Outcome {
         );
         let want = format!("{command} --json");
         if out.trim() != want {
-            problems.push(format!("run.sh {path} --json ran `viby {}`, not `viby {want}`", out.trim()));
+            problems.push(format!(
+                "run.sh {path} --json ran `viby {}`, not `viby {want}`",
+                out.trim()
+            ));
         }
     }
     let _ = std::fs::remove_dir_all(&data);

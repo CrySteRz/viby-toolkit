@@ -363,7 +363,10 @@ pub fn main(root: &Path, filter: Option<&str>) -> i32 {
             continue;
         }
         let ts = run(Command::new("node")
-            .args(["--experimental-strip-types", "--disable-warning=ExperimentalWarning"])
+            .args([
+                "--experimental-strip-types",
+                "--disable-warning=ExperimentalWarning",
+            ])
             .arg(plugin.join(script))
             .args(*args)
             .current_dir(&dir));
