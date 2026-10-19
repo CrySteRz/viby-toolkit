@@ -17,9 +17,10 @@ const HASH_COMMENT_EXTS: &[&str] = &[".py", ".rb", ".sh", ".pl", ".r", ".yaml", 
 const DASH_COMMENT_EXTS: &[&str] = &[".sql", ".hql", ".psql", ".lua", ".hs", ".ada"];
 const TRIPLE_QUOTE_EXTS: &[&str] = &[".py", ".pyi", ".pyx"];
 
-/// JavaScript's `\s`: Unicode white space plus the byte-order mark.
+/// JavaScript's `\s`: Unicode white space plus the byte-order mark, minus U+0085 (NEL), which
+/// Rust counts as white space and JavaScript does not.
 pub fn is_js_space(c: char) -> bool {
-    c.is_whitespace() || c == '\u{feff}'
+    (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}'
 }
 
 /// A `/` begins a regex literal only where a VALUE is expected. After an identifier, a closing
