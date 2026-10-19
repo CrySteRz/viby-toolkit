@@ -130,3 +130,10 @@ jobs:
           case "$VERSION" in *-*) prerelease=(--prerelease) ;; esac
           gh release create "v$VERSION" dist/*.tar.gz "${prerelease[@]}" --verify-tag \
             --title "v$VERSION" --notes "Binaries for the viby launcher. Each asset's SHA-256 is in plugins/viby-toolkit/launcher/checksums.txt at this tag."
+
+  # The published binaries on a fresh machine of every OS, through the launcher.
+  launcher:
+    needs: [plan, publish]
+    uses: ./.github/workflows/launcher.yml
+    with:
+      ref: v${{ needs.plan.outputs.version }}
