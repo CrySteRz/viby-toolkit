@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/viby", "xtask"]
 
 [workspace.package]
-version = "3.0.0"
+version = "2.27.0"
 edition = "2021"
 license = "UNLICENSED"
 
