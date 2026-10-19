@@ -1,5 +1,5 @@
-58a8381c8412c4cce8238d9667e6404d82b41bece86fe8355d81a86710121173  viby-aarch64-apple-darwin.tar.gz
-98ea2100cd90277290e272afeaf2066ad7ce69dfbdabdc12c647af7a51b7ef54  viby-aarch64-unknown-linux-musl.tar.gz
-bcd7bad4254b95d3eed69a08c7db349a56e98986edb84f77b2e0eb8b4c5ac008  viby-x86_64-apple-darwin.tar.gz
-5227db7f0955cdaaa80ac56899e5c0a7e2452c4bbe83601d20af48c2bd0d2880  viby-x86_64-pc-windows-msvc.tar.gz
-9216de7dedbba665d716b42e16ba07f8e8f2ed02c503d8abd061d5bb10c5dc0f  viby-x86_64-unknown-linux-musl.tar.gz
+3161b5a5fffcd99652a8d053472a10f6d8ad109e0f8111db50b0d7d4e27b3179  viby-aarch64-apple-darwin.tar.gz
+8cef6f457e1dc96311b8ca117513452e371103900444e5c50a32281b7585cd6d  viby-aarch64-unknown-linux-musl.tar.gz
+ffaf36fa58cb02eb1f3e3a52c5b3aedfbecba5f8210bbedd5194ca64062a857b  viby-x86_64-apple-darwin.tar.gz
+175cc02005955dd765d67302f016fa7f49c01c45c6a0b282cef07aa3c72754f5  viby-x86_64-pc-windows-msvc.tar.gz
+2addebf5292962e7600e265a0453c78645ecddbd78937163a63738121537399b  viby-x86_64-unknown-linux-musl.tar.gz
