@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["preserve_order"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 regex = "1"
 fancy-regex = "0.14"
 agentgrep = { git = "https://github.com/1jehuang/agentgrep", tag = "v0.1.7" }
