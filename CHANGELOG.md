@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.27.0
+
+**The browser tool reaches parity with upstream.** New actions: `new_window` (a window of its own)
+and `sandbox: true` on `open`/`new_tab`/`new_window` (a private window, guided when the extension is
+not allowed there; measured in Brave: the browser hands back no window); `reload` (a new `reloadTab`
+extension action, since upstream's `reload` reloads the extension); `batch` (several steps in one
+tab, one round trip), `try_until` (first alternative that works), `fork`/`list_forks`/`kill_fork`
+(copies of the tab, targeted with `fork: '<name>'`) and `parallel` (several pages at once in
+background tabs that close afterwards); `drop_file` (drag-and-drop of a local file, chunked above
+750 kB). Steps map exactly like top-level calls and are limited to in-tab actions, and the host
+checks nested commands against its own allow-list, because the extension dispatches them past it.
+Forks are namespaced per session: the extension keeps one list for every session.
+
+**Self-healing.** A page that never finishes loading comes back with its content and a note
+instead of an error; a closed session tab is forgotten, and `open` retries once in a new background
+tab (a click is never repeated); a browser running an older extension gets the new files and is told
+to reload itself, once per session. Fixed upstream bug: a chunked `dropFile` reassembled its data
+where the content script never reads it. Extension 0.10.2. Live in Brave: 67/67 steps, from the
+original 39 plus one or more per new action and recovery.
+
+**New MCP tool: `agentgrep`.** Wraps `1jehuang/agentgrep` (MIT, v0.1.7), the structure-aware code
+search JCode uses: `grep`, `find`, `outline`, `trace`. Like JCode's harness, the session remembers
+the structures and regions it was shown and passes them to agentgrep's own `--context-json`, so a
+repeated `trace` comes back shortened (3,073 → 1,977 characters, measured) until the file changes;
+`outline` and `force: true` are never shortened. A missing binary gets the pinned `cargo install`
+line. Measured against grep/Read on a real Rust repo it did not save tokens (35,898 vs 35,900 over
+three questions, baseline answers more complete in two), and it has no Swift support, so nothing
+routes agents to it: `docs/research/2026-10-19-agentgrep-measurement.md`. The MCP stdio loop is now
+shared by both servers (`lib/mcp-stdio.ts`).
+
 ## 2.26.0
 
 **Browser control without Playwright: a port of JCode's bridge.** A new MCP tool, `browser`,
