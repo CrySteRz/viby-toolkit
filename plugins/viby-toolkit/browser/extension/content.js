@@ -253,12 +253,19 @@ function findAssociatedLabelText(el) {
   return collectUniqueText(texts, 120);
 }
 
+// A password field's value never leaves the page: snapshots carry its length only.
+function visibleValue(el) {
+  if (!el || typeof el.value !== "string" || !el.value) return "";
+  if (el.type === "password") return "\u2022".repeat(Math.min(el.value.length, 12));
+  return el.value;
+}
+
 function collectElementTextCandidates(el) {
   if (!el) return [];
   const texts = [
     el.innerText,
     el.textContent,
-    el.value,
+    visibleValue(el),
     el.getAttribute && el.getAttribute('aria-label'),
     el.getAttribute && el.getAttribute('placeholder'),
     el.getAttribute && el.getAttribute('title'),
@@ -308,6 +315,17 @@ function isElementVisible(el) {
   return true;
 }
 
+// Laid out and not hidden, wherever it is on the page. Snapshots, interactables and text
+// matching use this so a control below the fold is still found; being on screen
+// (isElementVisible) only breaks ties in text matching.
+function isRendered(el) {
+  if (!el) return false;
+  const rect = el.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return false;
+  const style = window.getComputedStyle(el);
+  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+}
+
 function findByText(text) {
   if (!text) return null;
   const root = document.body || document.documentElement;
@@ -318,7 +336,7 @@ function findByText(text) {
 
   function consider(el, sourceText = null) {
     const target = resolveTextTarget(el);
-    if (!target || !isElementVisible(target)) return;
+    if (!target || !isRendered(target)) return;
     const candidateTexts = sourceText ? [sourceText, ...collectElementTextCandidates(target)] : collectElementTextCandidates(target);
     let score = -1;
     for (const candidateText of candidateTexts) {
@@ -327,6 +345,7 @@ function findByText(text) {
     if (score < 0) return;
     if (isInteractable(target) || target.tagName === 'LABEL') score += 5;
     if (target === el) score += 1;
+    if (isElementVisible(target)) score += 3;
     if (score > bestScore) {
       best = target;
       bestScore = score;
@@ -546,15 +565,17 @@ async function handleClick(params) {
     return { clicked: true, checked: target.checked, element: elementSummary(target) };
   }
 
-  // Standard click handling for other elements
+  // Standard click handling for other elements. Exactly one click: upstream dispatched a click
+  // event and then also called target.click(), so every onclick ran twice (a toggle reopened
+  // and closed itself).
+  const eventInit = { bubbles: true, cancelable: true, view: window };
   if (params.dispatchEvents !== false) {
-    const eventInit = { bubbles: true, cancelable: true, view: window };
     target.dispatchEvent(new MouseEvent("mouseover", eventInit));
     target.dispatchEvent(new MouseEvent("mousedown", eventInit));
     target.dispatchEvent(new MouseEvent("mouseup", eventInit));
-    target.dispatchEvent(new MouseEvent("click", eventInit));
   }
   if (typeof target.click === "function") target.click();
+  else target.dispatchEvent(new MouseEvent("click", eventInit));
 
   return { clicked: true, element: elementSummary(target) };
 }
@@ -804,13 +825,15 @@ function buildAnnotatedContent(root) {
     if (processedElements.has(el)) return;
     processedElements.add(el);
 
-    const text = (el.innerText || el.value || el.getAttribute('aria-label') || el.placeholder || '').trim().slice(0, 100);
+    const text = (el.innerText || visibleValue(el) || el.getAttribute('aria-label') || el.placeholder || '').trim().slice(0, 100);
     const type = getInteractableType(el);
     const selector = getSelector(el);
 
-    // Create a unique key to avoid duplicates
+    // Create a unique key to avoid duplicates. A form field with no text still gets a line:
+    // it is labelled by name or id below.
     const key = `${type}:${text}:${selector}`;
-    if (!text || seen.has(key)) return;
+    const isField = /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+    if ((!text && !isField) || seen.has(key)) return;
     seen.add(key);
 
     if (type === 'link') {
@@ -834,7 +857,7 @@ function buildAnnotatedContent(root) {
       const label = text || el.name || el.id || 'unnamed';
       lines.push(`[${type}: "${label}" | selected: "${selected}" | selector: ${selector}]`);
     } else if (type.startsWith('input:') || type === 'textarea') {
-      const value = el.value ? ` | value: "${el.value.slice(0, 50)}"` : '';
+      const value = visibleValue(el) ? ` | value: "${visibleValue(el).slice(0, 50)}"` : '';
       lines.push(`[${type}: "${text || el.name || el.id || 'unnamed'}"${value} | selector: ${selector}]`);
     } else {
       lines.push(`[${type}: "${text}" | selector: ${selector}]`);
@@ -856,7 +879,7 @@ function buildAnnotatedContent(root) {
       if (text) {
         // Check if this text is inside a clickable element
         const clickableParent = findClickableParent(node.parentElement);
-        if (clickableParent && isElementVisible(clickableParent)) {
+        if (clickableParent && isRendered(clickableParent)) {
           addInteractable(clickableParent);
         } else {
           lines.push(text);
@@ -870,7 +893,7 @@ function buildAnnotatedContent(root) {
       const el = node;
 
       // Check if this is an interactable element
-      if (isInteractable(el) && isElementVisible(el)) {
+      if (isInteractable(el) && isRendered(el)) {
         addInteractable(el);
         return; // Don't recurse into interactables
       }
@@ -1258,7 +1281,7 @@ async function handleGetInteractables(params) {
   // Find clickable elements
   const clickables = root.querySelectorAll('button, a, label, [role="button"], [onclick], input[type="submit"], input[type="button"]');
   clickables.forEach((el, i) => {
-    if (i > 50 || !isElementVisible(el)) return;
+    if (i > 50 || !isRendered(el)) return;
     const text = (collectElementTextCandidates(el)[0] || '').slice(0, 100);
     const selector = getSelector(el);
     const rect = el.getBoundingClientRect();
@@ -1278,7 +1301,7 @@ async function handleGetInteractables(params) {
   // Find input fields
   const inputs = root.querySelectorAll('input:not([type="hidden"]), textarea, select');
   inputs.forEach((el, i) => {
-    if (i > 50 || !isElementVisible(el)) return;
+    if (i > 50 || !isRendered(el)) return;
     const name = el.name || el.id || el.placeholder || '';
     const label = (collectElementTextCandidates(el)[0] || name || '').slice(0, 100);
     const rect = el.getBoundingClientRect();
@@ -1291,7 +1314,7 @@ async function handleGetInteractables(params) {
       label: label.slice(0, 50),
       text: label,
       selector: getSelector(el),
-      value: el.value?.slice(0, 50) || '',
+      value: visibleValue(el).slice(0, 50),
       checked: typeof el.checked === 'boolean' ? el.checked : undefined,
       rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
     });
@@ -1301,187 +1324,6 @@ async function handleGetInteractables(params) {
     url: window.location.href,
     title: document.title,
     elements: interactables
-  };
-}
-
-// Auth page detection patterns
-const AUTH_URL_PATTERNS = [
-  /\/login/i, /\/signin/i, /\/sign-in/i, /\/auth/i, /\/oauth/i,
-  /\/authorize/i, /\/authenticate/i, /\/sso/i,
-  /accounts\.google/i, /github\.com\/login/i, /microsoft.*login/i,
-  /login\.microsoftonline/i, /auth0\.com/i, /okta\.com/i
-];
-
-const OAUTH_PROVIDERS = [
-  { name: "Google", patterns: [/google/i, /gmail/i] },
-  { name: "GitHub", patterns: [/github/i] },
-  { name: "Microsoft", patterns: [/microsoft/i, /azure/i, /outlook/i] },
-  { name: "Facebook", patterns: [/facebook/i, /meta/i] },
-  { name: "Apple", patterns: [/apple/i, /icloud/i] },
-  { name: "Twitter", patterns: [/twitter/i, /x\.com/i] }
-];
-
-function detectAuthType() {
-  const url = window.location.href.toLowerCase();
-  const body = document.body;
-
-  // Check for 2FA page
-  const has2FAIndicators = body && (
-    body.innerText.match(/two.?factor|2fa|verification code|authenticator|security code/i) ||
-    document.querySelector('input[name*="otp" i], input[name*="code" i], input[name*="totp" i]')
-  );
-  if (has2FAIndicators) return "2fa";
-
-  // Check for password reset
-  if (url.match(/reset|forgot|recover/i) && document.querySelector('input[type="password"], input[type="email"]')) {
-    return "password-reset";
-  }
-
-  // Check for OAuth consent page
-  if (url.match(/consent|authorize|permission|scope/i)) {
-    return "oauth";
-  }
-
-  // Standard login
-  const hasPassword = document.querySelector('input[type="password"]');
-  const hasUsername = document.querySelector('input[name*="user" i], input[name*="email" i], input[name*="login" i], input[type="email"]');
-  if (hasPassword || hasUsername) return "login";
-
-  return null;
-}
-
-function detectProvider() {
-  const url = window.location.href;
-  const html = document.documentElement.outerHTML;
-
-  for (const provider of OAUTH_PROVIDERS) {
-    for (const pattern of provider.patterns) {
-      if (pattern.test(url) || pattern.test(html.slice(0, 5000))) {
-        return provider.name;
-      }
-    }
-  }
-
-  // Check for OAuth buttons
-  const oauthButtons = [];
-  document.querySelectorAll('button, a').forEach(el => {
-    const text = (el.innerText || el.getAttribute('aria-label') || '').toLowerCase();
-    if (text.match(/sign in with|login with|continue with/i)) {
-      for (const provider of OAUTH_PROVIDERS) {
-        if (provider.patterns.some(p => p.test(text))) {
-          oauthButtons.push(provider.name);
-        }
-      }
-    }
-  });
-
-  return oauthButtons.length > 0 ? oauthButtons : null;
-}
-
-function findVisibleAccounts() {
-  const accounts = [];
-  const seen = new Set();
-
-  // Email patterns
-  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-
-  // Check visible text (limited scope to avoid picking up unrelated emails)
-  const searchAreas = [
-    document.querySelector('[class*="account" i], [class*="profile" i], [class*="user" i]'),
-    document.querySelector('header, nav, [role="banner"]'),
-    document.querySelector('[data-email], [data-user]')
-  ].filter(Boolean);
-
-  for (const area of searchAreas) {
-    const text = area.innerText || '';
-    const matches = text.match(emailRegex) || [];
-    for (const email of matches) {
-      if (!seen.has(email)) {
-        seen.add(email);
-        accounts.push(email);
-      }
-    }
-  }
-
-  // Check pre-filled input fields
-  document.querySelectorAll('input[type="email"], input[name*="email" i], input[name*="user" i]').forEach(input => {
-    if (input.value && input.value.includes('@') && !seen.has(input.value)) {
-      seen.add(input.value);
-      accounts.push(input.value);
-    }
-  });
-
-  // Check account picker/switcher elements
-  document.querySelectorAll('[class*="account" i] img[alt], [class*="avatar" i][title]').forEach(el => {
-    const text = el.alt || el.title || '';
-    const match = text.match(emailRegex);
-    if (match && !seen.has(match[0])) {
-      seen.add(match[0]);
-      accounts.push(match[0]);
-    }
-  });
-
-  return accounts.slice(0, 5); // Limit to 5 accounts
-}
-
-function getFormFields() {
-  const fields = [];
-  document.querySelectorAll('input:not([type="hidden"]):not([type="submit"])').forEach(input => {
-    const type = input.type || 'text';
-    const name = input.name || input.id || input.placeholder || type;
-    if (!fields.includes(name)) {
-      fields.push(name);
-    }
-  });
-  return fields.slice(0, 10);
-}
-
-function getOAuthOptions() {
-  const options = [];
-  const seen = new Set();
-
-  document.querySelectorAll('button, a, [role="button"]').forEach(el => {
-    const text = (el.innerText || el.getAttribute('aria-label') || '').trim();
-    if (text.match(/sign in with|login with|continue with/i)) {
-      const providerMatch = text.match(/with\s+(\w+)/i);
-      if (providerMatch && !seen.has(providerMatch[1])) {
-        seen.add(providerMatch[1]);
-        options.push(providerMatch[1]);
-      }
-    }
-  });
-
-  return options;
-}
-
-async function handleDetectAuth() {
-  const url = window.location.href;
-
-  // Check if URL matches auth patterns
-  const isAuthUrl = AUTH_URL_PATTERNS.some(p => p.test(url));
-
-  // Detect auth type from page content
-  const authType = detectAuthType();
-  const isAuthPage = isAuthUrl || authType !== null;
-
-  if (!isAuthPage) {
-    return {
-      isAuthPage: false,
-      authType: null,
-      detectedProvider: null,
-      availableAccounts: [],
-      formFields: [],
-      oauthOptions: []
-    };
-  }
-
-  return {
-    isAuthPage: true,
-    authType: authType || "login",
-    detectedProvider: detectProvider(),
-    availableAccounts: findVisibleAccounts(),
-    formFields: getFormFields(),
-    oauthOptions: getOAuthOptions()
   };
 }
 
@@ -1816,77 +1658,6 @@ function handleDropFile(params) {
   };
 }
 
-async function handleSecureAutoFill(params) {
-  const { username, password, submit } = params;
-  const filled = { username: false, password: false, submitted: false };
-
-  const usernameSelectors = [
-    'input[type="email"]',
-    'input[name*="user" i]',
-    'input[name*="email" i]',
-    'input[name*="login" i]',
-    'input[id*="user" i]',
-    'input[id*="email" i]',
-    'input[id*="login" i]',
-    'input[autocomplete="username"]',
-    'input[autocomplete="email"]',
-    'input[placeholder*="email" i]',
-    'input[placeholder*="user" i]',
-  ];
-
-  const passwordSelectors = [
-    'input[type="password"]',
-    'input[autocomplete="current-password"]',
-    'input[name*="pass" i]',
-    'input[id*="pass" i]',
-  ];
-
-  function fillField(selectors, value) {
-    for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (el && isElementVisible(el)) {
-        el.focus();
-        el.value = value;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
-      }
-    }
-    return false;
-  }
-
-  if (username) {
-    filled.username = fillField(usernameSelectors, username);
-  }
-
-  if (password) {
-    filled.password = fillField(passwordSelectors, password);
-  }
-
-  if (submit && (filled.username || filled.password)) {
-    await new Promise(r => setTimeout(r, 100));
-
-    const submitButton = document.querySelector(
-      'button[type="submit"], input[type="submit"], ' +
-      'button:not([type])[class*="login" i], button:not([type])[class*="sign" i], ' +
-      'button[name*="login" i], button[name*="sign" i]'
-    );
-
-    if (submitButton) {
-      submitButton.click();
-      filled.submitted = true;
-    } else {
-      const form = document.querySelector('form');
-      if (form) {
-        form.submit();
-        filled.submitted = true;
-      }
-    }
-  }
-
-  return filled;
-}
-
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.type !== "agent-bridge") return undefined;
   const params = message.params || {};
@@ -1912,10 +1683,6 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return handleGetInteractables(params);
       case "preexplore":
         return handlePreexplore(params);
-      case "detectAuth":
-        return handleDetectAuth();
-      case "secureAutoFill":
-        return handleSecureAutoFill(params);
       case "evaluate":
         return handleEvaluate(params);
       case "scroll":

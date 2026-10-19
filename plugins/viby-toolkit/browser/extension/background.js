@@ -4,16 +4,10 @@
 if (typeof globalThis.browser === "undefined" && typeof globalThis.chrome !== "undefined") {
   globalThis.browser = globalThis.chrome;
 }
-const NATIVE_APP_NAME = "firefox_agent_bridge";
+const NATIVE_APP_NAME = "viby_browser";
 const IS_GECKO = typeof browser.runtime.getBrowserInfo === "function";
 // Browser action API: MV2 uses browserAction, MV3 uses action.
 const actionApi = browser.action || browser.browserAction;
-// Safari cannot launch arbitrary native hosts, so it talks to the host over a
-// local WebSocket relay instead of native messaging.
-const RELAY_URL = "ws://127.0.0.1:8767/extension";
-const USE_WS_RELAY = typeof browser.runtime.connectNative !== "function"
-  || (typeof navigator !== "undefined" && /Safari\//.test(navigator.userAgent) && !/Chrome\//.test(navigator.userAgent));
-
 function detectBrowserName() {
   if (IS_GECKO) return "firefox";
   const ua = (typeof navigator !== "undefined" && navigator.userAgent) || "";
@@ -42,7 +36,8 @@ async function injectContentScript(tabId, frameId) {
     });
     return;
   }
-  await injectContentScript(tabId, frameId);
+  // Firefox MV2 has no scripting API.
+  await browser.tabs.executeScript(tabId, { file: "/content.js", frameId: frameId || 0 });
 }
 
 // Runs in the page's MAIN world via scripting.executeScript. Must be
@@ -145,7 +140,7 @@ async function evaluateOutsideGecko(params) {
       const viaDebugger = await evaluateViaDebugger(tabId, params.script);
       if (viaDebugger) injection = viaDebugger;
       else {
-        throw new Error(injection.result.__bridgeError + " (the page Content-Security-Policy blocks eval; enable \"Allow user scripts\" for Browser Agent Bridge in the browser's extension settings)");
+        throw new Error(injection.result.__bridgeError + " (the page Content-Security-Policy blocks eval; enable \"Allow user scripts\" for Viby Browser in the browser's extension settings)");
       }
     }
   }
@@ -171,137 +166,18 @@ let recentActions = [];
 const MAX_RECENT_ACTIONS = 20;
 let badgeResetTimer = null;
 
-// Auth config defaults
-const DEFAULT_AUTH_CONFIG = {
-  authNotifications: true,
-  authMode: "always-allow", // "ask" | "always-allow" | "always-deny"
-  siteRules: {},   // domain -> "allow" | "deny"
-  notifyOnAuthPage: true
-};
-
-let authConfig = { ...DEFAULT_AUTH_CONFIG };
-let pendingAuthRequests = new Map(); // notificationId -> { tabId, domain, resolve, reject }
-
-// Load auth config on startup
-async function loadAuthConfig() {
-  try {
-    const stored = await browser.storage.local.get("authConfig");
-    if (stored.authConfig) {
-      authConfig = { ...DEFAULT_AUTH_CONFIG, ...stored.authConfig };
-    }
-  } catch (err) {
-    console.error("Failed to load auth config:", err);
-  }
-}
-
-async function saveAuthConfig() {
-  try {
-    await browser.storage.local.set({ authConfig });
-  } catch (err) {
-    console.error("Failed to save auth config:", err);
-  }
-}
-
-function getDomainFromUrl(url) {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return null;
-  }
-}
-
-function maskEmail(email) {
-  if (!email || !email.includes("@")) return email;
-  const [local, domain] = email.split("@");
-  if (local.length <= 2) return `${local[0]}***@${domain}`;
-  return `${local[0]}***${local[local.length - 1]}@${domain}`;
-}
-
-async function showAuthNotification(tabId, authInfo) {
-  if (!authConfig.authNotifications) return { allowed: authConfig.authMode === "always-allow" };
-
-  const domain = getDomainFromUrl(authInfo.url);
-
-  // Check site rules first
-  if (domain && authConfig.siteRules[domain]) {
-    return { allowed: authConfig.siteRules[domain] === "allow", cached: true };
-  }
-
-  // Check global mode
-  if (authConfig.authMode === "always-allow") return { allowed: true };
-  if (authConfig.authMode === "always-deny") return { allowed: false };
-
-  // Ask mode - show notification
-  const maskedAccounts = (authInfo.availableAccounts || []).map(maskEmail);
-  const accountText = maskedAccounts.length > 0
-    ? `Account: ${maskedAccounts[0]}`
-    : "No saved account detected";
-
-  const notificationId = `auth-${Date.now()}`;
-
-  return new Promise((resolve) => {
-    if (!browser.notifications) {
-      resolve({ allowed: false, reason: "notifications-unavailable" });
-      return;
-    }
-    browser.notifications.create(notificationId, {
-      type: "basic",
-      iconUrl: browser.runtime.getURL("icons/icon-48.png"),
-      title: `🔐 Auth: ${authInfo.detectedProvider || domain || "Login"}`,
-      message: `${accountText}\nPage: ${authInfo.pageTitle || domain}\nReason: ${authInfo.reason || "Agent requested access"}`
-    });
-
-    pendingAuthRequests.set(notificationId, {
-      tabId,
-      domain,
-      authInfo,
-      resolve,
-      timeout: setTimeout(() => {
-        pendingAuthRequests.delete(notificationId);
-        browser.notifications.clear(notificationId);
-        resolve({ allowed: false, reason: "timeout" });
-      }, 30000) // 30 second timeout
-    });
-  });
-}
-
-// Handle notification clicks (allow)
-browser.notifications && browser.notifications.onClicked.addListener((notificationId) => {
-  const pending = pendingAuthRequests.get(notificationId);
-  if (pending) {
-    clearTimeout(pending.timeout);
-    pendingAuthRequests.delete(notificationId);
-    browser.notifications.clear(notificationId);
-    pending.resolve({ allowed: true, userApproved: true });
-  }
-});
-
-// Handle notification closed (deny)
-browser.notifications && browser.notifications.onClosed.addListener((notificationId, byUser) => {
-  const pending = pendingAuthRequests.get(notificationId);
-  if (pending) {
-    clearTimeout(pending.timeout);
-    pendingAuthRequests.delete(notificationId);
-    if (byUser) {
-      pending.resolve({ allowed: false, userDenied: true });
-    }
-  }
-});
-
-loadAuthConfig();
-
 function updateBadge() {
   if (activeRequests > 0) {
     actionApi.setBadgeText({ text: "AI" });
     actionApi.setBadgeBackgroundColor({ color: "#4ade80" });
-    actionApi.setTitle({ title: "Browser Agent Bridge - AI Active" });
+    actionApi.setTitle({ title: "Viby Browser - AI Active" });
   } else if (!isConnected) {
     actionApi.setBadgeText({ text: "!" });
     actionApi.setBadgeBackgroundColor({ color: "#ef4444" });
-    actionApi.setTitle({ title: "Browser Agent Bridge - Disconnected" });
+    actionApi.setTitle({ title: "Viby Browser - Disconnected" });
   } else {
     actionApi.setBadgeText({ text: "" });
-    actionApi.setTitle({ title: "Browser Agent Bridge - Idle" });
+    actionApi.setTitle({ title: "Viby Browser - Idle" });
   }
   broadcastStatus();
 }
@@ -348,42 +224,9 @@ function markDisconnected() {
   scheduleReconnect();
 }
 
-// Wrap a WebSocket to the host relay in the same shape as a native Port.
-function connectRelayPort() {
-  const socket = new WebSocket(RELAY_URL);
-  const port = {
-    transport: "websocket-relay",
-    postMessage(payload) {
-      if (socket.readyState !== WebSocket.OPEN) throw new Error("Bridge relay not connected");
-      socket.send(JSON.stringify(payload));
-    }
-  };
-  socket.addEventListener("open", () => {
-    isConnected = true;
-    updateBadge();
-    port.postMessage({ type: "hello", version: "0.3.0", browser: detectBrowserName() });
-  });
-  socket.addEventListener("message", (event) => {
-    let message;
-    try { message = JSON.parse(event.data); } catch (e) { return; }
-    handleNativeMessage(message);
-  });
-  socket.addEventListener("close", () => {
-    if (nativePort === port) markDisconnected();
-  });
-  socket.addEventListener("error", () => {
-    try { socket.close(); } catch (e) {}
-  });
-  return port;
-}
-
 function connectNative() {
   if (nativePort) return;
   try {
-    if (USE_WS_RELAY) {
-      nativePort = connectRelayPort();
-      return;
-    }
     const port = browser.runtime.connectNative(NATIVE_APP_NAME);
     nativePort = port;
     port.onMessage.addListener(handleNativeMessage);
@@ -401,7 +244,7 @@ function connectNative() {
   }
 }
 
-// MV3 service workers (Chromium) and non-persistent Safari backgrounds can be
+// MV3 service workers (Chromium) can be
 // suspended. An alarm wakes the worker so it re-establishes the bridge.
 if (browser.alarms) {
   browser.alarms.create("fab-reconnect", { periodInMinutes: 0.5 });
@@ -528,7 +371,7 @@ async function dispatchAction(action, params, profile) {
         pong: true,
         time: Date.now(),
         browser: detectBrowserName(),
-        transport: USE_WS_RELAY ? "websocket-relay" : "native-messaging",
+        transport: "native-messaging",
         extensionVersion: browser.runtime.getManifest().version
       };
 
@@ -598,21 +441,6 @@ async function dispatchAction(action, params, profile) {
       return executeParallel(params, profile);
     case "scout":
       return executeScout(params, profile);
-
-    // Auth
-    case "getAuthContext":
-      return getAuthContext(params, profile);
-    case "requestAuth":
-      return requestAuth(params);
-
-    // Secure credential fill (only from native host, never from WS client)
-    // Try all frames — login forms are often in cross-origin iframes (e.g., Apple ID)
-    case "secureAutoFill": {
-      const tabId = await resolveTabId(params || {});
-      const message = { type: "agent-bridge", action: "secureAutoFill", params: params || {} };
-      if (profile) message.profile = true;
-      return sendToContentFirstSuccess(tabId, message, (r) => r && (r.username || r.password));
-    }
 
     // JavaScript evaluation
     case "evaluate":
@@ -797,45 +625,6 @@ async function executeScout(params, profile) {
     }
     throw err;
   }
-}
-
-async function getAuthContext(params, profile) {
-  const tabId = await resolveTabId(params);
-  const tab = await browser.tabs.get(tabId);
-
-  // Get auth detection from content script
-  const authInfo = await sendToContent("detectAuth", params, false);
-
-  return {
-    ...authInfo,
-    url: tab.url,
-    pageTitle: tab.title,
-    config: {
-      authMode: authConfig.authMode,
-      siteRule: authConfig.siteRules[getDomainFromUrl(tab.url)] || null
-    }
-  };
-}
-
-async function requestAuth(params) {
-  const tabId = await resolveTabId(params);
-  const tab = await browser.tabs.get(tabId);
-
-  // Get current auth context
-  const authInfo = await sendToContent("detectAuth", params, false);
-
-  // Add reason from agent
-  authInfo.reason = params.reason || "Agent requested authentication";
-  authInfo.url = tab.url;
-  authInfo.pageTitle = tab.title;
-
-  // Show notification and wait for response
-  const result = await showAuthNotification(tabId, authInfo);
-
-  return {
-    ...result,
-    authContext: authInfo
-  };
 }
 
 async function executeParallel(params, profile) {
