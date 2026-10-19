@@ -54,6 +54,12 @@ const CHECKS: Check[] = [
     minPassing: 13,
   },
   {
+    name: "browser bridge contract",
+    cmd: [...NODE_RUNNER, "--test", "--test-timeout=15000", "tests/browser.test.ts"],
+    ok: new Set([0]),
+    minPassing: 36,
+  },
+  {
     name: "test-scanner contract",
     cmd: [...NODE_RUNNER, "--test", "tests/scanner.test.ts"],
     ok: new Set([0]),

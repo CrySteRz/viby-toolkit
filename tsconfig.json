@@ -27,6 +27,7 @@
   },
   "include": [
     "plugins/viby-toolkit/hooks/**/*.ts",
+    "plugins/viby-toolkit/browser/**/*.ts",
     "plugins/viby-toolkit/skills/**/scripts/**/*.ts",
     "tests/**/*.ts"
   ]

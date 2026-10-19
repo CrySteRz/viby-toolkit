@@ -13,6 +13,7 @@
  *       instructions   ->  ~/.config/opencode/instructions/viby-contract.md
  *   ~/.config/opencode/agents/<name>.md    ->  symlink into the plugin's agents/
  *   ~/.config/opencode/command/<name>.md   ->  symlink into the plugin's commands/
+ *       mcp.viby-browser ->  the plugin's browser/server.ts (the `browser` tool)
  *
  * Usage: node --experimental-strip-types tools/host-port.ts [--dry-run] [--uninstall]
  * Idempotent; re-running after an upstream update keeps the symlinks in place.
@@ -31,6 +32,11 @@ const COMMANDS_DIR = join(OC, "command");
 const CONTRACT = join(OC, "instructions", "viby-contract.md");
 const CONFIG = join(OC, "opencode.json");
 const SKILLS_DIR = join(PLUGIN, "skills");
+const BROWSER_MCP = {
+  type: "local",
+  command: ["node", "--experimental-strip-types", "--disable-warning=ExperimentalWarning", join(PLUGIN, "browser", "server.ts")],
+  enabled: true,
+};
 
 const log = (m: string) => (dry ? "[dry-run] " : "") + m;
 const isLink = (p: string) => { try { return lstatSync(p).isSymbolicLink(); } catch { return false; } };
@@ -189,9 +195,12 @@ function mergeConfig() {
     if (Object.keys(out.skills ?? {}).length === 0) delete out.skills;
     if (out.instructions) out.instructions = out.instructions.filter((p: string) => p !== CONTRACT);
     if (out.instructions?.length === 0) delete out.instructions;
+    if (out.mcp) delete out.mcp["viby-browser"];
+    if (out.mcp && Object.keys(out.mcp).length === 0) delete out.mcp;
   } else {
     out.skills = { ...(out.skills ?? {}), paths: [SKILLS_DIR, ...(out.skills?.paths ?? []).filter((p: string) => p !== SKILLS_DIR)] };
     out.instructions = [CONTRACT, ...(out.instructions ?? []).filter((p: string) => p !== CONTRACT)];
+    out.mcp = { ...(out.mcp ?? {}), "viby-browser": BROWSER_MCP };
   }
   if (dry) { log("config:"); log(JSON.stringify(out, null, 2)); return; }
   const cur = fileOk(CONFIG) ? readFileSync(CONFIG, "utf8") : null;
