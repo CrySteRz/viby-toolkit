@@ -128,4 +128,7 @@ if download || build; then
   exec "$exe" "$@"
 fi
 
+if command -v cargo >/dev/null 2>&1; then
+  give_up "viby $version could not be downloaded, and building it with cargo failed (its errors are above)."
+fi
 give_up "viby $version is not installed and could not be built: Rust is missing. Install it with: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y   then retry."
