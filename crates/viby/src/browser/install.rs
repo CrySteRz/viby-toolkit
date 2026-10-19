@@ -273,7 +273,7 @@ const HANDLERS: &[(&str, &str)] = &[
 ];
 
 pub fn browser_for_handler(id: &str) -> Option<&'static str> {
-    let key = super::actions::js_trim(id).to_lowercase();
+    let key = crate::core::js::js_trim(id).to_lowercase();
     HANDLERS
         .iter()
         .find(|(prefix, _)| key == *prefix || key.starts_with(prefix))

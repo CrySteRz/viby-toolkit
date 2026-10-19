@@ -26,29 +26,7 @@ use regex::Regex;
 use serde_json::{json, Value};
 
 use crate::core::args::{flag, parse_or_exit};
-
-// JavaScript's `\s` (Unicode white space without U+0085, plus the byte-order mark) and the
-// characters its `.` refuses to match.
-const JS_S: &str = r"\t\n\x0B\x0C\r \u{a0}\u{1680}\u{2000}-\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
-
-fn is_js_space(c: char) -> bool {
-    matches!(
-        c,
-        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-            ..='\u{200a}'
-                | '\u{2028}'
-                | '\u{2029}'
-                | '\u{202f}'
-                | '\u{205f}'
-                | '\u{3000}'
-                | '\u{feff}'
-    )
-}
-
-/// JavaScript's `String.prototype.trim`.
-fn trim(s: &str) -> &str {
-    s.trim_matches(is_js_space)
-}
+use crate::core::js::{js_trim, JS_SPACE};
 
 #[derive(Debug, Clone)]
 pub struct Task {
@@ -86,18 +64,18 @@ impl Finding {
 
 static TASK_LINE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
-        r"^[{JS_S}]*[-*][{JS_S}]*\[( |x|X)\][{JS_S}]*([A-Za-z0-9_.-]+)[{JS_S}]*[—–:-]([^\n\r\u{{2028}}\u{{2029}}]+)$"
+        r"^[{JS_SPACE}]*[-*][{JS_SPACE}]*\[( |x|X)\][{JS_SPACE}]*([A-Za-z0-9_.-]+)[{JS_SPACE}]*[—–:-]([^\n\r\u{{2028}}\u{{2029}}]+)$"
     ))
     .expect("task-line regex")
 });
 static FIELD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
-        r"(?:^|[·|])[{JS_S}]*((?i-u:files|verify|deps|depends on|wave))[{JS_S}]*:[{JS_S}]*([^·|]*)"
+        r"(?:^|[·|])[{JS_SPACE}]*((?i-u:files|verify|deps|depends on|wave))[{JS_SPACE}]*:[{JS_SPACE}]*([^·|]*)"
     ))
     .expect("field regex")
 });
 static LIST_SPLIT: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(&format!(r"[,{JS_S}]+")).expect("list-split regex"));
+    LazyLock::new(|| Regex::new(&format!(r"[,{JS_SPACE}]+")).expect("list-split regex"));
 static SLASHES: LazyLock<Regex> = LazyLock::new(|| Regex::new("/+").expect("slash regex"));
 
 fn is_sep(c: char) -> bool {
@@ -111,7 +89,7 @@ pub fn parse_tasks(text: &str) -> Vec<Task> {
             continue;
         };
         let (box_, id, rest) = (&m[1], &m[2], &m[3]);
-        let title = rest.split(is_sep).next().map(trim).unwrap_or("");
+        let title = rest.split(is_sep).next().map(js_trim).unwrap_or("");
         let mut task = Task {
             id: id.to_string(),
             title: title.to_string(),
@@ -127,7 +105,7 @@ pub fn parse_tasks(text: &str) -> Vec<Task> {
         let tail = rest.find(is_sep).map_or("", |at| &rest[at..]);
         for f in FIELD.captures_iter(tail) {
             let key = f[1].to_ascii_lowercase();
-            let val = trim(&f[2]);
+            let val = js_trim(&f[2]);
             let words = || {
                 LIST_SPLIT
                     .split(val)

@@ -30,6 +30,8 @@ use std::io::{Read, Write};
 
 use serde_json::Value;
 
+use crate::core::js::js_trim;
+
 const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
 const GREEN: &str = "\x1b[32m";
@@ -93,21 +95,6 @@ fn to_fixed_2(x: f64) -> String {
     format!("{x:.2}")
 }
 
-/// JavaScript white space and line terminators, which `Number(string)` trims.
-fn is_js_number_space(c: char) -> bool {
-    matches!(
-        c,
-        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-            ..='\u{200a}'
-                | '\u{2028}'
-                | '\u{2029}'
-                | '\u{202f}'
-                | '\u{205f}'
-                | '\u{3000}'
-                | '\u{feff}'
-    )
-}
-
 /// Is `s` a JavaScript StrDecimalLiteral (sign, digits, fraction, exponent; no `inf`, no `nan`)?
 fn is_decimal_literal(s: &str) -> bool {
     let b = s.as_bytes();
@@ -139,7 +126,8 @@ fn is_decimal_literal(s: &str) -> bool {
 
 /// JavaScript `Number(s)`: NaN when `s` is not a numeric literal; an empty string is 0.
 fn js_string_to_number(s: &str) -> f64 {
-    let s = s.trim_matches(is_js_number_space);
+    // `Number(string)` trims JavaScript white space and line terminators, as `trim()` does.
+    let s = js_trim(s);
     if s.is_empty() {
         return 0.0;
     }

@@ -29,9 +29,11 @@ use std::time::Duration;
 use regex::Regex;
 use serde_json::{json, Map, Value};
 
-use super::check_test_drift::{js_basename, js_extname, js_regex, js_trim, resolve, to_pretty};
+use super::check_test_drift::to_pretty;
 use crate::core::args::{flag, parse_or_exit};
 use crate::core::git::git_within;
+use crate::core::js::{js_re, js_trim};
+use crate::core::nodepath::{basename, extname, resolve};
 use crate::core::strip::strip_noncode;
 
 #[derive(Debug, Clone)]
@@ -90,36 +92,41 @@ struct Res {
 }
 
 static RES: LazyLock<Res> = LazyLock::new(|| Res {
-    monorepo_dirs: js_regex(
+    monorepo_dirs: js_re(
         r"(^|/)(packages|apps|crates|libs|modules|services|examples|playground)/",
+        "",
     ),
-    monorepo_marker: js_regex(r"(^|/)(pnpm-workspace\.yaml|nx\.json|turbo\.json|lerna\.json)$"),
-    toml_header: js_regex(r"^\[([^\]]+)\]"),
-    toml_version: js_regex(r#"^version\s*=\s*["']([^"']+)["']"#),
-    setup_py: js_regex(r#"version\s*=\s*["']([^"']+)["']"#),
-    pubspec: js_regex(r#"(?m)^version:\s*["']?([^"'\s]+)"#),
-    gradle: js_regex(r#"(?m)^\s*version\s*=?\s*["']([^"']+)["']"#),
-    init_py: js_regex(r#"__version__\s*=\s*["']([^"']+)["']"#),
-    mix: js_regex(r#"version:\s*["']([^"']+)["']"#),
-    changelog_name: js_regex(r"(?i)^(CHANGELOG|HISTORY|RELEASES)(\.md|\.rst|\.txt)?$"),
+    monorepo_marker: js_re(
+        r"(^|/)(pnpm-workspace\.yaml|nx\.json|turbo\.json|lerna\.json)$",
+        "",
+    ),
+    toml_header: js_re(r"^\[([^\]]+)\]", ""),
+    toml_version: js_re(r#"^version\s*=\s*["']([^"']+)["']"#, ""),
+    setup_py: js_re(r#"version\s*=\s*["']([^"']+)["']"#, ""),
+    pubspec: js_re(r#"(?m)^version:\s*["']?([^"'\s]+)"#, ""),
+    gradle: js_re(r#"(?m)^\s*version\s*=?\s*["']([^"']+)["']"#, ""),
+    init_py: js_re(r#"__version__\s*=\s*["']([^"']+)["']"#, ""),
+    mix: js_re(r#"version:\s*["']([^"']+)["']"#, ""),
+    changelog_name: js_re(r"(?i)^(CHANGELOG|HISTORY|RELEASES)(\.md|\.rst|\.txt)?$", ""),
     // `.` in JavaScript stops at \r,   and   as well as \n.
-    ci: js_regex(
+    ci: js_re(
         r"(^|/)(\.github/workflows/[^\n\r\x{2028}\x{2029}]+\.ya?ml|\.gitlab-ci\.yml|\.circleci/config\.yml|Jenkinsfile|azure-pipelines\.yml)$",
+        "",
     ),
     debug: vec![
         (
-            js_regex(r"\b(?:describe|it|test|context)\s*\.\s*only\b"),
+            js_re(r"\b(?:describe|it|test|context)\s*\.\s*only\b", ""),
             "focused test (.only) — the suite silently shrinks",
         ),
         (
-            js_regex(r"\bf(?:describe|it)\s*\("),
+            js_re(r"\bf(?:describe|it)\s*\(", ""),
             "focused test (fdescribe/fit)",
         ),
-        (js_regex(r"(?m)^\s*debugger;?\s*$"), "debugger statement"),
-        (js_regex(r"\bbreakpoint\s*\(\s*\)"), "breakpoint() call"),
-        (js_regex(r"\bbinding\.pry\b"), "binding.pry"),
-        (js_regex(r"\bdbg!\s*\("), "dbg!() macro"),
-        (js_regex(r"\.only\s*\("), "focused block (.only)"),
+        (js_re(r"(?m)^\s*debugger;?\s*$", ""), "debugger statement"),
+        (js_re(r"\bbreakpoint\s*\(\s*\)", ""), "breakpoint() call"),
+        (js_re(r"\bbinding\.pry\b", ""), "binding.pry"),
+        (js_re(r"\bdbg!\s*\(", ""), "dbg!() macro"),
+        (js_re(r"\.only\s*\(", ""), "focused block (.only)"),
     ],
 });
 
@@ -276,7 +283,7 @@ pub fn check_release(root: &str) -> Release {
     // ---- versions
     let monorepo = files.iter().any(|(_, rel)| r.monorepo_marker.is_match(rel));
     for (full, rel) in &files {
-        let base = js_basename(full);
+        let base = basename(full);
         // In a monorepo, per-package versions are expected. Only compare the top of the tree.
         if r.monorepo_dirs.is_match(rel) && monorepo {
             continue;
@@ -378,7 +385,7 @@ pub fn check_release(root: &str) -> Release {
     // ---- changelog
     let changelog = files
         .iter()
-        .find(|(full, _)| r.changelog_name.is_match(js_basename(full)));
+        .find(|(full, _)| r.changelog_name.is_match(basename(full)));
     if let (Some((full, rel)), Some(cur)) = (changelog, current) {
         // Token match, not substring: `"12.0.1".includes("2.0")` is true, so an unrelated older
         // release silently satisfied the check for version 2.0.
@@ -399,7 +406,7 @@ pub fn check_release(root: &str) -> Release {
     // ---- debug artifacts.
     let mut debug_hits: Vec<String> = Vec::new();
     for (full, rel) in &files {
-        let ext = js_extname(full);
+        let ext = extname(full);
         if !CODE_EXT.contains(&ext) {
             continue;
         }
@@ -489,7 +496,7 @@ pub fn main(args: &[String]) -> i32 {
         Ok(p) => p,
         Err(code) => return code,
     };
-    let root = resolve(parsed.positionals.first().map_or(".", String::as_str));
+    let root = resolve(&[parsed.positionals.first().map_or(".", String::as_str)]);
     let Release {
         mut findings,
         versions,

@@ -38,6 +38,8 @@
 //! goes through `Array.prototype.slice` semantics (negative and fractional values included).
 
 use crate::core::args::{flag, parse_or_exit, value};
+use crate::core::js::{js_trim, sort_utf16, utf16_len};
+use crate::core::nodepath::{basename, extname, join};
 use serde::Serialize;
 use serde_json::{json, Map, Number, Value};
 use std::collections::BTreeSet;
@@ -171,22 +173,6 @@ const GENERATED_NAMES: &[&str] = &[
     "flake.lock",
 ];
 
-/// `path.basename`: the last segment, ignoring trailing slashes.
-fn basename(file: &str) -> &str {
-    let t = file.trim_end_matches('/');
-    t.rsplit('/').next().unwrap_or(t)
-}
-
-/// `path.extname`.
-fn extname(file: &str) -> &str {
-    let base = basename(file);
-    match base.rfind('.') {
-        None | Some(0) => "",
-        Some(_) if base == ".." => "",
-        Some(i) => &base[i..],
-    }
-}
-
 fn is_generated(file: &str) -> bool {
     let base = basename(file).to_lowercase();
     if GENERATED_NAMES.contains(&base.as_str()) {
@@ -216,7 +202,7 @@ pub fn kind_of(file: &str) -> Kind {
 /// (UTF-16 length, how many of those units are ASCII).
 fn utf16_counts(text: &str) -> (usize, usize) {
     let ascii = text.bytes().filter(|b| *b < 128).count();
-    (text.encode_utf16().count(), ascii)
+    (utf16_len(text), ascii)
 }
 
 /// Estimate tokens for a string. ASCII goes through the per-kind ratio; non-ASCII is charged
@@ -269,63 +255,13 @@ fn caveat_for(text: &str, non_ascii_heavy: bool, data_kind: bool) -> Option<Stri
     None
 }
 
-/// `path.normalize` for POSIX-style paths.
-fn normalize(p: &str) -> String {
-    if p.is_empty() {
-        return ".".to_string();
-    }
-    let abs = p.starts_with('/');
-    let trailing = p.ends_with('/');
-    let mut segs: Vec<&str> = Vec::new();
-    for s in p.split('/') {
-        match s {
-            "" | "." => {}
-            ".." => {
-                if segs.last().is_some_and(|l| *l != "..") {
-                    segs.pop();
-                } else if !abs {
-                    segs.push("..");
-                }
-            }
-            s => segs.push(s),
-        }
-    }
-    let mut out = segs.join("/");
-    if out.is_empty() {
-        return if abs {
-            "/".to_string()
-        } else if trailing {
-            "./".to_string()
-        } else {
-            ".".to_string()
-        };
-    }
-    if trailing {
-        out.push('/');
-    }
-    if abs {
-        out.insert(0, '/');
-    }
-    out
-}
-
-/// `path.join(dir, name)`.
-fn join(dir: &str, name: &str) -> String {
-    let parts: Vec<&str> = [dir, name].into_iter().filter(|s| !s.is_empty()).collect();
-    if parts.is_empty() {
-        ".".to_string()
-    } else {
-        normalize(&parts.join("/"))
-    }
-}
-
 fn walk(root: &str, out: &mut Vec<String>) {
     let mut stack = vec![root.to_string()];
     while let Some(dir) = stack.pop() {
         let Ok(rd) = fs::read_dir(&dir) else { continue };
         for e in rd.filter_map(|e| e.ok()) {
             let name = e.file_name().to_string_lossy().into_owned();
-            let full = join(&dir, &name);
+            let full = join(&[&dir, &name]);
             let Ok(t) = e.file_type() else { continue };
             if t.is_dir() {
                 if !SKIP_DIRS.contains(&name.as_str()) {
@@ -397,7 +333,7 @@ pub fn measure_read_cost(paths: &[String], repeat: Option<f64>) -> Measurement {
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
-    unique.sort_by(|a, b| a.encode_utf16().cmp(b.encode_utf16()));
+    sort_utf16(&mut unique);
 
     let mut files: Vec<FileCost> = Vec::new();
     for t in unique {
@@ -426,19 +362,7 @@ pub fn measure_read_cost(paths: &[String], repeat: Option<f64>) -> Measurement {
 /// JS `Number(string)`: whitespace-trimmed, empty is 0, `0x`/`0o`/`0b`, `Infinity`, and NaN for
 /// anything else.
 fn js_number(s: &str) -> f64 {
-    let t = s.trim_matches(|c: char| {
-        matches!(
-            c,
-            '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-                ..='\u{200a}'
-                    | '\u{2028}'
-                    | '\u{2029}'
-                    | '\u{202f}'
-                    | '\u{205f}'
-                    | '\u{3000}'
-                    | '\u{feff}'
-        )
-    });
+    let t = js_trim(s);
     if t.is_empty() {
         return 0.0;
     }

@@ -26,7 +26,8 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::check_skills::{node_join, node_resolve, read_dir_sorted, read_text, WS_CLASS};
+use crate::core::js::{read_text, static_regex, JS_SPACE};
+use crate::core::nodepath::{join, read_dir_sorted, resolve};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Finding {
@@ -44,47 +45,45 @@ pub struct Finding {
 /// rule — `review-cluster` was renamed to `review` while this file was being written.
 const STAGED: [&str; 3] = ["orchestrate", "review", "study"];
 
-/// `/i` in JavaScript is ASCII-only here, which `(?i-u:..)` is; `\b` is ASCII, which `(?-u:\b)` is;
-/// `\S` is spelled out with the JavaScript white-space set.
-fn re(pattern: &str) -> Regex {
-    match Regex::new(pattern) {
-        Ok(r) => r,
-        // The patterns are literals in this file; an invalid one must fail every test, not hide.
-        Err(e) => panic!("invalid built-in pattern {pattern}: {e}"),
-    }
-}
+// The patterns below are Rust syntax with JavaScript's meaning: `/i` in JavaScript is ASCII-only
+// here, which `(?i-u:..)` is; `\b` is ASCII, which `(?-u:\b)` is; `\S` is spelled out with the
+// JavaScript white-space set.
 
 /// Phrases that mean "run several agents at once". Matched per line.
 static FANOUT: LazyLock<Regex> = LazyLock::new(|| {
-    re(&format!(
-        r"(?-u:\b)(?:(?i-u:in parallel|fan out|fan-out|dispatch (?:one|several))|(?i-u:dispatch )[0-9]+|(?i-u:one )[^{WS_CLASS}]+(?i-u: per (?:dimension|angle|area|question|subsystem|node)))(?-u:\b)"
+    static_regex(&format!(
+        r"(?-u:\b)(?:(?i-u:in parallel|fan out|fan-out|dispatch (?:one|several))|(?i-u:dispatch )[0-9]+|(?i-u:one )[^{JS_SPACE}]+(?i-u: per (?:dimension|angle|area|question|subsystem|node)))(?-u:\b)"
     ))
 });
 /// A toolkit agent, backticked — the strict form, used where a false positive would be costly.
-static AGENT: LazyLock<Regex> =
-    LazyLock::new(|| re(r"`(scout|reviewer|skeptic|debugger|researcher|implementer|worker)`"));
+static AGENT: LazyLock<Regex> = LazyLock::new(|| {
+    static_regex(r"`(scout|reviewer|skeptic|debugger|researcher|implementer|worker)`")
+});
 /// The same agents unbackticked. Used ONLY for the hedge rule: formatting must not decide whether a
 /// softened directive is caught, and "You may optionally fan out scout agents" is exactly the
 /// sentence that has to fire. Still requires a NAMED agent, so a retrospective aside like "a
 /// web-search fan-out when every agent was filesystem-only" stays clean.
 static AGENT_LOOSE: LazyLock<Regex> = LazyLock::new(|| {
-    re(r"(?-u:\b)(?i-u:scouts?|reviewers?|skeptics?|debuggers?|researchers?|implementers?)(?-u:\b)")
+    static_regex(
+        r"(?-u:\b)(?i-u:scouts?|reviewers?|skeptics?|debuggers?|researchers?|implementers?)(?-u:\b)",
+    )
 });
 /// Softeners that turn a directive back into the permission nobody acts on.
 static HEDGE: LazyLock<Regex> = LazyLock::new(|| {
-    re(
+    static_regex(
         r"(?-u:\b)(?i-u:you may|optionally|if you (?:want|like|prefer)|feel free|consider (?:dispatching|fanning|spawning)|could (?:dispatch|fan|spawn))(?-u:\b)",
     )
 });
 /// The agents that write. Reading agents are safe to parallelise; these are not. `worker` keeps
 /// Edit/Write (it is the general Workflow agent) and counts only backticked, because "worker" is
 /// also an ordinary English word in skill prose.
-static WRITER: LazyLock<Regex> = LazyLock::new(|| re(r"(?i-u:`?implementers?`?|`worker`)"));
+static WRITER: LazyLock<Regex> =
+    LazyLock::new(|| static_regex(r"(?i-u:`?implementers?`?|`worker`)"));
 /// Backticked deliberately: a bare occurrence of the word satisfies nothing. A URL containing
 /// "Workflow", or a fenced sample mentioning `.github/workflows`, is not an instruction to author one.
-static WORKFLOW: LazyLock<Regex> = LazyLock::new(|| re(r"`Workflow`"));
-static ISOLATION: LazyLock<Regex> = LazyLock::new(|| re(r"(?i-u:worktree)"));
-static FENCE: LazyLock<Regex> = LazyLock::new(|| re(r"(?s)```.*?```"));
+static WORKFLOW: LazyLock<Regex> = LazyLock::new(|| static_regex(r"`Workflow`"));
+static ISOLATION: LazyLock<Regex> = LazyLock::new(|| static_regex(r"(?i-u:worktree)"));
+static FENCE: LazyLock<Regex> = LazyLock::new(|| static_regex(r"(?s)```.*?```"));
 /// How far from a parallel-write instruction the isolation guidance may sit and still count.
 const ISOLATION_WINDOW: usize = 3;
 
@@ -174,10 +173,10 @@ pub fn check_orchestration(skills_dir: &str) -> Vec<Finding> {
 
 pub fn main(args: &[String]) -> i32 {
     let skills = match args.first() {
-        Some(dir) => node_resolve(dir),
+        Some(dir) => resolve(&[dir]),
         None => match std::env::var("CLAUDE_PLUGIN_ROOT") {
-            Ok(root) if !root.is_empty() => node_join(&[&root, "skills"]),
-            _ => node_resolve("plugins/viby-toolkit/skills"),
+            Ok(root) if !root.is_empty() => join(&[&root, "skills"]),
+            _ => resolve(&["plugins/viby-toolkit/skills"]),
         },
     };
     // The TypeScript threw on an unreadable directory (exit 1).

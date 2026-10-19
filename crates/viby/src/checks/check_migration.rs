@@ -21,10 +21,10 @@
 use serde_json::json;
 
 pub use super::check_analytics_sql::Finding;
-use super::check_analytics_sql::{
-    collect_targets, js_extname, js_trim, locale_compare, read_text, rx, severity_order, walk_files,
-};
+use super::check_analytics_sql::{collect_targets, severity_order};
 use crate::core::args::{flag, parse_or_exit};
+use crate::core::js::{js_trim, locale_compare, read_text, rx};
+use crate::core::nodepath::{extname, walk_files};
 use crate::core::strip::strip_noncode;
 
 const MIGRATION_EXT: &[&str] = &[
@@ -59,7 +59,7 @@ fn is_migration_path(norm: &str) -> bool {
 }
 
 pub fn is_migration_file(p: &str) -> bool {
-    if !MIGRATION_EXT.contains(&js_extname(p).to_lowercase().as_str()) {
+    if !MIGRATION_EXT.contains(&extname(p).to_lowercase().as_str()) {
         return false;
     }
     is_migration_path(p)
@@ -264,7 +264,7 @@ pub fn scan_migration(file_path: &str) -> Vec<Finding> {
             "fix the permissions or path and re-run — do not treat this run as clean for it",
         )];
     };
-    let ext = js_extname(file_path).to_lowercase();
+    let ext = extname(file_path).to_lowercase();
     // Match CODE, not raw text — a comment or a docstring describing a DROP COLUMN is not one.
     let text = strip_noncode(&raw, &ext);
     let mut findings = Vec::new();
@@ -291,9 +291,11 @@ pub fn scan_migration(file_path: &str) -> Vec<Finding> {
 }
 
 fn walk(root: &str) -> Vec<String> {
-    walk_files(root, &|name| SKIP_DIRS.contains(&name), &|_, full| {
-        is_migration_file(full)
-    })
+    walk_files(
+        root,
+        |name| SKIP_DIRS.contains(&name),
+        |_, full, _| is_migration_file(full),
+    )
 }
 
 pub fn main(args: &[String]) -> i32 {

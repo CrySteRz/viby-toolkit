@@ -40,29 +40,11 @@ use serde_json::{json, Value};
 
 use crate::core::args::{flag, parse_or_exit};
 use crate::core::git::git_within;
+use crate::core::js::{is_js_space, read_text, utf16_cmp, JS_DOT, JS_LINE_END, JS_SPACE};
+use crate::core::nodepath::{dirname, extname, join, normalize, resolve};
 use crate::core::strip::strip_noncode;
 
 // ---------------------------------------------------------------- JavaScript regex semantics
-
-/// JavaScript's `\s` (no U+0085, which Rust's white space includes; plus the byte-order mark).
-const JS_SPACE: &str = "\t\n\u{b}\u{c}\r \u{a0}\u{1680}\u{2000}-\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
-/// JavaScript's `.`: anything but a line terminator.
-const JS_DOT: &str = "[^\n\r\u{2028}\u{2029}]";
-const JS_LINE_END: &str = "[\n\r\u{2028}\u{2029}]";
-
-fn js_space(c: char) -> bool {
-    matches!(
-        c,
-        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-            ..='\u{200a}'
-                | '\u{2028}'
-                | '\u{2029}'
-                | '\u{202f}'
-                | '\u{205f}'
-                | '\u{3000}'
-                | '\u{feff}'
-    )
-}
 
 /// ASCII `\b` for fancy-regex, which has no `(?-u:…)`.
 const ASCII_BOUNDARY: &str =
@@ -324,153 +306,7 @@ pub fn is_test_file(p0: &str) -> bool {
     DIR_PATTERNS.test(&p) && !DIR_DISQUALIFY.test(&p)
 }
 
-// ---------------------------------------------------------------- paths, as node:path (posix)
-
-/// `path.normalize`.
-fn normalize(p: &str) -> String {
-    if p.is_empty() {
-        return ".".to_string();
-    }
-    let absolute = p.starts_with('/');
-    let trailing = p.ends_with('/');
-    let mut parts: Vec<&str> = Vec::new();
-    for seg in p.split('/') {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                if parts.last().is_some_and(|l| *l != "..") {
-                    parts.pop();
-                } else if !absolute {
-                    parts.push("..");
-                }
-            }
-            s => parts.push(s),
-        }
-    }
-    let mut out = parts.join("/");
-    if out.is_empty() {
-        if absolute {
-            return "/".to_string();
-        }
-        return if trailing { "./" } else { "." }.to_string();
-    }
-    if trailing {
-        out.push('/');
-    }
-    if absolute {
-        format!("/{out}")
-    } else {
-        out
-    }
-}
-
-/// `path.join`.
-fn join(parts: &[&str]) -> String {
-    let parts: Vec<&str> = parts.iter().copied().filter(|p| !p.is_empty()).collect();
-    if parts.is_empty() {
-        return ".".to_string();
-    }
-    normalize(&parts.join("/"))
-}
-
-/// `path.resolve(dir, spec)`.
-fn resolve(dir: &str, spec: &str) -> String {
-    let mut combined = String::new();
-    for p in [spec, dir] {
-        if p.is_empty() {
-            continue;
-        }
-        combined = if combined.is_empty() {
-            p.to_string()
-        } else {
-            format!("{p}/{combined}")
-        };
-        if p.starts_with('/') {
-            break;
-        }
-    }
-    if !combined.starts_with('/') {
-        let cwd = std::env::current_dir()
-            .map(|d| d.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        combined = format!("{cwd}/{combined}");
-    }
-    let out = normalize(&combined);
-    match out.strip_suffix('/') {
-        Some(s) if !s.is_empty() => s.to_string(),
-        _ => out,
-    }
-}
-
-/// `path.dirname`.
-fn dirname(p: &str) -> String {
-    let b = p.as_bytes();
-    if b.is_empty() {
-        return ".".to_string();
-    }
-    let has_root = b[0] == b'/';
-    let mut end = None;
-    let mut matched_slash = true;
-    for i in (1..b.len()).rev() {
-        if b[i] == b'/' {
-            if !matched_slash {
-                end = Some(i);
-                break;
-            }
-        } else {
-            matched_slash = false;
-        }
-    }
-    match end {
-        None => if has_root { "/" } else { "." }.to_string(),
-        Some(1) if has_root => "//".to_string(),
-        Some(e) => p[..e].to_string(),
-    }
-}
-
-/// `path.extname`.
-fn extname(p: &str) -> &str {
-    let b = p.as_bytes();
-    let (mut start_dot, mut start_part, mut end) = (None, 0, None);
-    let mut matched_slash = true;
-    let mut pre_dot_state = 0;
-    for i in (0..b.len()).rev() {
-        let c = b[i];
-        if c == b'/' {
-            if !matched_slash {
-                start_part = i + 1;
-                break;
-            }
-            continue;
-        }
-        if end.is_none() {
-            matched_slash = false;
-            end = Some(i + 1);
-        }
-        if c == b'.' {
-            if start_dot.is_none() {
-                start_dot = Some(i);
-            } else if pre_dot_state != 1 {
-                pre_dot_state = 1;
-            }
-        } else if start_dot.is_some() {
-            pre_dot_state = -1;
-        }
-    }
-    match (start_dot, end) {
-        (Some(d), Some(e))
-            if pre_dot_state != 0 && !(pre_dot_state == 1 && d + 1 == e && d == start_part + 1) =>
-        {
-            &p[d..e]
-        }
-        _ => "",
-    }
-}
-
-/// JavaScript's `<` on strings: UTF-16 code unit order.
-fn js_cmp(a: &str, b: &str) -> std::cmp::Ordering {
-    a.encode_utf16().cmp(b.encode_utf16())
-}
+// ---------------------------------------------------------------- walking the repository
 
 fn walk_repo(root: &str) -> Vec<String> {
     let mut out = Vec::new();
@@ -520,7 +356,7 @@ fn changed_files() -> Vec<String> {
         let r = git_within(Path::new("."), cmd, Duration::from_secs(10));
         if r.ok && !r.stdout.is_empty() {
             for l in r.stdout.split('\n') {
-                if !l.chars().all(js_space) && !out.iter().any(|o| o == l) {
+                if !l.chars().all(is_js_space) && !out.iter().any(|o| o == l) {
                     out.push(l.to_string());
                 }
             }
@@ -530,7 +366,7 @@ fn changed_files() -> Vec<String> {
         .into_iter()
         .filter(|f| is_test_file(f) && is_file(f))
         .collect();
-    out.sort_by(|a, b| js_cmp(a, b));
+    out.sort_by(|a, b| utf16_cmp(a, b));
     out
 }
 
@@ -856,14 +692,14 @@ type LineEntry<'a> = (usize, &'a str);
 /// `line.length - line.trimStart().length`, in UTF-16 units as JavaScript counted it.
 fn indent(line: &str) -> usize {
     line.chars()
-        .take_while(|c| js_space(*c))
+        .take_while(|c| is_js_space(*c))
         .map(char::len_utf16)
         .sum()
 }
 
 /// `!line.trim()`.
 fn is_blank(line: &str) -> bool {
-    line.chars().all(js_space)
+    line.chars().all(is_js_space)
 }
 
 /// [nameLineIndex, body] for each test case in the file.
@@ -1044,13 +880,6 @@ fn code_text(raw: &str, ext: &str) -> String {
     out
 }
 
-/// `fs.readFileSync(path, "utf8")`: invalid UTF-8 becomes U+FFFD, as Node decodes it.
-fn read_text(path: &str) -> Option<String> {
-    fs::read(path)
-        .ok()
-        .map(|b| String::from_utf8_lossy(&b).into_owned())
-}
-
 /// Memoized per-file helper analysis, so a shared mixin is parsed once per run.
 fn helpers_in_file(cache: &mut HashMap<String, Helpers>, file_path: &str) -> Helpers {
     if let Some(h) = cache.get(file_path) {
@@ -1106,7 +935,7 @@ fn related_files(file_path: &str, raw: &str) -> Vec<String> {
             continue; // relative only — skip packages
         }
         let spec = JS_EXT.remove_first(spec);
-        try_add(&mut found, &resolve(&dir, &spec));
+        try_add(&mut found, &resolve(&[&dir, &spec]));
     }
     // Dotted Python modules: `from test.test_tkinter.widget_tests import AbstractWidgetTest`
     // resolves relative to whichever ancestor directory the package root sits in — often NOT
@@ -1411,7 +1240,7 @@ fn scan_file(cache: &mut HashMap<String, Helpers>, file_path: &str) -> Vec<Findi
 fn collect_targets(all: bool, any: bool, paths: &[String]) -> (Vec<String>, Vec<String>) {
     if all {
         let mut targets = walk_repo(".");
-        targets.sort_by(|a, b| js_cmp(a, b));
+        targets.sort_by(|a, b| utf16_cmp(a, b));
         return (targets, Vec::new());
     }
     if !paths.is_empty() {
@@ -1437,7 +1266,7 @@ fn collect_targets(all: bool, any: bool, paths: &[String]) -> (Vec<String>, Vec<
                 targets.push(t);
             }
         }
-        targets.sort_by(|a, b| js_cmp(a, b));
+        targets.sort_by(|a, b| utf16_cmp(a, b));
         return (targets, skipped);
     }
     (changed_files(), Vec::new())
@@ -1529,7 +1358,7 @@ fn report(
     sorted.sort_by(|a, b| {
         severity_rank(a.severity)
             .cmp(&severity_rank(b.severity))
-            .then_with(|| js_cmp(&a.file, &b.file))
+            .then_with(|| utf16_cmp(&a.file, &b.file))
             .then(a.line.cmp(&b.line))
     });
     for f in &sorted {
@@ -1548,7 +1377,7 @@ fn report(
                     None => by.push((f.check, 1)),
                 }
             }
-            by.sort_by(|a, b| js_cmp(a.0, b.0));
+            by.sort_by(|a, b| utf16_cmp(a.0, b.0));
             let breakdown: Vec<String> = by.iter().map(|(k, v)| format!("{k} {v}")).collect();
             println(&format!(
                 "\n{} finding(s) across {} test file(s): {}",

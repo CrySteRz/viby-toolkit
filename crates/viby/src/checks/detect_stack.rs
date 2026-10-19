@@ -28,6 +28,8 @@
 //! `\s`, and `^` after any JS line terminator.
 
 use crate::core::args::{flag, parse_or_exit};
+use crate::core::js::{captures_all, js_trim, JS_DOT, JS_LINE_END, JS_SPACE};
+use crate::core::nodepath::{extname, resolve};
 use fancy_regex::Regex as Fancy;
 use regex::Regex;
 use serde::ser::{Serialize, SerializeMap, Serializer};
@@ -334,42 +336,8 @@ const PROFILERS: &[(&str, &str, &str)] = &[
     ("C++", "perf", "perf record -g ./bin && perf report"),
 ];
 
-/// JS `\s`: not Rust's, which has U+0085 and lacks U+FEFF.
-const JS_WS: &str = "\t\n\u{b}\u{c}\r \u{a0}\u{1680}\u{2000}-\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
 /// JS `^` under `/m`: the start of the text or just after any JS line terminator.
 const BOL: &str = "(?:^|(?<=[\n\r\u{2028}\u{2029}]))";
-/// JS `.`: anything but a line terminator.
-const DOT: &str = "[^\n\r\u{2028}\u{2029}]";
-
-fn is_js_ws(c: char) -> bool {
-    matches!(
-        c,
-        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-            ..='\u{200a}'
-                | '\u{2028}'
-                | '\u{2029}'
-                | '\u{202f}'
-                | '\u{205f}'
-                | '\u{3000}'
-                | '\u{feff}'
-    )
-}
-
-fn js_trim(s: &str) -> &str {
-    s.trim_matches(is_js_ws)
-}
-
-/// All matches of a backtracking regex; a regex error (backtrack limit) ends the scan quietly.
-fn captures_all<'t>(re: &Fancy, text: &'t str) -> Vec<fancy_regex::Captures<'t>> {
-    let mut out = Vec::new();
-    for caps in re.captures_iter(text) {
-        match caps {
-            Ok(c) => out.push(c),
-            Err(_) => break,
-        }
-    }
-    out
-}
 
 fn on_path(bin: &str) -> bool {
     let Some(paths) = std::env::var_os("PATH") else {
@@ -393,15 +361,6 @@ fn read(p: &Path) -> String {
             s.strip_prefix('\u{feff}').unwrap_or(&s).to_string()
         }
         Err(_) => String::new(),
-    }
-}
-
-/// `path.extname`, on a file name.
-fn extname(name: &str) -> &str {
-    match name.rfind('.') {
-        None | Some(0) => "",
-        Some(_) if name == ".." => "",
-        Some(i) => &name[i..],
     }
 }
 
@@ -532,7 +491,7 @@ fn census_languages(root: &Path) -> Vec<Language> {
 static RUN_STEP: LazyLock<Option<Fancy>> = LazyLock::new(|| {
     // `run:` steps, both scalar and block forms.
     Fancy::new(&format!(
-        "{BOL}[{JS_WS}]*(?:-[{JS_WS}]*)?run:[{JS_WS}]*(?:\\|[-+]?[{JS_WS}]*)?({DOT}*)"
+        "{BOL}[{JS_SPACE}]*(?:-[{JS_SPACE}]*)?run:[{JS_SPACE}]*(?:\\|[-+]?[{JS_SPACE}]*)?({JS_DOT}*)"
     ))
     .ok()
 });
@@ -827,10 +786,7 @@ fn task_runner_commands(
 
 static WORKSPACE_TABLE: LazyLock<Option<Regex>> = LazyLock::new(|| {
     // `/^\s*\[workspace\]/m`; JS `\s` spans newlines, so a blank line before it is fine.
-    Regex::new(&format!(
-        "(?:^|[\n\r\u{2028}\u{2029}])[{JS_WS}]*\\[workspace\\]"
-    ))
-    .ok()
+    Regex::new(&format!("(?:^|{JS_LINE_END})[{JS_SPACE}]*\\[workspace\\]")).ok()
 });
 
 pub fn detect_stack(root: &Path) -> Stack {
@@ -1089,35 +1045,12 @@ fn report(s: &Stack) -> String {
     out.join("\n")
 }
 
-/// `path.resolve(arg)`: absolute and lexically normalized, symlinks untouched, no trailing slash.
-fn resolve(arg: &str) -> String {
-    let joined = if arg.starts_with('/') {
-        arg.to_string()
-    } else {
-        let cwd = std::env::current_dir()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        format!("{cwd}/{arg}")
-    };
-    let mut parts: Vec<&str> = Vec::new();
-    for seg in joined.split('/') {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                parts.pop();
-            }
-            s => parts.push(s),
-        }
-    }
-    format!("/{}", parts.join("/"))
-}
-
 pub fn main(args: &[String]) -> i32 {
     let parsed = match parse_or_exit(args, &[flag("json")]) {
         Ok(p) => p,
         Err(code) => return code,
     };
-    let root = resolve(parsed.positionals.first().map_or(".", String::as_str));
+    let root = resolve(&[parsed.positionals.first().map_or(".", String::as_str)]);
     let stack = detect_stack(Path::new(&root));
     if parsed.flag("json") {
         match serde_json::to_string_pretty(&stack) {

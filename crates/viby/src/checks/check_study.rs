@@ -24,34 +24,10 @@ use regex::Regex;
 use serde_json::{json, Map, Value};
 
 use crate::core::args::{flag, parse_or_exit};
+use crate::core::js::{is_js_space, js_trim, static_regex, JS_SPACE};
 
-// JavaScript's `\s`: Unicode white space without U+0085, plus the byte-order mark. The `regex`
-// crate's own `\s` differs on both, and so does its `\b`, `\w` and `\d`, so every pattern below
-// spells them out or opts out of Unicode with `(?-u:..)` / `(?i-u:..)`.
-const JS_S: &str = r"\t\n\x0B\x0C\r \u{a0}\u{1680}\u{2000}-\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
-
-fn is_js_space(c: char) -> bool {
-    matches!(
-        c,
-        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-            ..='\u{200a}'
-                | '\u{2028}'
-                | '\u{2029}'
-                | '\u{202f}'
-                | '\u{205f}'
-                | '\u{3000}'
-                | '\u{feff}'
-    )
-}
-
-/// JavaScript's `String.prototype.trim`.
-fn trim(s: &str) -> &str {
-    s.trim_matches(is_js_space)
-}
-
-fn rx(pattern: &str) -> Regex {
-    Regex::new(pattern).expect("static regex")
-}
+// The `regex` crate's `\s`, `\b`, `\w` and `\d` differ from JavaScript's, so every pattern below
+// spells them out (`JS_SPACE`) or opts out of Unicode with `(?-u:..)` / `(?i-u:..)`.
 
 #[derive(Debug, Clone)]
 pub struct Finding {
@@ -86,12 +62,12 @@ const HEDGES: &[&str] = &[
 /// hedging BELONGS. Matching it flagged the most honest paragraph in a document as if it were a
 /// result — punishing exactly the behaviour the skill asks for.
 static NOT_MEASURED_HEADING: LazyLock<Regex> = LazyLock::new(|| {
-    rx(
+    static_regex(
         r"(?i-u:\b(not |un)(verified|tested|measured|proven)|limitation|open question|caveat|unknown|future work)",
     )
 });
 static MEASURED_HEADING: LazyLock<Regex> = LazyLock::new(|| {
-    rx(r"(?i-u:\b(measur|benchmark|result|finding|verified|tested|experiment|data))")
+    static_regex(r"(?i-u:\b(measur|benchmark|result|finding|verified|tested|experiment|data))")
 });
 
 /// A section reporting the document's OWN measurement. Figures there need no external citation —
@@ -100,7 +76,7 @@ static MEASURED_HEADING: LazyLock<Regex> = LazyLock::new(|| {
 /// unsourced-figure findings, 28 of them in a section headed "Benchmarked on our own repo" whose
 /// every number was the author's own measured result.
 static SELF_MEASURED: LazyLock<Regex> = LazyLock::new(|| {
-    rx(
+    static_regex(
         r"(?i-u:\bbenchmark(ed)?\b|\bwe (?:ran|measured|tested|built|stood up)\b|\bour own (?:repo|code|data|machine)\b|\bmeasured (?:here|locally|on|against)\b|\btest run\b|\bresults? \d|\bon (?:this|our) repo\b)",
     )
 });
@@ -120,23 +96,25 @@ fn presented_as_measured(heading: &str) -> bool {
 /// plural unit written without a space ("cut memory to 1.5MBs"), silently letting a real unsourced
 /// measurement through. Both halves are pinned by tests.
 static FIGURE: LazyLock<Regex> = LazyLock::new(|| {
-    rx(&format!(
-        r"[0-9][0-9,]*\.?[0-9]*[{JS_S}]?%|[0-9][0-9,]*\.?[0-9]*[{JS_S}]?[×x](?-u:\b)|(?-u:\b)n[{JS_S}]?=[{JS_S}]?[0-9]+|\$[{JS_S}]?[0-9][0-9,]*|[0-9][0-9,]{{4,}}(?-u:\b)|[0-9]+\.[0-9]+[{JS_S}]?(ms|s|GB|MB|kB|k tokens|tokens)s?(?-u:\b)"
+    static_regex(&format!(
+        r"[0-9][0-9,]*\.?[0-9]*[{JS_SPACE}]?%|[0-9][0-9,]*\.?[0-9]*[{JS_SPACE}]?[×x](?-u:\b)|(?-u:\b)n[{JS_SPACE}]?=[{JS_SPACE}]?[0-9]+|\$[{JS_SPACE}]?[0-9][0-9,]*|[0-9][0-9,]{{4,}}(?-u:\b)|[0-9]+\.[0-9]+[{JS_SPACE}]?(ms|s|GB|MB|kB|k tokens|tokens)s?(?-u:\b)"
     ))
 });
 
-static URL_RE: LazyLock<Regex> = LazyLock::new(|| rx(&format!(r#"https?://[^{JS_S})\]<>"']+"#)));
-static HAS_URL: LazyLock<Regex> = LazyLock::new(|| rx("https?://"));
+static URL_RE: LazyLock<Regex> =
+    LazyLock::new(|| static_regex(&format!(r#"https?://[^{JS_SPACE})\]<>"']+"#)));
+static HAS_URL: LazyLock<Regex> = LazyLock::new(|| static_regex("https?://"));
 static DATE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    rx(&format!(
-        r"(?-u:\b)(20[0-9]{{2}}-[0-9]{{2}}-[0-9]{{2}}|(?-u:\b)(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[{JS_S}]+20[0-9]{{2}}|(?-u:\b)20[0-9]{{2}}(?-u:\b))"
+    static_regex(&format!(
+        r"(?-u:\b)(20[0-9]{{2}}-[0-9]{{2}}-[0-9]{{2}}|(?-u:\b)(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[{JS_SPACE}]+20[0-9]{{2}}|(?-u:\b)20[0-9]{{2}}(?-u:\b))"
     ))
 });
 
 static ISO_DATE: LazyLock<Regex> =
-    LazyLock::new(|| rx(r"(?-u:\b)20[0-9]{2}-[0-9]{2}-[0-9]{2}(?-u:\b)"));
-static YEAR: LazyLock<Regex> = LazyLock::new(|| rx(r"(?-u:\b)(19|20)[0-9]{2}(?-u:\b)"));
-static CLOCK: LazyLock<Regex> = LazyLock::new(|| rx(r"(?-u:\b)[0-9]{1,2}:[0-9]{2}(?-u:\b)"));
+    LazyLock::new(|| static_regex(r"(?-u:\b)20[0-9]{2}-[0-9]{2}-[0-9]{2}(?-u:\b)"));
+static YEAR: LazyLock<Regex> = LazyLock::new(|| static_regex(r"(?-u:\b)(19|20)[0-9]{2}(?-u:\b)"));
+static CLOCK: LazyLock<Regex> =
+    LazyLock::new(|| static_regex(r"(?-u:\b)[0-9]{1,2}:[0-9]{2}(?-u:\b)"));
 
 /// Dates are not quantities. A year or an ISO date is four digits and would otherwise trip the
 /// bare-integer branch of FIGURE on every properly date-stamped citation — punishing the exact
@@ -147,7 +125,7 @@ fn blank_dates(line: &str) -> String {
     CLOCK.replace_all(&b, "").into_owned()
 }
 
-static URL_HOST: LazyLock<Regex> = LazyLock::new(|| rx("^https?://([^/]+)"));
+static URL_HOST: LazyLock<Regex> = LazyLock::new(|| static_regex("^https?://([^/]+)"));
 
 fn domain_of(url: &str) -> String {
     let host = URL_HOST
@@ -158,14 +136,14 @@ fn domain_of(url: &str) -> String {
 }
 
 static HEADING_START: LazyLock<Regex> =
-    LazyLock::new(|| rx(&format!(r"^[{JS_S}]*#{{1,6}}[{JS_S}]")));
+    LazyLock::new(|| static_regex(&format!(r"^[{JS_SPACE}]*#{{1,6}}[{JS_SPACE}]")));
 static HEADING_START_PLUS: LazyLock<Regex> =
-    LazyLock::new(|| rx(&format!(r"^[{JS_S}]*#{{1,6}}[{JS_S}]+")));
+    LazyLock::new(|| static_regex(&format!(r"^[{JS_SPACE}]*#{{1,6}}[{JS_SPACE}]+")));
 static LIST_ITEM: LazyLock<Regex> =
-    LazyLock::new(|| rx(&format!(r"^[{JS_S}]*([-*+]|[0-9]+\.)[{JS_S}]")));
-static TABLE_ROW: LazyLock<Regex> = LazyLock::new(|| rx(&format!(r"^[{JS_S}]*\|")));
-static QUOTE: LazyLock<Regex> = LazyLock::new(|| rx(&format!(r"^[{JS_S}]*>")));
-static FENCE: LazyLock<Regex> = LazyLock::new(|| rx(&format!(r"^[{JS_S}]*```")));
+    LazyLock::new(|| static_regex(&format!(r"^[{JS_SPACE}]*([-*+]|[0-9]+\.)[{JS_SPACE}]")));
+static TABLE_ROW: LazyLock<Regex> = LazyLock::new(|| static_regex(&format!(r"^[{JS_SPACE}]*\|")));
+static QUOTE: LazyLock<Regex> = LazyLock::new(|| static_regex(&format!(r"^[{JS_SPACE}]*>")));
+static FENCE: LazyLock<Regex> = LazyLock::new(|| static_regex(&format!(r"^[{JS_SPACE}]*```")));
 
 /// Group lines into blocks — a paragraph, one list item (including its wrapped continuation
 /// lines), or one table row. A citation anywhere in the block covers the whole block, which is
@@ -180,7 +158,7 @@ pub fn block_of(lines: &[&str]) -> Vec<usize> {
         // start of a block made every paragraph after a blank line inherit the blank line's index,
         // so no paragraph was ever its own block start and the "sentence introducing this list"
         // lookup silently never found anything.
-        if trim(line).is_empty() {
+        if js_trim(line).is_empty() {
             owner.push(i);
             start = i + 1;
             continue;
@@ -233,13 +211,14 @@ impl Mode {
 }
 
 static NOTES_PATH: LazyLock<Regex> =
-    LazyLock::new(|| rx(r"(?i-u:(^|/)(references|reference|notes|appendix)/)"));
+    LazyLock::new(|| static_regex(r"(?i-u:(^|/)(references|reference|notes|appendix)/)"));
 static STUDY_PATH: LazyLock<Regex> =
-    LazyLock::new(|| rx(r"(?i-u:(^|/)docs/(studies|research|decisions|adr)/)"));
-static STUDY_NAME: LazyLock<Regex> = LazyLock::new(|| rx(r"(?i-u:stud(y|ies)|research|spike)"));
+    LazyLock::new(|| static_regex(r"(?i-u:(^|/)docs/(studies|research|decisions|adr)/)"));
+static STUDY_NAME: LazyLock<Regex> =
+    LazyLock::new(|| static_regex(r"(?i-u:stud(y|ies)|research|spike)"));
 static STUDY_H1: LazyLock<Regex> = LazyLock::new(|| {
-    rx(&format!(
-        r"^[{JS_S}]*(?i-u:(a |the )?(study|research|spike|evaluation|investigation)\b)"
+    static_regex(&format!(
+        r"^[{JS_SPACE}]*(?i-u:(a |the )?(study|research|spike|evaluation|investigation)\b)"
     ))
 });
 
@@ -297,32 +276,35 @@ pub fn infer_mode(file: &str, text: &str) -> Mode {
 
 /// Evidence that a document's claims rest on a local measurement rather than on citations.
 static LOCAL_EVIDENCE: LazyLock<Regex> = LazyLock::new(|| {
-    rx(
+    static_regex(
         r"(?i-u:\b(oracle|ground truth|fixture|measured (here|on|locally)|our own repo|contract test))",
     )
 });
 static LOCAL_DECLARED: LazyLock<Regex> = LazyLock::new(|| {
-    rx(r"(?i-u:local measurement|no external (citation|source)|measured on (this|our) repo)")
+    static_regex(
+        r"(?i-u:local measurement|no external (citation|source)|measured on (this|our) repo)",
+    )
 });
-static CITED: LazyLock<Regex> = LazyLock::new(|| rx(r"\[[^\]]+\]\([^)]+\)|\[\^?[0-9]+\]|§"));
+static CITED: LazyLock<Regex> =
+    LazyLock::new(|| static_regex(r"\[[^\]]+\]\([^)]+\)|\[\^?[0-9]+\]|§"));
 static CITED_WORDS: LazyLock<Regex> = LazyLock::new(|| {
-    rx(r"(?i-u:\barXiv\b|\bDOI\b|\bfetched\b|\bmeasured (?:here|locally|on)\b|\bref\b)")
+    static_regex(r"(?i-u:\barXiv\b|\bDOI\b|\bfetched\b|\bmeasured (?:here|locally|on)\b|\bref\b)")
 });
 
 static HAS_STATUS: LazyLock<Regex> =
-    LazyLock::new(|| rx("status[: ]|what was actually done|searched|sources read"));
+    LazyLock::new(|| static_regex("status[: ]|what was actually done|searched|sources read"));
 static HAS_FALSIFIER: LazyLock<Regex> = LazyLock::new(|| {
-    rx("would change (my|the) mind|would change (this|the) (conclusion|answer)|falsif|what would decide")
+    static_regex("would change (my|the) mind|would change (this|the) (conclusion|answer)|falsif|what would decide")
 });
 static HAS_REFUTED: LazyLock<Regex> =
-    LazyLock::new(|| rx("refut|corrected|proved wrong|contradict|i was wrong|prior was"));
+    LazyLock::new(|| static_regex("refut|corrected|proved wrong|contradict|i was wrong|prior was"));
 static HAS_STOPPING: LazyLock<Regex> = LazyLock::new(|| {
-    rx(
+    static_regex(
         r"stopping rule|saturation|top [0-9]+|exhaust|effort[^\n\r\u{2028}\u{2029}]bounded|searched until",
     )
 });
 static HAS_LABELS: LazyLock<Regex> =
-    LazyLock::new(|| rx("measured|inferred|not tested|unverified|verified"));
+    LazyLock::new(|| static_regex("measured|inferred|not tested|unverified|verified"));
 
 /// `s.slice(0, n)` where `n` counts UTF-16 units. A cut through a surrogate pair leaves a lone
 /// high surrogate, which Rust cannot hold: it is kept as a private-use stand-in
@@ -426,7 +408,7 @@ pub fn check_study(text: &str, mode: Mode) -> Vec<Finding> {
         // A figure with no source on the same line and none on the next (tables and footnotes
         // routinely put the citation in the adjacent cell or line).
         let is_block_item = LIST_ITEM.is_match(line) || TABLE_ROW.is_match(line);
-        if !is_block_item && !trim(line).is_empty() {
+        if !is_block_item && !js_trim(line).is_empty() {
             // Accumulate the WHOLE paragraph, not just its first line: a citation frequently lands on
             // the second or third line of the sentence that introduces a figure, and keeping only the
             // first line reported those as unsourced.
@@ -490,7 +472,7 @@ pub fn check_study(text: &str, mode: Mode) -> Vec<Finding> {
                 severity: "P1",
                 message: format!(
                     "a quantity with no source on or next to its line: \"{}\"",
-                    slice_utf16(trim(line), 90)
+                    slice_utf16(js_trim(line), 90)
                 ),
                 fix: "attach the source and the quoted sentence, or mark it as your own measurement — an unattributed number is the most repeated citation defect there is",
             });
@@ -507,7 +489,7 @@ pub fn check_study(text: &str, mode: Mode) -> Vec<Finding> {
                     severity: "P1",
                     message: format!(
                         "\"{hit}\" inside a section headed {} — hedged language presented as a result",
-                        slice_utf16(trim(current_heading), 50)
+                        slice_utf16(js_trim(current_heading), 50)
                     ),
                     fix: "either verify it and state it plainly, or move it out of the results section and label it inferred / not tested",
                 });
@@ -617,7 +599,7 @@ pub fn check_study(text: &str, mode: Mode) -> Vec<Finding> {
     findings
 }
 
-static STUDY_FILE: LazyLock<Regex> = LazyLock::new(|| rx(r"(?i-u:\.(md|markdown|txt)$)"));
+static STUDY_FILE: LazyLock<Regex> = LazyLock::new(|| static_regex(r"(?i-u:\.(md|markdown|txt)$)"));
 
 fn order(severity: &str) -> u8 {
     match severity {

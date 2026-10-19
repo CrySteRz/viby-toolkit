@@ -31,10 +31,9 @@ use std::time::{Duration, Instant};
 use regex::Regex;
 use serde_json::{json, Map, Value};
 
-use super::check_skills::{
-    js_trim, node_join, node_resolve, read_dir_sorted, read_text, slice_utf16, WS_CLASS,
-};
 use crate::core::args::{flag, parse_or_exit};
+use crate::core::js::{js_trim, read_text, slice_utf16, JS_SPACE};
+use crate::core::nodepath::{basename, join, read_dir_sorted, resolve};
 
 #[derive(Clone, Debug)]
 pub struct Finding {
@@ -284,7 +283,7 @@ pub fn extract_commands(config: &HooksConfig) -> Vec<CommandRef> {
 
 /// `/"([^"]*)"|'([^']*)'|(\S+)/g`, with JavaScript's `\S`.
 static TOKEN_RE: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(&format!(r#""([^"]*)"|'([^']*)'|([^{WS_CLASS}]+)"#)).ok());
+    LazyLock::new(|| Regex::new(&format!(r#""([^"]*)"|'([^']*)'|([^{JS_SPACE}]+)"#)).ok());
 static HAS_SLASH_OR_TILDE: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"[/~]").ok());
 static HAS_EXTENSION: LazyLock<Option<Regex>> =
     LazyLock::new(|| Regex::new(r"\.[A-Za-z0-9_]+$").ok());
@@ -330,7 +329,7 @@ pub fn check_path_usage(refs: &[CommandRef], plugin_root: &str) -> Vec<Finding> 
                 continue;
             };
             let rel = after.trim_start_matches('/');
-            let resolved = node_join(&[plugin_root, rel]);
+            let resolved = join(&[plugin_root, rel]);
             if !Path::new(&resolved).exists() {
                 findings.push(Finding::new(
                     "missing-script",
@@ -488,11 +487,6 @@ pub fn documented_as_opt_in(readme: &str, basename: &str) -> bool {
         .any(|line| opt_in.is_match(line) && line.contains(basename))
 }
 
-/// `path.basename`.
-fn basename(p: &str) -> &str {
-    p.trim_end_matches('/').rsplit('/').next().unwrap_or("")
-}
-
 /// A hook script reachable by no path at all: not wired in hooks.json, not documented as
 /// opt-in in README.md. Neither post-tool-use-format.ts nor statusline.ts should ever trip
 /// this — they are shipped deliberately unregistered and documented as such.
@@ -531,7 +525,7 @@ pub fn check_orphan_scripts(hooks_dir: &str, config: &HooksConfig, readme: &str)
 }
 
 pub fn check_hooks(plugin_root: &str, readme_path: &str) -> Vec<Finding> {
-    let hooks_json_path = node_join(&[plugin_root, "hooks", "hooks.json"]);
+    let hooks_json_path = join(&[plugin_root, "hooks", "hooks.json"]);
     let Some(text) = read_text(Path::new(&hooks_json_path)) else {
         return vec![Finding::new(
             "missing-hooks-json",
@@ -551,8 +545,7 @@ pub fn check_hooks(plugin_root: &str, readme_path: &str) -> Vec<Finding> {
 
     // The orphan check degrades gracefully without a README to consult.
     let readme = read_text(Path::new(readme_path)).unwrap_or_default();
-    let orphan_findings =
-        check_orphan_scripts(&node_join(&[plugin_root, "hooks"]), &config, &readme);
+    let orphan_findings = check_orphan_scripts(&join(&[plugin_root, "hooks"]), &config, &readme);
 
     let mut all = findings;
     all.extend(shape_findings);
@@ -567,15 +560,14 @@ pub fn main(args: &[String]) -> i32 {
         Ok(p) => p,
         Err(code) => return code,
     };
-    let plugin_root = node_resolve(
-        p.positionals
-            .first()
-            .map_or("plugins/viby-toolkit", String::as_str),
-    );
-    let readme_path = node_resolve(&match p.positionals.get(1) {
+    let plugin_root = resolve(&[p
+        .positionals
+        .first()
+        .map_or("plugins/viby-toolkit", String::as_str)]);
+    let readme_path = resolve(&[&match p.positionals.get(1) {
         Some(r) => r.clone(),
-        None => node_join(&[&plugin_root, "..", "..", "README.md"]),
-    });
+        None => join(&[&plugin_root, "..", "..", "README.md"]),
+    }]);
 
     let mut findings = check_hooks(&plugin_root, &readme_path);
     let exit = if findings.iter().any(|f| f.severity == "P1") {

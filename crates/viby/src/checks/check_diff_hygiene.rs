@@ -20,7 +20,6 @@
 //! `check-release` scans the tree and will fairly complain about pre-existing debris; this only
 //! complains about debris you are introducing. Every finding names the fix.
 
-use std::cmp::Ordering;
 use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -28,10 +27,11 @@ use std::sync::LazyLock;
 use regex::Regex;
 use serde_json::{json, Value};
 
-use super::check_test_drift::{join, js_basename, js_extname, js_regex, js_trim, to_pretty};
+use super::check_test_drift::to_pretty;
 use crate::core::args::{flag, parse_or_exit, value};
 use crate::core::git::git;
-use crate::core::strip::is_js_space;
+use crate::core::js::{is_js_space, js_re, js_trim, locale_compare};
+use crate::core::nodepath::{basename, extname, join};
 
 #[derive(Debug, Clone)]
 pub struct Finding {
@@ -147,21 +147,30 @@ struct Res {
 }
 
 static RES: LazyLock<Res> = LazyLock::new(|| Res {
-    test_path: js_regex(
+    test_path: js_re(
         r"(?i)(^|/)(tests?|specs?|__tests__)/|[._-](test|tests|spec|specs)\.[a-z]+$|(^|/)test_[^/]*\.py$|_test\.[a-z]+$|Test(s)?\.(java|kt|cs)$",
+        "",
     ),
-    script_path: js_regex(r"(?i)(^|/)(scripts?|bin|tools?|cli|tasks?|jobs?|migrations?|seeds?)/"),
-    script_file: js_regex(
+    script_path: js_re(
+        r"(?i)(^|/)(scripts?|bin|tools?|cli|tasks?|jobs?|migrations?|seeds?)/",
+        "",
+    ),
+    script_file: js_re(
         r"(?i)(^|/)(seed|migrate|backfill|bootstrap|setup|deploy|codemod)[\w.-]*\.[a-z]+$",
+        "",
     ),
     // `.` in JavaScript stops at \r,   and   as well as \n.
     diff_file: Regex::new(r" b/([^\n\r\x{2028}\x{2029}]+)$").expect("static pattern"),
-    hunk: js_regex(r"@@ -\d+(?:,\d+)? \+(\d+)"),
-    conflict: js_regex(r"^(<{7}|={7}|>{7})(\s|$)"),
-    example_credential: js_regex(
+    hunk: js_re(r"@@ -\d+(?:,\d+)? \+(\d+)", ""),
+    conflict: js_re(r"^(<{7}|={7}|>{7})(\s|$)", ""),
+    example_credential: js_re(
         r"(?i)EXAMPLE(KEY)?\b|\bYOUR[_-][A-Z_-]*(KEY|TOKEN|SECRET)\b|X{8,}",
+        "",
     ),
-    allow_secret: js_regex(r"\b(hygiene:allow-secret|gitleaks:allow|pragma: allowlist secret)\b"),
+    allow_secret: js_re(
+        r"\b(hygiene:allow-secret|gitleaks:allow|pragma: allowlist secret)\b",
+        "",
+    ),
     secrets: [
         r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
         r"\bAKIA[0-9A-Z]{16}\b",
@@ -170,27 +179,28 @@ static RES: LazyLock<Res> = LazyLock::new(|| Res {
         r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b",
     ]
     .iter()
-    .map(|p| js_regex(p))
+    .map(|p| js_re(p, ""))
     .collect(),
-    comment_start: js_regex(r"^\s*(//|#|\*)"),
-    debugger: js_regex(r"\bdebugger\s*;?\s*$"),
-    console: js_regex(r"\bconsole\.(log|debug|dir)\s*\("),
-    py_breakpoint: js_regex(r"\b(breakpoint\s*\(\)|(?:i?pdb)\.set_trace\s*\()"),
-    py_print_open: js_regex(r"^\s*print\s*\("),
-    py_print_marker: js_regex(
+    comment_start: js_re(r"^\s*(//|#|\*)", ""),
+    debugger: js_re(r"\bdebugger\s*;?\s*$", ""),
+    console: js_re(r"\bconsole\.(log|debug|dir)\s*\(", ""),
+    py_breakpoint: js_re(r"\b(breakpoint\s*\(\)|(?:i?pdb)\.set_trace\s*\()", ""),
+    py_print_open: js_re(r"^\s*print\s*\(", ""),
+    py_print_marker: js_re(
         r#"(?i)^\s*print\s*\(\s*["'](here|hi|test|debug|xxx+|!+|\?+)[\s!?.]*["']\s*\)\s*$"#,
+        "",
     ),
-    py_print_ident: js_regex(r"^\s*print\s*\(\s*[A-Za-z_]\w*\s*\)\s*$"),
-    go_print: js_regex(r"\bfmt\.Print(ln|f)?\s*\("),
-    rs_debug: js_regex(r"\b(dbg!|println!)\s*\("),
-    php_debug: js_regex(r"\b(var_dump|dd)\s*\("),
-    todo: js_regex(r"\b(TODO|FIXME|XXX|HACK)\b"),
-    commented_head: js_regex(r"^\s*(//|#)\s*[\w$.\[\]]+\s*[({=]"),
-    commented_tail: js_regex(r"[;){]\s*$"),
+    py_print_ident: js_re(r"^\s*print\s*\(\s*[A-Za-z_]\w*\s*\)\s*$", ""),
+    go_print: js_re(r"\bfmt\.Print(ln|f)?\s*\(", ""),
+    rs_debug: js_re(r"\b(dbg!|println!)\s*\(", ""),
+    php_debug: js_re(r"\b(var_dump|dd)\s*\(", ""),
+    todo: js_re(r"\b(TODO|FIXME|XXX|HACK)\b", ""),
+    commented_head: js_re(r"^\s*(//|#)\s*[\w$.\[\]]+\s*[({=]", ""),
+    commented_tail: js_re(r"[;){]\s*$", ""),
 });
 
 fn is_source_file(file: &str) -> bool {
-    SOURCE_EXT.contains(&js_extname(file).to_lowercase().as_str())
+    SOURCE_EXT.contains(&extname(file).to_lowercase().as_str())
 }
 
 fn strip_ws(s: &str) -> String {
@@ -307,7 +317,7 @@ fn secret_shaped(t: &str, _: &str) -> bool {
 
 fn debug_added(t: &str, f: &str) -> bool {
     let r = &*RES;
-    let ext = js_extname(f).to_lowercase();
+    let ext = extname(f).to_lowercase();
     if r.comment_start.is_match(t) {
         return false; // a commented-out one is a different rule
     }
@@ -500,7 +510,7 @@ pub fn check_diff_hygiene(diff: &str) -> Hygiene {
         );
     }
 
-    let base_lower = |f: &DiffFile| js_basename(&f.file).to_lowercase();
+    let base_lower = |f: &DiffFile| basename(&f.file).to_lowercase();
     let lock: Vec<&DiffFile> = parsed
         .iter()
         .filter(|f| LOCKFILES.contains(&base_lower(f).as_str()))
@@ -525,40 +535,6 @@ pub fn check_diff_hygiene(diff: &str) -> Hygiene {
     }
 }
 
-/// ICU's primary weight for the printable ASCII range, as `String.prototype.localeCompare` orders
-/// it in the default (en-US) locale: whitespace, then punctuation, then digits, then letters with
-/// the case ignored at first.
-const ASCII_ORDER: &str = " _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789abcdefghijklmnopqrstuvwxyz";
-
-/// `a.localeCompare(b)` for the file names this checker sorts. Exact for ASCII (checked against
-/// Node's ICU over random path-like strings); any other character sorts after `z`, by code point,
-/// without ICU's accent handling.
-fn locale_compare(a: &str, b: &str) -> Ordering {
-    fn primary(c: char) -> Option<u32> {
-        match c {
-            '\t' => Some(0),
-            '\n' => Some(1),
-            '\r' => Some(2),
-            c if c.is_ascii_control() => None,
-            c if c.is_ascii() => {
-                let lower = c.to_ascii_lowercase();
-                ASCII_ORDER.find(lower).map(|i| 10 + i as u32)
-            }
-            c => Some(1000 + c as u32),
-        }
-    }
-    let keys = |s: &str| -> Vec<(u32, bool)> {
-        s.chars()
-            .filter_map(|c| primary(c).map(|p| (p, c.is_ascii_uppercase())))
-            .collect()
-    };
-    let (ka, kb) = (keys(a), keys(b));
-    ka.iter()
-        .map(|k| k.0)
-        .cmp(kb.iter().map(|k| k.0))
-        .then_with(|| ka.iter().map(|k| k.1).cmp(kb.iter().map(|k| k.1)))
-}
-
 fn rank(s: &str) -> u8 {
     match s {
         "P1" => 0,
@@ -576,7 +552,7 @@ fn untracked_diff(cwd: &Path) -> String {
     let mut diff = String::new();
     for file in listed.split('\0').filter(|f| !f.is_empty()) {
         // Gone, unreadable, or not a regular file.
-        let Ok(bytes) = fs::read(join(&cwd.to_string_lossy(), file)) else {
+        let Ok(bytes) = fs::read(join(&[&cwd.to_string_lossy(), file])) else {
             continue;
         };
         let content = String::from_utf8_lossy(&bytes);
@@ -712,36 +688,4 @@ pub fn main(args: &[String]) -> i32 {
         );
     }
     i32::from(!r.findings.is_empty())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::locale_compare;
-
-    /// Order produced by Node's `localeCompare` (ICU, en-US) for mixed-case, punctuated paths.
-    #[test]
-    fn locale_compare_orders_like_icu() {
-        let icu = [
-            "_x",
-            "(diff)",
-            "a.ts",
-            "A.ts",
-            "a.ts, b.ts",
-            "README.md",
-            "src/a_b.ts",
-            "src/a-b.ts",
-            "src/ab.ts",
-            "src/b.ts",
-            "src/B.ts",
-            "tests/1.ts",
-            "tests/a.ts",
-            "x-test.ts",
-            "x.test.ts",
-            "x.Test.ts",
-            "Zed.rs",
-        ];
-        let mut shuffled: Vec<&str> = icu.iter().rev().copied().collect();
-        shuffled.sort_by(|a, b| locale_compare(a, b));
-        assert_eq!(shuffled, icu);
-    }
 }

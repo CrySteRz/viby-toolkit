@@ -24,9 +24,6 @@
 //! weakened in place (`toEqual(3)` → `toBeTruthy()`) while the count held, and it does not run
 //! anything. A clean result means the net did not shrink, never that behaviour is preserved —
 //! that is what the characterization suite and the held-out acceptance suite are for.
-//!
-//! Port note: this module also hosts the small Node-`path` and JavaScript-regex helpers that the
-//! other git-based checkers (api-surface, diff-hygiene, release) share, so each has one home.
 
 use std::collections::HashMap;
 use std::fs;
@@ -39,180 +36,9 @@ use serde_json::{json, Value};
 
 use crate::core::args::{flag, parse_or_exit, value};
 use crate::core::git::git;
+use crate::core::js::{js_fancy, js_re, read_text};
+use crate::core::nodepath::{extname, relative, walk_files};
 use crate::core::strip::strip_noncode;
-
-// ---- shared helpers: JavaScript semantics
-
-/// Rewrite a JavaScript regex source for the `regex` crate: `\s` gains the byte-order mark, and
-/// `\w`, `\d` and `\b` become the ASCII-only forms JavaScript uses (the crate's are Unicode).
-/// Class-aware, so `[^\s=]` stays one class. Flags (`(?i)`, `(?m)`) are written in the source.
-pub fn js_source(pat: &str) -> String {
-    let mut out = String::with_capacity(pat.len() + 16);
-    let mut in_class = false;
-    let mut chars = pat.chars();
-    while let Some(c) = chars.next() {
-        match c {
-            '\\' => match chars.next() {
-                Some('s') if in_class => out.push_str(r"\s\x{FEFF}"),
-                Some('s') => out.push_str(r"[\s\x{FEFF}]"),
-                Some('w') if in_class => out.push_str("A-Za-z0-9_"),
-                Some('w') => out.push_str("[A-Za-z0-9_]"),
-                Some('d') if in_class => out.push_str("0-9"),
-                Some('d') => out.push_str("[0-9]"),
-                Some('b') if !in_class => out.push_str(r"(?-u:\b)"),
-                Some(other) => {
-                    out.push('\\');
-                    out.push(other);
-                }
-                None => out.push('\\'),
-            },
-            '[' if !in_class => {
-                in_class = true;
-                out.push(c);
-            }
-            ']' if in_class => {
-                in_class = false;
-                out.push(c);
-            }
-            _ => out.push(c),
-        }
-    }
-    out
-}
-
-/// A compiled JavaScript pattern. Sources are constants in this crate, so a bad one is a bug.
-pub fn js_regex(pat: &str) -> Regex {
-    Regex::new(&js_source(pat)).unwrap_or_else(|e| panic!("bad pattern {pat}: {e}"))
-}
-
-/// As `js_regex`, for the few patterns that need lookbehind.
-pub fn js_fancy(pat: &str) -> Fancy {
-    fancy_regex::RegexBuilder::new(&js_source(pat))
-        .backtrack_limit(100_000_000)
-        .build()
-        .unwrap_or_else(|e| panic!("bad pattern {pat}: {e}"))
-}
-
-/// JavaScript's `String.prototype.trim`.
-pub fn js_trim(s: &str) -> &str {
-    s.trim_matches(crate::core::strip::is_js_space)
-}
-
-/// Node's `path.basename`.
-pub fn js_basename(p: &str) -> &str {
-    p.trim_end_matches('/').rsplit('/').next().unwrap_or("")
-}
-
-/// Node's `path.extname`: from the last dot of the base name, empty for a dotfile.
-pub fn js_extname(p: &str) -> &str {
-    let base = js_basename(p);
-    match base.rfind('.') {
-        Some(i) if i > 0 && base != ".." => &base[i..],
-        _ => "",
-    }
-}
-
-/// Node's `path.normalize` (POSIX): drops `.` and empty parts, resolves `..`.
-pub fn normalize(p: &str) -> String {
-    let abs = p.starts_with('/');
-    let mut parts: Vec<&str> = Vec::new();
-    for seg in p.split('/') {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                if parts.last().is_some_and(|l| *l != "..") {
-                    parts.pop();
-                } else if !abs {
-                    parts.push("..");
-                }
-            }
-            s => parts.push(s),
-        }
-    }
-    let body = parts.join("/");
-    match (abs, body.is_empty()) {
-        (true, _) => format!("/{body}"),
-        (false, true) => ".".to_string(),
-        (false, false) => body,
-    }
-}
-
-/// Node's `path.join(dir, name)`.
-pub fn join(dir: &str, name: &str) -> String {
-    normalize(&format!("{dir}/{name}"))
-}
-
-/// Node's `path.resolve(p)`: absolute against the working directory, no trailing slash.
-pub fn resolve(p: &str) -> String {
-    let full = if p.starts_with('/') {
-        p.to_string()
-    } else {
-        let cwd = std::env::current_dir()
-            .map(|c| c.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        format!("{cwd}/{p}")
-    };
-    let n = normalize(&full);
-    if n.len() > 1 {
-        n.trim_end_matches('/').to_string()
-    } else {
-        n
-    }
-}
-
-/// Node's `path.relative(from, to)`.
-pub fn relative(from: &str, to: &str) -> String {
-    let (from, to) = (resolve(from), resolve(to));
-    let f: Vec<&str> = from.split('/').filter(|s| !s.is_empty()).collect();
-    let t: Vec<&str> = to.split('/').filter(|s| !s.is_empty()).collect();
-    let common = f.iter().zip(&t).take_while(|(a, b)| a == b).count();
-    let mut out: Vec<&str> = vec![".."; f.len() - common];
-    out.extend(&t[common..]);
-    out.join("/")
-}
-
-/// `Array.prototype.sort()` on strings: UTF-16 code unit order, not UTF-8 byte order.
-pub fn utf16_cmp(a: &str, b: &str) -> std::cmp::Ordering {
-    a.encode_utf16().cmp(b.encode_utf16())
-}
-
-/// Files under `root`, depth first. Directories named by `skip_dir` are not entered; `keep` picks
-/// files by (name, joined path). Symlinks are neither directories nor files here, as with
-/// `Dirent`. Entries are visited in name order, so the result is deterministic.
-pub fn walk_files(
-    root: &str,
-    skip_dir: impl Fn(&str) -> bool,
-    keep: impl Fn(&str, &str) -> bool,
-) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut stack = vec![root.to_string()];
-    while let Some(dir) = stack.pop() {
-        let Ok(rd) = fs::read_dir(&dir) else { continue };
-        let mut entries: Vec<(String, bool, bool)> = rd
-            .flatten()
-            .map(|e| {
-                let t = e.file_type();
-                (
-                    e.file_name().to_string_lossy().into_owned(),
-                    t.as_ref().is_ok_and(|t| t.is_dir()),
-                    t.as_ref().is_ok_and(|t| t.is_file()),
-                )
-            })
-            .collect();
-        entries.sort_by(|a, b| a.0.cmp(&b.0));
-        for (name, is_dir, is_file) in entries {
-            let full = join(&dir, &name);
-            if is_dir {
-                if !skip_dir(&name) {
-                    stack.push(full);
-                }
-            } else if is_file && keep(&name, &full) {
-                out.push(full);
-            }
-        }
-    }
-    out
-}
 
 // ---- the checker
 
@@ -316,17 +142,17 @@ struct TestPathRes(Vec<Regex>);
 
 static TEST_PATH: LazyLock<TestPathRes> = LazyLock::new(|| {
     TestPathRes(vec![
-        js_regex(r"(^|/)(tests?|specs?|__tests__)/"),
-        js_regex(r"[._-](test|tests|spec|specs)\.[a-z]+$"),
-        js_regex(r"(^|/)test_[^/]*\.py$"),
-        js_regex(r"[^/]*_test\.[a-z]+$"),
-        js_regex(r"(?i)[^/]*Test(s)?\.(java|kt|cs)$"),
+        js_re(r"(^|/)(tests?|specs?|__tests__)/", ""),
+        js_re(r"[._-](test|tests|spec|specs)\.[a-z]+$", ""),
+        js_re(r"(^|/)test_[^/]*\.py$", ""),
+        js_re(r"[^/]*_test\.[a-z]+$", ""),
+        js_re(r"(?i)[^/]*Test(s)?\.(java|kt|cs)$", ""),
     ])
 });
 
 pub fn is_test_file(p: &str) -> bool {
     let norm = p.replace(std::path::MAIN_SEPARATOR, "/").to_lowercase();
-    if !TEST_EXT.contains(&js_extname(&norm)) {
+    if !TEST_EXT.contains(&extname(&norm)) {
         return false;
     }
     TEST_PATH.0.iter().any(|re| re.is_match(&norm))
@@ -342,7 +168,7 @@ struct Counters {
 }
 
 fn all(pats: &[&str]) -> Vec<Regex> {
-    pats.iter().map(|p| js_regex(p)).collect()
+    pats.iter().map(|p| js_re(p, "")).collect()
 }
 
 static COUNTERS: LazyLock<Counters> = LazyLock::new(|| Counters {
@@ -375,7 +201,7 @@ static COUNTERS: LazyLock<Counters> = LazyLock::new(|| Counters {
         r"(?<![.\w])assert\s*\.\s*\w+\s*\(", // testify: assert.Equal(
     ]
     .iter()
-    .map(|p| js_fancy(p))
+    .map(|p| js_fancy(p, ""))
     .collect(),
     skips: all(&[
         r"\b(?:it|test|describe|context)\s*\.\s*(?:skip|todo)\b",
@@ -411,7 +237,7 @@ fn count_lookbehind(code: &str, res: &[Fancy]) -> usize {
 }
 
 pub fn stats_for(file: &str, raw: &str) -> FileStats {
-    let code = strip_noncode(raw, &js_extname(file).to_lowercase());
+    let code = strip_noncode(raw, &extname(file).to_lowercase());
     let c = &*COUNTERS;
     FileStats {
         file: file.to_string(),
@@ -426,12 +252,6 @@ pub fn stats_for(file: &str, raw: &str) -> FileStats {
 fn git_out(cwd: &Path, args: &[&str]) -> (bool, String) {
     let o = git(cwd, args);
     (o.ok, o.stdout)
-}
-
-fn read_text(path: &str) -> Option<String> {
-    fs::read(path)
-        .ok()
-        .map(|b| String::from_utf8_lossy(&b).into_owned())
 }
 
 pub fn check_test_drift(cwd: &str, base: &str, targets: &[String]) -> Drift {
@@ -466,7 +286,7 @@ pub fn check_test_drift(cwd: &str, base: &str, targets: &[String]) -> Drift {
             Ok(m) if m.is_dir() => walk_files(
                 t,
                 |name| SKIP_DIRS.contains(&name),
-                |_, full| is_test_file(full),
+                |_, full, is_file| is_file && is_test_file(full),
             ),
             Ok(_) if is_test_file(t) => vec![t.clone()],
             _ => Vec::new(),

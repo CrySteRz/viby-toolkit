@@ -11,17 +11,13 @@
 //! input (the TypeScript kept UTF-16 offsets, which is what JavaScript strings index by).
 //! String lengths are preserved too, because one caller cares whether a message string exists.
 
+use super::js::is_js_space;
+
 const BLANK: char = '\0';
 const HASH_COMMENT_EXTS: &[&str] = &[".py", ".rb", ".sh", ".pl", ".r", ".yaml", ".yml"];
 /// SQL comments with `--`, and no `/`-comments (a lone `/` there is division or a path).
 const DASH_COMMENT_EXTS: &[&str] = &[".sql", ".hql", ".psql", ".lua", ".hs", ".ada"];
 const TRIPLE_QUOTE_EXTS: &[&str] = &[".py", ".pyi", ".pyx"];
-
-/// JavaScript's `\s`: Unicode white space plus the byte-order mark, minus U+0085 (NEL), which
-/// Rust counts as white space and JavaScript does not.
-pub fn is_js_space(c: char) -> bool {
-    (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}'
-}
 
 /// A `/` begins a regex literal only where a VALUE is expected. After an identifier, a closing
 /// paren or bracket, or a number, it is division. The standard heuristic; it only has to avoid

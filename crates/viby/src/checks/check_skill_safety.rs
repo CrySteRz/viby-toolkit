@@ -30,12 +30,11 @@ use std::fs;
 use regex::Regex;
 use serde_json::json;
 
-use super::check_analytics_sql::{
-    js_basename, js_extname, js_trim, locale_compare, read_text, rx, severity_order, utf16_cmp,
-    walk_files,
-};
+use super::check_analytics_sql::severity_order;
 pub use super::check_logging::Finding;
 use crate::core::args::{flag, parse_or_exit};
+use crate::core::js::{js_trim, locale_compare, read_text, rx, utf16_cmp};
+use crate::core::nodepath::{basename, extname, walk_files};
 use crate::core::strip::strip_noncode;
 
 const AUDIT_EXT: &[&str] = &[
@@ -253,7 +252,7 @@ pub const RULES: &[Rule] = &[
         where_: Where::Both,
         severity: "P3",
         test: |l, _, f| {
-            js_basename(f).to_uppercase().starts_with("SKILL")
+            basename(f).to_uppercase().starts_with("SKILL")
                 && rx!(r"^allowed-tools:\s*.*(\*|\bBash\b.*\bWrite\b|\ball\b)", "i").is_match(l)
         },
         problem: "grants itself broad tool access in frontmatter — worth knowing before you install, since the grant applies whenever it triggers",
@@ -277,8 +276,8 @@ pub const RULES: &[Rule] = &[
 fn walk(root: &str) -> Vec<String> {
     let mut files = walk_files(
         root,
-        &|name| name == "node_modules" || name == ".git",
-        &|name, _| AUDIT_EXT.contains(&js_extname(name).to_lowercase().as_str()),
+        |name| name == "node_modules" || name == ".git",
+        |name, _, _| AUDIT_EXT.contains(&extname(name).to_lowercase().as_str()),
     );
     // `readdirSync` order is whatever the OS gives; sorted here so the JSON report is stable.
     files.sort_by(|a, b| utf16_cmp(a, b));
@@ -286,7 +285,7 @@ fn walk(root: &str) -> Vec<String> {
 }
 
 pub fn audit_text(file: &str, text: &str) -> Vec<Finding> {
-    let ext = js_extname(file).to_lowercase();
+    let ext = extname(file).to_lowercase();
     let is_markdown = ext == ".md";
     // In SOURCE files, comments and string literals are documentation, not instruction — this
     // auditor's own header and rule messages matched its own rules until they were blanked.

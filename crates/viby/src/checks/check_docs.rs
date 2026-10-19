@@ -21,14 +21,15 @@
 //! match decides which file a link's anchor is checked in. Regexes follow JavaScript: ASCII `\w`
 //! and `/i`, JS `\s`, `^` after any JS line terminator. The plain report sorts files with an
 //! ICU-style `localeCompare` for ASCII names (punctuation, digits, letters, lowercase first) and
-//! approximately beyond it (see `weight`).
+//! approximately beyond it (see `core::js::locale_compare`).
 
 use crate::core::args::{flag, parse_or_exit, value};
+use crate::core::js::{captures_all, is_js_space, locale_compare, utf16_cmp, JS_DOT, JS_SPACE};
+use crate::core::nodepath::{dirname, join, relative, resolve};
 use fancy_regex::Regex as Fancy;
 use regex::Regex;
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fs;
 use std::sync::LazyLock;
@@ -43,8 +44,6 @@ pub struct Finding {
     pub fix: String,
 }
 
-/// JS `\s`: not Rust's, which has U+0085 and lacks U+FEFF.
-const JS_WS: &str = "\t\n\u{b}\u{c}\r \u{a0}\u{1680}\u{2000}-\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
 /// JS `^` under `/m`: the start of the text or just after any JS line terminator.
 const BOL: &str = "(?:^|(?<=[\n\r\u{2028}\u{2029}]))";
 const SKIP: &[&str] = &[
@@ -59,20 +58,6 @@ const SKIP: &[&str] = &[
     ".venv",
     "venv",
 ];
-
-fn is_js_ws(c: char) -> bool {
-    matches!(
-        c,
-        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-            ..='\u{200a}'
-                | '\u{2028}'
-                | '\u{2029}'
-                | '\u{202f}'
-                | '\u{205f}'
-                | '\u{3000}'
-                | '\u{feff}'
-    )
-}
 
 macro_rules! rx {
     ($name:ident, $pat:expr) => {
@@ -102,7 +87,7 @@ rx!(
 rx!(
     SCRIPT_CALL,
     format!(
-        "(?-u:\\b)(?:npm run|pnpm run|yarn run|bun run|make -C [^{JS_WS}]+)[{JS_WS}]+([A-Za-z0-9_:.-]+)"
+        "(?-u:\\b)(?:npm run|pnpm run|yarn run|bun run|make -C [^{JS_SPACE}]+)[{JS_SPACE}]+([A-Za-z0-9_:.-]+)"
     )
 );
 rx!(
@@ -114,143 +99,19 @@ rx!(MD_FILE, r"(?i-u)\.(md|markdown)$");
 // A relative markdown link.
 fancy!(
     MD_LINK,
-    format!("\\[[^\\]]*\\]\\((?!https?:|mailto:|#)([^)#{JS_WS}]+)(#[^){JS_WS}]*)?\\)")
+    format!("\\[[^\\]]*\\]\\((?!https?:|mailto:|#)([^)#{JS_SPACE}]+)(#[^){JS_SPACE}]*)?\\)")
 );
-fancy!(
-    HEADING,
-    format!("{BOL}#{{1,6}}[{JS_WS}]+([^\n\r\u{2028}\u{2029}]+)")
-);
+fancy!(HEADING, format!("{BOL}#{{1,6}}[{JS_SPACE}]+({JS_DOT}+)"));
 fancy!(MAKE_TARGET, format!("{BOL}([A-Za-z0-9_.-]+):"));
 
 fn test(re: &LazyLock<Option<Regex>>, s: &str) -> bool {
     re.as_ref().is_some_and(|r| r.is_match(s))
 }
 
-/// All matches of a backtracking regex; a regex error (backtrack limit) ends the scan quietly.
-fn captures_all<'t>(re: &Fancy, text: &'t str) -> Vec<fancy_regex::Captures<'t>> {
-    let mut out = Vec::new();
-    for caps in re.captures_iter(text) {
-        match caps {
-            Ok(c) => out.push(c),
-            Err(_) => break,
-        }
-    }
-    out
-}
-
-/// `path.normalize` for POSIX-style paths.
-fn normalize(p: &str) -> String {
-    if p.is_empty() {
-        return ".".to_string();
-    }
-    let abs = p.starts_with('/');
-    let trailing = p.ends_with('/');
-    let mut segs: Vec<&str> = Vec::new();
-    for s in p.split('/') {
-        match s {
-            "" | "." => {}
-            ".." => {
-                if segs.last().is_some_and(|l| *l != "..") {
-                    segs.pop();
-                } else if !abs {
-                    segs.push("..");
-                }
-            }
-            s => segs.push(s),
-        }
-    }
-    let mut out = segs.join("/");
-    if out.is_empty() {
-        return if abs {
-            "/".to_string()
-        } else if trailing {
-            "./".to_string()
-        } else {
-            ".".to_string()
-        };
-    }
-    if trailing {
-        out.push('/');
-    }
-    if abs {
-        out.insert(0, '/');
-    }
-    out
-}
-
-/// `path.join(a, b)`.
-fn join(a: &str, b: &str) -> String {
-    let parts: Vec<&str> = [a, b].into_iter().filter(|s| !s.is_empty()).collect();
-    if parts.is_empty() {
-        ".".to_string()
-    } else {
-        normalize(&parts.join("/"))
-    }
-}
-
 fn cwd() -> String {
     std::env::current_dir()
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_default()
-}
-
-/// `path.resolve(...)` of one or two segments: absolute, normalized, no trailing slash.
-fn resolve(base: &str, rel: &str) -> String {
-    let joined = if rel.starts_with('/') {
-        rel.to_string()
-    } else {
-        let base = if base.starts_with('/') {
-            base.to_string()
-        } else if base.is_empty() {
-            cwd()
-        } else {
-            format!("{}/{base}", cwd())
-        };
-        format!("{base}/{rel}")
-    };
-    let n = normalize(&joined);
-    if n.len() > 1 {
-        n.trim_end_matches('/').to_string()
-    } else {
-        n
-    }
-}
-
-/// `path.relative(from, to)`.
-fn relative(from: &str, to: &str) -> String {
-    let (f, t) = (resolve(from, ""), resolve(to, ""));
-    let fs_: Vec<&str> = f.split('/').filter(|s| !s.is_empty()).collect();
-    let ts: Vec<&str> = t.split('/').filter(|s| !s.is_empty()).collect();
-    let common = fs_.iter().zip(&ts).take_while(|(a, b)| a == b).count();
-    let mut parts: Vec<&str> = vec![".."; fs_.len() - common];
-    parts.extend(&ts[common..]);
-    parts.join("/")
-}
-
-/// `path.dirname`.
-fn dirname(p: &str) -> String {
-    let b = p.as_bytes();
-    if b.is_empty() {
-        return ".".to_string();
-    }
-    let has_root = b[0] == b'/';
-    let mut end = None;
-    let mut matched = true;
-    for i in (1..b.len()).rev() {
-        if b[i] == b'/' {
-            if !matched {
-                end = Some(i);
-                break;
-            }
-        } else {
-            matched = false;
-        }
-    }
-    match end {
-        None => if has_root { "/" } else { "." }.to_string(),
-        Some(1) if has_root => "//".to_string(),
-        Some(e) => p[..e].to_string(),
-    }
 }
 
 fn exists(p: &str) -> bool {
@@ -269,12 +130,12 @@ fn resolves(reference: &str, root: &str, doc_dir: &str, index: &[String]) -> Opt
         let home = std::env::var_os("HOME")
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_default();
-        return Some(exists(&join(&home, rest)));
+        return Some(exists(&join(&[&home, rest])));
     }
     if reference.starts_with('/') {
         return Some(exists(reference));
     }
-    if [join(root, reference), join(doc_dir, reference)]
+    if [join(&[root, reference]), join(&[doc_dir, reference])]
         .iter()
         .any(|p| exists(p))
     {
@@ -317,7 +178,7 @@ pub fn file_index(root: &str) -> Vec<String> {
         let Some(list) = entries(&dir) else { continue };
         for (name, is_dir) in list {
             visited += 1;
-            let full = join(&dir, &name);
+            let full = join(&[&dir, &name]);
             if is_dir {
                 if !SKIP.contains(&name.as_str()) {
                     stack.push(full);
@@ -344,12 +205,12 @@ fn anchors_of(text: &str) -> HashSet<String> {
             .to_lowercase()
             .chars()
             .filter(|c| !"`*_[]()".contains(*c))
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-' || is_js_ws(*c))
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-' || is_js_space(*c))
             .collect();
         let mut slug = String::new();
         let mut in_space = false;
-        for c in kept.trim_matches(is_js_ws).chars() {
-            if is_js_ws(c) {
+        for c in kept.trim_matches(is_js_space).chars() {
+            if is_js_space(c) {
                 if !in_space {
                     slug.push('-');
                 }
@@ -383,7 +244,7 @@ pub fn audit_doc(
     let doc_dir = dirname(&if file.starts_with('/') {
         file.to_string()
     } else {
-        resolve(root, file)
+        resolve(&[root, file])
     });
     let finding = |line: usize, rule: &str, severity: &str, problem: String, fix: &str| Finding {
         file: file.to_string(),
@@ -485,7 +346,7 @@ pub fn audit_doc(
                     continue;
                 }
                 let stripped = target.strip_prefix("./").unwrap_or(target);
-                let resolved = [join(&doc_dir, target), join(root, target)]
+                let resolved = [join(&[&doc_dir, target]), join(&[root, target])]
                     .into_iter()
                     .find(|p| exists(p))
                     .or_else(|| {
@@ -528,7 +389,7 @@ pub fn audit_doc(
 
 fn read_scripts(root: &str) -> HashSet<String> {
     let mut out = HashSet::new();
-    if let Ok(bytes) = fs::read(join(root, "package.json")) {
+    if let Ok(bytes) = fs::read(join(&[root, "package.json"])) {
         let text = String::from_utf8_lossy(&bytes);
         let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
         if let Ok(pkg) = serde_json::from_str::<Value>(text) {
@@ -544,7 +405,7 @@ fn read_scripts(root: &str) -> HashSet<String> {
             }
         }
     }
-    if let (Ok(bytes), Some(re)) = (fs::read(join(root, "Makefile")), MAKE_TARGET.as_ref()) {
+    if let (Ok(bytes), Some(re)) = (fs::read(join(&[root, "Makefile"])), MAKE_TARGET.as_ref()) {
         for m in captures_all(re, &String::from_utf8_lossy(&bytes)) {
             if let Some(g) = m.get(1) {
                 out.insert(g.as_str().to_string());
@@ -559,7 +420,7 @@ fn walk(root: &str, out: &mut Vec<String>) {
     while let Some(dir) = stack.pop() {
         let Some(list) = entries(&dir) else { continue };
         for (name, is_dir) in list {
-            let full = join(&dir, &name);
+            let full = join(&[&dir, &name]);
             if is_dir {
                 if !SKIP.contains(&name.as_str()) {
                     stack.push(full);
@@ -569,72 +430,6 @@ fn walk(root: &str, out: &mut Vec<String>) {
             }
         }
     }
-}
-
-/// The base letter of a Latin-1 accented letter, which ICU sorts as that letter plus a
-/// secondary difference.
-fn latin_base(c: char) -> Option<char> {
-    const BASES: &[(&str, char)] = &[
-        ("àáâãäåÀÁÂÃÄÅ", 'a'),
-        ("çÇ", 'c'),
-        ("èéêëÈÉÊË", 'e'),
-        ("ìíîïÌÍÎÏ", 'i'),
-        ("ñÑ", 'n'),
-        ("òóôõöÒÓÔÕÖ", 'o'),
-        ("ùúûüÙÚÛÜ", 'u'),
-        ("ýÿÝ", 'y'),
-    ];
-    BASES
-        .iter()
-        .find(|(set, _)| set.contains(c))
-        .map(|(_, b)| *b)
-}
-
-/// ICU-style (primary, secondary) weight of a character; `None` is ignorable. Order (CLDR
-/// root): whitespace, then `_ - , ; : ! ? . ' " ( ) [ ] { } @ * / \ & # % ` ^ + < = > | ~ $`,
-/// other symbols, digits, letters. Accented Latin-1 letters sort as their base letter with a
-/// secondary difference; everything else beyond ASCII goes by code point after the letters.
-fn weight(c: char) -> Option<(u32, u32)> {
-    const WS: &str = "\t\n\u{b}\u{c}\r ";
-    const PUNCT: &str = "_-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$";
-    if let Some(i) = WS.find(c) {
-        return Some((1 + i as u32, 0));
-    }
-    if let Some(i) = PUNCT.find(c) {
-        return Some((10 + i as u32, 0));
-    }
-    match c {
-        '0'..='9' => Some((100 + c as u32 - '0' as u32, 0)),
-        'a'..='z' | 'A'..='Z' => Some((200 + c.to_ascii_lowercase() as u32 - 'a' as u32, 0)),
-        c if c.is_ascii() => None,
-        c => {
-            let lower = c.to_lowercase().next().unwrap_or(c);
-            if let Some(base) = latin_base(c) {
-                return Some((200 + base as u32 - 'a' as u32, lower as u32));
-            }
-            if c.is_alphabetic() {
-                Some((1000 + lower as u32, 0))
-            } else {
-                // Symbols and emoji sit between ASCII punctuation and digits.
-                Some((60, c as u32))
-            }
-        }
-    }
-}
-
-/// `a.localeCompare(b)`: primary weights first, then accents, then lowercase before uppercase.
-fn locale_compare(a: &str, b: &str) -> Ordering {
-    let keys = |s: &str| -> Vec<(u32, u32, bool)> {
-        s.chars()
-            .filter_map(|c| weight(c).map(|(p, sec)| (p, sec, c.is_uppercase())))
-            .collect()
-    };
-    let (ka, kb) = (keys(a), keys(b));
-    ka.iter()
-        .map(|k| k.0)
-        .cmp(kb.iter().map(|k| k.0))
-        .then_with(|| ka.iter().map(|k| k.1).cmp(kb.iter().map(|k| k.1)))
-        .then_with(|| ka.iter().map(|k| k.2).cmp(kb.iter().map(|k| k.2)))
 }
 
 fn severity_order(s: &str) -> u8 {
@@ -665,7 +460,7 @@ pub fn main(args: &[String]) -> i32 {
             }
         }
     }
-    targets.sort_by(|a, b| a.encode_utf16().cmp(b.encode_utf16()));
+    targets.sort_by(|a, b| utf16_cmp(a, b));
     targets.dedup();
     if targets.is_empty() {
         if json_out {

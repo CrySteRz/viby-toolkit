@@ -19,11 +19,10 @@
 //! and `--` comments are blanked first, so a column named `revenue_between_dates` or a commented-out
 //! draft query is not a finding.
 //!
-//! This file also holds the small JavaScript-compatibility helpers the four linters in this family
-//! (analytics SQL, migration, logging, skill safety) share: a JS-flavoured regex builder, `path`
-//! helpers, `localeCompare`, and the walk-and-collect loop that all four repeat.
+//! This file also holds the domain pieces the four linters in this family (analytics SQL,
+//! migration, logging, skill safety) share: `Finding`, the collect-targets loop and the severity
+//! order. The JavaScript-compatibility helpers live in `core::js` and `core::nodepath`.
 
-use std::cmp::Ordering;
 use std::fs;
 
 use regex::Regex;
@@ -31,7 +30,9 @@ use serde::Serialize;
 use serde_json::json;
 
 use crate::core::args::{flag, parse_or_exit};
-use crate::core::strip::{is_js_space, strip_noncode};
+use crate::core::js::{js_trim, locale_compare, read_text, rx, utf16_cmp};
+use crate::core::nodepath::{extname, walk_files};
+use crate::core::strip::strip_noncode;
 
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Finding {
@@ -41,231 +42,6 @@ pub struct Finding {
     pub severity: String,
     pub danger: String,
     pub instead: String,
-}
-
-// ---------------------------------------------------------------------------------------------
-// JavaScript-compatibility helpers (shared by the four linters of this family).
-// ---------------------------------------------------------------------------------------------
-
-/// JavaScript's `\s`, spelled out: Rust's `\s` also matches U+0085, and lacks the byte-order mark.
-const JS_SPACE: &str = "\\t\\n\\x{b}\\x{c}\\r \\x{a0}\\x{1680}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202f}\\x{205f}\\x{3000}\\x{feff}";
-
-/// Compile a JavaScript regex source (flags: `i`, `m`) with JavaScript's meaning: `\w`, `\d` and
-/// `\b` are ASCII, `\s` is JS white space, and `.` stops at every JS line terminator.
-/// Only for static patterns, so a bad one is a bug in this file and panics at first use.
-pub fn js_re(pattern: &str, flags: &str) -> Regex {
-    let mut out = String::new();
-    if flags.contains('i') {
-        out.push_str("(?i)");
-    }
-    if flags.contains('m') {
-        out.push_str("(?m)");
-    }
-    let mut in_class = false;
-    let mut chars = pattern.chars();
-    while let Some(c) = chars.next() {
-        match c {
-            '\\' => match chars.next() {
-                Some('s') => out.push_str(&format!("[{JS_SPACE}]")),
-                Some('S') => out.push_str(&format!("[^{JS_SPACE}]")),
-                Some('w') => out.push_str("[A-Za-z0-9_]"),
-                Some('W') => out.push_str("[^A-Za-z0-9_]"),
-                Some('d') => out.push_str("[0-9]"),
-                Some('D') => out.push_str("[^0-9]"),
-                Some('b') if !in_class => out.push_str("(?-u:\\b)"),
-                Some('B') if !in_class => out.push_str("(?-u:\\B)"),
-                Some(other) => {
-                    out.push('\\');
-                    out.push(other);
-                }
-                None => out.push('\\'),
-            },
-            '[' => {
-                in_class = true;
-                out.push(c);
-            }
-            ']' => {
-                in_class = false;
-                out.push(c);
-            }
-            '.' if !in_class => out.push_str("[^\\n\\r\\x{2028}\\x{2029}]"),
-            _ => out.push(c),
-        }
-    }
-    // A static pattern that does not compile is a programming error, not input.
-    Regex::new(&out).unwrap_or_else(|e| panic!("bad pattern {pattern:?}: {e}"))
-}
-
-/// A lazily compiled JS regex, one per call site: `rx!("\\bDROP\\b", "i")`.
-macro_rules! rx {
-    ($pat:expr) => {
-        rx!($pat, "")
-    };
-    ($pat:expr, $flags:expr) => {{
-        static R: std::sync::LazyLock<regex::Regex> =
-            std::sync::LazyLock::new(|| $crate::checks::check_analytics_sql::js_re($pat, $flags));
-        &*R
-    }};
-}
-pub(crate) use rx;
-
-/// JavaScript `String.prototype.trim`: white space and the BOM, but not U+0085.
-pub fn js_trim(s: &str) -> &str {
-    s.trim_matches(|c: char| is_js_space(c) && c != '\u{85}')
-}
-
-/// `path.extname`: the text from the last `.` of the final component, unless that dot starts the
-/// name (`.bashrc` has none) or the name is `..`.
-pub fn js_extname(p: &str) -> String {
-    let base = js_basename(p);
-    if base == ".." {
-        return String::new();
-    }
-    match base.rfind('.') {
-        Some(i) if i > 0 => base[i..].to_string(),
-        _ => String::new(),
-    }
-}
-
-/// `path.basename`.
-pub fn js_basename(p: &str) -> &str {
-    p.trim_end_matches('/').rsplit('/').next().unwrap_or("")
-}
-
-/// Default `Array.prototype.sort` on strings: UTF-16 code-unit order.
-pub fn utf16_cmp(a: &str, b: &str) -> Ordering {
-    a.encode_utf16().cmp(b.encode_utf16())
-}
-
-/// ICU root-collation order of the printable ASCII range, as `localeCompare` sees it: white space,
-/// punctuation, symbols, digits, then letters (case-insensitive at the first level).
-const COLLATION: &str = " _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789abcdefghijklmnopqrstuvwxyz";
-
-/// Latin-1 letters ICU files under a base letter: lower-case letter, base, accent rank (the order
-/// ICU sorts the marks in: acute, grave, circumflex, ring, diaeresis, tilde, cedilla, stroke).
-const ACCENTED: &[(char, char, u32)] = &[
-    ('à', 'a', 2),
-    ('á', 'a', 1),
-    ('â', 'a', 4),
-    ('ã', 'a', 7),
-    ('ä', 'a', 6),
-    ('å', 'a', 5),
-    ('ç', 'c', 9),
-    ('è', 'e', 2),
-    ('é', 'e', 1),
-    ('ê', 'e', 4),
-    ('ë', 'e', 6),
-    ('ì', 'i', 2),
-    ('í', 'i', 1),
-    ('î', 'i', 4),
-    ('ï', 'i', 6),
-    ('ñ', 'n', 7),
-    ('ò', 'o', 2),
-    ('ó', 'o', 1),
-    ('ô', 'o', 4),
-    ('õ', 'o', 7),
-    ('ö', 'o', 6),
-    ('ø', 'o', 10),
-    ('ù', 'u', 2),
-    ('ú', 'u', 1),
-    ('û', 'u', 4),
-    ('ü', 'u', 6),
-    ('ý', 'y', 1),
-    ('ÿ', 'y', 6),
-];
-
-/// `a.localeCompare(b)` for the default locale: ICU compares the base letters of the whole string
-/// first, then the accents, then the case (lower before upper). Exact for ASCII and the Latin-1
-/// accented letters (checked against Node's ICU); any other character sorts after them by code
-/// point, which ICU would not do for, say, Greek or Cyrillic.
-pub fn locale_compare(a: &str, b: &str) -> Ordering {
-    /// (primary, accent, is upper case); `None` for an ignorable control character.
-    fn key(c: char) -> Option<(u32, u32, bool)> {
-        if c.is_ascii() {
-            if (c as u32) < 0x20 || c as u32 == 0x7f {
-                return None;
-            }
-            let p = COLLATION.find(c.to_ascii_lowercase())? as u32;
-            return Some((p, 0, c.is_ascii_uppercase()));
-        }
-        let lower = c.to_lowercase().next().unwrap_or(c);
-        if let Some(&(_, base, accent)) = ACCENTED.iter().find(|e| e.0 == lower) {
-            let p = COLLATION.find(base)? as u32;
-            return Some((p, accent, lower != c));
-        }
-        Some((1000 + c as u32, 0, false))
-    }
-    let (ka, kb): (Vec<_>, Vec<_>) = (
-        a.chars().filter_map(key).collect(),
-        b.chars().filter_map(key).collect(),
-    );
-    let level = |f: fn(&(u32, u32, bool)) -> u32| ka.iter().map(f).cmp(kb.iter().map(f));
-    level(|k| k.0)
-        .then_with(|| level(|k| k.1))
-        .then_with(|| level(|k| u32::from(k.2)))
-}
-
-/// `path.join(dir, name)`: normalised, so `.` and `..` segments and doubled slashes disappear.
-pub fn join_norm(dir: &str, name: &str) -> String {
-    let joined = format!("{dir}/{name}");
-    let absolute = joined.starts_with('/');
-    let mut parts: Vec<&str> = Vec::new();
-    for seg in joined.split('/') {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                if matches!(parts.last(), Some(l) if *l != "..") {
-                    parts.pop();
-                } else if !absolute {
-                    parts.push("..");
-                }
-            }
-            s => parts.push(s),
-        }
-    }
-    let body = parts.join("/");
-    match (absolute, body.is_empty()) {
-        (true, _) => format!("/{body}"),
-        (false, true) => ".".to_string(),
-        (false, false) => body,
-    }
-}
-
-/// `readFileSync(path, "utf8")`: invalid UTF-8 becomes U+FFFD; a directory or an unreadable file
-/// is an error the caller reports.
-pub fn read_text(path: &str) -> Option<String> {
-    fs::read(path)
-        .ok()
-        .map(|b| String::from_utf8_lossy(&b).into_owned())
-}
-
-/// Every file under `root` that `want(name, full)` accepts, skipping directories `skip_dir(name)`
-/// names. Symlinks are not followed (a `Dirent` says "symlink", not "directory"), as in Node.
-pub fn walk_files(
-    root: &str,
-    skip_dir: &dyn Fn(&str) -> bool,
-    want: &dyn Fn(&str, &str) -> bool,
-) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut stack = vec![root.to_string()];
-    while let Some(dir) = stack.pop() {
-        let Ok(entries) = fs::read_dir(&dir) else {
-            continue;
-        };
-        for e in entries.flatten() {
-            let name = e.file_name().to_string_lossy().into_owned();
-            let full = join_norm(&dir, &name);
-            let Ok(ty) = e.file_type() else { continue };
-            if ty.is_dir() {
-                if !skip_dir(&name) {
-                    stack.push(full);
-                }
-            } else if want(&name, &full) {
-                out.push(full);
-            }
-        }
-    }
-    out
 }
 
 /// The targets of a run: the walk of `.` for `--all` or no paths, else each path (a directory is
@@ -290,27 +66,6 @@ pub fn collect_targets(
     targets.sort_by(|a, b| utf16_cmp(a, b));
     targets.dedup();
     targets
-}
-
-/// Byte offset that is `units` UTF-16 units before byte `at` of `text` (or the start), the way
-/// `text.slice(Math.max(0, at - units), at)` counts. `text` is the raw file: its char boundaries
-/// are also the blanked file's, so the result slices both. An `at` inside a character is moved
-/// back to its start.
-pub fn back_utf16(text: &str, at: usize, units: usize) -> usize {
-    let mut used = 0;
-    let mut start = at.min(text.len());
-    while !text.is_char_boundary(start) {
-        start -= 1;
-    }
-    let at = start;
-    for c in text[..at].chars().rev() {
-        if used >= units {
-            break;
-        }
-        used += c.len_utf16();
-        start -= c.len_utf8();
-    }
-    start
 }
 
 /// P1 before P2 before P3.
@@ -583,9 +338,11 @@ pub fn scan_sql(file_path: &str, raw_input: Option<&str>) -> Vec<Finding> {
 }
 
 fn walk(root: &str) -> Vec<String> {
-    walk_files(root, &|name| SKIP_DIRS.contains(&name), &|name, _| {
-        SQL_EXT.contains(&js_extname(name).to_lowercase().as_str())
-    })
+    walk_files(
+        root,
+        |name| SKIP_DIRS.contains(&name),
+        |name, _, _| SQL_EXT.contains(&extname(name).to_lowercase().as_str()),
+    )
 }
 
 pub fn main(args: &[String]) -> i32 {
@@ -654,84 +411,17 @@ pub fn main(args: &[String]) -> i32 {
 mod tests {
     use super::*;
 
-    /// The order Node's `localeCompare` (ICU) gives this vocabulary, ASCII and Latin-1 mixed.
-    const ICU_ORDER: &[&str] = &[
-        "_x",
-        "!",
-        "@x",
-        "#x",
-        "~x",
-        "$x",
-        "10",
-        "9",
-        "a",
-        "A",
-        "À",
-        "a b",
-        "a b/c",
-        "a_b",
-        "a-b",
-        "a!",
-        "a.sql",
-        "a.SQL",
-        "a/b",
-        "A1",
-        "ab",
-        "Ab",
-        "b",
-        "B",
-        "c",
-        "ç",
-        "d",
-        "e",
-        "E",
-        "é",
-        "e.sql",
-        "é.sql",
-        "f",
-        "f.sql",
-        "migrations/a.sql",
-        "Migrations/a.sql",
-        "migrations/B.sql",
-        "n",
-        "ñ",
-        "o",
-        "ö",
-        "ø",
-        "resume",
-        "Resume",
-        "résume",
-        "résumé",
-        "u",
-        "ü",
-        "x-y",
-        "x.y",
-        "X.y",
-        "x/y",
-        "y",
-        "ÿ",
-        "z",
-        "zebra",
-        "Zebra",
-    ];
-
     #[test]
-    fn locale_compare_orders_like_icu() {
-        let mut shuffled: Vec<&str> = ICU_ORDER.iter().rev().copied().collect();
-        shuffled.sort_by(|a, b| locale_compare(a, b));
-        assert_eq!(shuffled, ICU_ORDER);
-    }
-
-    #[test]
-    fn join_norm_and_extname_follow_node_path() {
-        assert_eq!(join_norm(".", "a"), "a");
-        assert_eq!(join_norm("dir/", "a"), "dir/a");
-        assert_eq!(join_norm("./x//y", "a"), "x/y/a");
-        assert_eq!(join_norm("../x", "a"), "../x/a");
-        assert_eq!(join_norm("/abs", "a"), "/abs/a");
-        assert_eq!(js_extname(".bashrc"), "");
-        assert_eq!(js_extname("a.tar.GZ"), ".GZ");
-        assert_eq!(js_extname("a."), ".");
-        assert_eq!(js_extname("x/y.d/z"), "");
+    fn join_and_extname_follow_node_path() {
+        use crate::core::nodepath::join;
+        assert_eq!(join(&[".", "a"]), "a");
+        assert_eq!(join(&["dir/", "a"]), "dir/a");
+        assert_eq!(join(&["./x//y", "a"]), "x/y/a");
+        assert_eq!(join(&["../x", "a"]), "../x/a");
+        assert_eq!(join(&["/abs", "a"]), "/abs/a");
+        assert_eq!(extname(".bashrc"), "");
+        assert_eq!(extname("a.tar.GZ"), ".GZ");
+        assert_eq!(extname("a."), ".");
+        assert_eq!(extname("x/y.d/z"), "");
     }
 }

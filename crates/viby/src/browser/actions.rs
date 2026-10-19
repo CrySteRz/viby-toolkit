@@ -8,6 +8,9 @@
 use serde_json::{json, Map, Value};
 use std::fmt;
 
+// Re-exported for `install.rs`, which reaches it through this module.
+use crate::core::js::js_trim;
+
 pub const TOOL_DESCRIPTION: &str = concat!(
     "Control the person's real browser (Brave, Chrome, Edge or Firefox) with their logins and tabs. ",
     "Check action='status' first; run action='setup' only if it is not ready. ",
@@ -264,11 +267,6 @@ pub(crate) fn js_int(value: Option<&Value>) -> Option<i64> {
             .filter(|f| f.fract() == 0.0 && f.abs() < 9.007_199_254_740_992e15)
             .map(|f| f as i64)
     })
-}
-
-/// JavaScript's `trim()`, which also strips U+FEFF and leaves U+0085 alone.
-pub(crate) fn js_trim(text: &str) -> &str {
-    text.trim_matches(|c: char| (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}')
 }
 
 fn get<'a>(value: &'a Value, key: &str) -> Option<&'a Value> {

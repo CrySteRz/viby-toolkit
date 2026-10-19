@@ -28,11 +28,11 @@ use std::sync::LazyLock;
 use regex::Regex;
 use serde_json::{json, Value};
 
-use super::check_test_drift::{
-    js_extname, js_regex, js_trim, relative, resolve, to_pretty, utf16_cmp, walk_files,
-};
+use super::check_test_drift::to_pretty;
 use crate::core::args::{flag, parse_or_exit, value};
 use crate::core::git::git;
+use crate::core::js::{js_re, js_trim, utf16_cmp};
+use crate::core::nodepath::{extname, relative, resolve, walk_files};
 use crate::core::strip::strip_noncode;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -130,28 +130,43 @@ struct Res {
 }
 
 static RES: LazyLock<Res> = LazyLock::new(|| Res {
-    ws: js_regex(r"\s+"),
-    param_prefix: js_regex(r"^\s*(?:pub\s+)?"),
-    param_name: js_regex(r"^\s*(?:\*{1,2})?([A-Za-z_$][\w$]*)"),
-    ts_function: js_regex(r"(?m)^\s*export\s+(?:async\s+)?function\s*\*?\s*([\w$]+)\s*\(([^)]*)\)"),
-    ts_class: js_regex(r"(?m)^\s*export\s+(?:abstract\s+)?class\s+([\w$]+)"),
-    ts_interface: js_regex(r"(?m)^\s*export\s+interface\s+([\w$]+)"),
-    ts_type: js_regex(r"(?m)^\s*export\s+type\s+([\w$]+)\s*(?:<[^=]*>)?\s*=\s*([^\n;]*)"),
-    ts_const: js_regex(r"(?m)^\s*export\s+(?:declare\s+)?(?:const|let|var)\s+([\w$]+)"),
-    ts_default: js_regex(r"(?m)^\s*export\s+default\b"),
-    ts_export_list: js_regex(r"(?m)^\s*export\s*\{([^}]*)\}"),
-    ts_alias: js_regex(r"(?:\bas\s+)?([\w$]+)\s*$"),
-    ts_barrel: js_regex(r#"(?m)^\s*export\s+\*(?:\s+as\s+[\w$]+)?\s+from\s+['"][^'"]*['"]"#),
-    quoted: js_regex(r#"['"]([^'"]+)['"]"#),
-    py_all: js_regex(r"(?m)^__all__\s*=\s*[\[(][^\])]*[\])]"),
-    py_all_item: js_regex(r#"['"](\w+)['"]"#),
-    py_def: js_regex(r"(?m)^(?:async\s+)?def\s+(\w+)\s*\(([^)]*)\)"),
-    py_class: js_regex(r"(?m)^class\s+(\w+)"),
-    go_func: js_regex(r"(?m)^func\s+(?:\([^)]*\)\s*)?([A-Z]\w*)\s*\(([^)]*)\)"),
-    go_type: js_regex(r"(?m)^type\s+([A-Z]\w*)"),
-    go_var: js_regex(r"(?m)^(?:var|const)\s+([A-Z]\w*)"),
-    rs_fn: js_regex(r"(?m)^\s*pub\s+(?:async\s+)?fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(([^)]*)\)"),
-    rs_type: js_regex(r"(?m)^\s*pub\s+(?:struct|enum|trait|type)\s+(\w+)"),
+    ws: js_re(r"\s+", ""),
+    param_prefix: js_re(r"^\s*(?:pub\s+)?", ""),
+    param_name: js_re(r"^\s*(?:\*{1,2})?([A-Za-z_$][\w$]*)", ""),
+    ts_function: js_re(
+        r"(?m)^\s*export\s+(?:async\s+)?function\s*\*?\s*([\w$]+)\s*\(([^)]*)\)",
+        "",
+    ),
+    ts_class: js_re(r"(?m)^\s*export\s+(?:abstract\s+)?class\s+([\w$]+)", ""),
+    ts_interface: js_re(r"(?m)^\s*export\s+interface\s+([\w$]+)", ""),
+    ts_type: js_re(
+        r"(?m)^\s*export\s+type\s+([\w$]+)\s*(?:<[^=]*>)?\s*=\s*([^\n;]*)",
+        "",
+    ),
+    ts_const: js_re(
+        r"(?m)^\s*export\s+(?:declare\s+)?(?:const|let|var)\s+([\w$]+)",
+        "",
+    ),
+    ts_default: js_re(r"(?m)^\s*export\s+default\b", ""),
+    ts_export_list: js_re(r"(?m)^\s*export\s*\{([^}]*)\}", ""),
+    ts_alias: js_re(r"(?:\bas\s+)?([\w$]+)\s*$", ""),
+    ts_barrel: js_re(
+        r#"(?m)^\s*export\s+\*(?:\s+as\s+[\w$]+)?\s+from\s+['"][^'"]*['"]"#,
+        "",
+    ),
+    quoted: js_re(r#"['"]([^'"]+)['"]"#, ""),
+    py_all: js_re(r"(?m)^__all__\s*=\s*[\[(][^\])]*[\])]", ""),
+    py_all_item: js_re(r#"['"](\w+)['"]"#, ""),
+    py_def: js_re(r"(?m)^(?:async\s+)?def\s+(\w+)\s*\(([^)]*)\)", ""),
+    py_class: js_re(r"(?m)^class\s+(\w+)", ""),
+    go_func: js_re(r"(?m)^func\s+(?:\([^)]*\)\s*)?([A-Z]\w*)\s*\(([^)]*)\)", ""),
+    go_type: js_re(r"(?m)^type\s+([A-Z]\w*)", ""),
+    go_var: js_re(r"(?m)^(?:var|const)\s+([A-Z]\w*)", ""),
+    rs_fn: js_re(
+        r"(?m)^\s*pub\s+(?:async\s+)?fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(([^)]*)\)",
+        "",
+    ),
+    rs_type: js_re(r"(?m)^\s*pub\s+(?:struct|enum|trait|type)\s+(\w+)", ""),
 });
 
 fn normalise_params(raw: &str) -> String {
@@ -185,7 +200,7 @@ fn group<'a>(m: &regex::Captures<'a>, i: usize) -> &'a str {
 /// string fixture or a comment is not part of anyone's API. That rule is in this repo's memory
 /// because four separate defects came from ignoring it.
 pub fn extract_surface(text: &str, file: &str) -> (Vec<Symbol>, Vec<String>) {
-    let ext = js_extname(file).to_lowercase();
+    let ext = extname(file).to_lowercase();
     let code = strip_noncode(text, &ext);
     // Two constructs here have their VALUE inside a string literal — a re-export's module path
     // and Python's `__all__` — and stripping blanks exactly that. So: decide WHERE from the
@@ -335,7 +350,9 @@ pub fn diff_surface(cwd: &str, base: &str, targets: &[String]) -> SurfaceDiff {
             Ok(m) if m.is_dir() => files.extend(walk_files(
                 t,
                 |name| SKIP_DIRS.contains(&name),
-                |name, _| ANALYSED_EXT.contains(&js_extname(name).to_lowercase().as_str()),
+                |name, _, is_file| {
+                    is_file && ANALYSED_EXT.contains(&extname(name).to_lowercase().as_str())
+                },
             )),
             Ok(_) => files.push(t.clone()),
             Err(_) => {}
@@ -352,7 +369,7 @@ pub fn diff_surface(cwd: &str, base: &str, targets: &[String]) -> SurfaceDiff {
         let Ok(bytes) = fs::read(file) else { continue };
         let head = String::from_utf8_lossy(&bytes);
         analysed += 1;
-        let rel = match relative(cwd, &resolve(file)) {
+        let rel = match relative(cwd, &resolve(&[file])) {
             r if r.is_empty() => file.clone(),
             r => r,
         };

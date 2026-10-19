@@ -535,22 +535,17 @@ mod platform {
 
     static TERMINATED: AtomicBool = AtomicBool::new(false);
 
-    extern "C" fn on_signal(_: i32) {
+    extern "C" fn on_signal(_: libc::c_int) {
         TERMINATED.store(true, Ordering::SeqCst);
-    }
-
-    extern "C" {
-        fn signal(signum: i32, handler: extern "C" fn(i32)) -> usize;
     }
 
     /// SIGTERM and SIGINT end the host as a closed stdin does, removing its socket.
     pub fn on_terminate() {
-        const SIGINT: i32 = 2;
-        const SIGTERM: i32 = 15;
-        // SAFETY: `signal` is the C library's; the handler only stores to an atomic.
+        let handler = on_signal as extern "C" fn(libc::c_int) as libc::sighandler_t;
+        // SAFETY: the handler only stores to an atomic, which is async-signal-safe.
         unsafe {
-            signal(SIGTERM, on_signal);
-            signal(SIGINT, on_signal);
+            libc::signal(libc::SIGTERM, handler);
+            libc::signal(libc::SIGINT, handler);
         }
     }
 

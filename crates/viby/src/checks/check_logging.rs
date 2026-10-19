@@ -23,11 +23,10 @@ use regex::Regex;
 use serde::Serialize;
 use serde_json::json;
 
-use super::check_analytics_sql::{
-    back_utf16, collect_targets, js_extname, js_trim, locale_compare, read_text, rx,
-    severity_order, walk_files,
-};
+use super::check_analytics_sql::{collect_targets, severity_order};
 use crate::core::args::{flag, parse_or_exit};
+use crate::core::js::{back_utf16, js_trim, locale_compare, read_text, rx};
+use crate::core::nodepath::{extname, walk_files};
 use crate::core::strip::strip_noncode;
 
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
@@ -311,7 +310,7 @@ pub fn scan_file(file: &str, raw: Option<&str>) -> Vec<Finding> {
             }
         },
     };
-    let code = strip_noncode(&text, &js_extname(file).to_lowercase());
+    let code = strip_noncode(&text, &extname(file).to_lowercase());
     let cli = is_cli_context(file, &code);
     let logger_impl = is_logger_implementation(file, &code);
     let lines: Vec<&str> = code.split('\n').collect();
@@ -411,9 +410,13 @@ pub fn scan_file(file: &str, raw: Option<&str>) -> Vec<Finding> {
 }
 
 fn walk(root: &str) -> Vec<String> {
-    walk_files(root, &|name| SKIP_DIRS.contains(&name), &|name, full| {
-        SOURCE_EXT.contains(&js_extname(name).to_lowercase().as_str()) && !is_test_path(full)
-    })
+    walk_files(
+        root,
+        |name| SKIP_DIRS.contains(&name),
+        |name, full, _| {
+            SOURCE_EXT.contains(&extname(name).to_lowercase().as_str()) && !is_test_path(full)
+        },
+    )
 }
 
 pub fn main(args: &[String]) -> i32 {

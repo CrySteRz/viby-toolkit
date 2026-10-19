@@ -26,11 +26,10 @@ use fancy_regex::Regex as FancyRegex;
 use regex::Regex;
 use serde_json::{json, Map, Value};
 
-use super::check_skills::{
-    fence_index, frontmatter, js_trim, node_join, node_resolve, read_dir_sorted, read_text,
-    yaml_field, WS_CLASS,
-};
+use super::check_skills::{fence_index, frontmatter, yaml_field};
 use crate::core::args::{flag, parse_or_exit};
+use crate::core::js::{js_trim, read_text, JS_SPACE};
+use crate::core::nodepath::{join, read_dir_sorted, resolve};
 
 #[derive(Clone, Debug)]
 pub struct Finding {
@@ -108,7 +107,7 @@ pub fn load_agents(dir: &str) -> Vec<Agent> {
         let Some(stem) = entry.strip_suffix(".md") else {
             continue;
         };
-        let file = node_join(&[dir, &entry]);
+        let file = join(&[dir, &entry]);
         // The TypeScript let an unreadable file throw; here it is skipped.
         let Some(text) = read_text(Path::new(&file)) else {
             continue;
@@ -181,7 +180,7 @@ pub fn has_citation_first_shape(body: &str) -> bool {
 /// `text.split(/(?<=[.!?])\s+/)`.
 fn sentences(text: &str) -> Vec<&str> {
     static SPLIT: LazyLock<Option<FancyRegex>> =
-        LazyLock::new(|| FancyRegex::new(&format!(r"(?<=[.!?])[{WS_CLASS}]+")).ok());
+        LazyLock::new(|| FancyRegex::new(&format!(r"(?<=[.!?])[{JS_SPACE}]+")).ok());
     let Some(re) = SPLIT.as_ref() else {
         return vec![text];
     };
@@ -356,11 +355,10 @@ pub fn main(args: &[String]) -> i32 {
     };
     let as_json = p.flag("json");
     let quiet = p.flag("quiet");
-    let dir = node_resolve(
-        p.positionals
-            .first()
-            .map_or("plugins/viby-toolkit/agents", String::as_str),
-    );
+    let dir = resolve(&[p
+        .positionals
+        .first()
+        .map_or("plugins/viby-toolkit/agents", String::as_str)]);
     let AgentsReport {
         agents,
         mut findings,

@@ -16,8 +16,8 @@
 //!   viby check-skills [skills-dir] [--json] [--quiet] [--against dir]...
 //! Exit: 0 = clean, 1 = findings, 2 = no skills found.
 //!
-//! Port of `check-skills.ts`. This module also hosts the small JavaScript-compatible helpers
-//! (`yaml_field`, `node_join`, UTF-16 lengths ...) that `check_agents` and `check_hooks` reuse.
+//! Port of `check-skills.ts`. This module also hosts the frontmatter helpers (`frontmatter`,
+//! `yaml_field`, `fence_index`) that `check_agents` and `check_hooks` reuse.
 
 use std::collections::HashSet;
 use std::fs;
@@ -27,6 +27,8 @@ use regex::Regex;
 use serde_json::{json, Value};
 
 use crate::core::args::{flag, parse_or_exit, values};
+use crate::core::js::{is_js_space, js_trim, read_text, utf16_len, JS_SPACE};
+use crate::core::nodepath::{read_dir_sorted, resolve};
 
 #[derive(Clone, Debug)]
 pub struct Finding {
@@ -100,151 +102,7 @@ pub struct SkillsReport {
     pub findings: Vec<Finding>,
 }
 
-// ---- JavaScript-compatible helpers -------------------------------------------------------
-
-/// JavaScript's `\s` (and `trim`): exactly this set. `char::is_whitespace` differs (it has U+0085).
-pub fn is_ws(c: char) -> bool {
-    matches!(
-        c,
-        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-            ..='\u{200a}'
-                | '\u{2028}'
-                | '\u{2029}'
-                | '\u{202f}'
-                | '\u{205f}'
-                | '\u{3000}'
-                | '\u{feff}'
-    )
-}
-
-/// The same set as a regex class body (without the brackets), for patterns that use `\s`/`\S`.
-pub const WS_CLASS: &str = r"\t\n\x0B\x0C\r    -     　﻿";
-
-pub fn js_trim(s: &str) -> &str {
-    s.trim_matches(is_ws)
-}
-
-/// `s.length` in JavaScript.
-pub fn utf16_len(s: &str) -> usize {
-    s.encode_utf16().count()
-}
-
-/// `s.slice(0, n)` in JavaScript. A cut through a surrogate pair leaves a lone surrogate, which
-/// the console prints as U+FFFD; so does this.
-pub fn slice_utf16(s: &str, n: usize) -> String {
-    let mut out = String::new();
-    let mut used = 0;
-    for c in s.chars() {
-        let w = c.len_utf16();
-        if used + w > n {
-            if used < n {
-                out.push('\u{fffd}');
-            }
-            break;
-        }
-        out.push(c);
-        used += w;
-    }
-    out
-}
-
-/// `Array.prototype.sort()` with no comparator: by UTF-16 code units.
-pub fn sort_utf16(names: &mut [String]) {
-    names.sort_by_cached_key(|s| s.encode_utf16().collect::<Vec<u16>>());
-}
-
-/// `readFileSync(file, "utf8")`: invalid bytes become U+FFFD, a byte-order mark is kept.
-pub fn read_text(path: &Path) -> Option<String> {
-    fs::read(path)
-        .ok()
-        .map(|b| String::from_utf8_lossy(&b).into_owned())
-}
-
-/// `readdirSync(dir)` names, sorted as `.sort()` sorts them; `None` when the directory is unreadable.
-pub fn read_dir_sorted(dir: &Path) -> Option<Vec<String>> {
-    let mut names: Vec<String> = fs::read_dir(dir)
-        .ok()?
-        .filter_map(|e| e.ok())
-        .map(|e| e.file_name().to_string_lossy().into_owned())
-        .collect();
-    sort_utf16(&mut names);
-    Some(names)
-}
-
-fn normalize_segments(path: &str, allow_above_root: bool) -> Vec<&str> {
-    let mut out: Vec<&str> = Vec::new();
-    for seg in path.split('/') {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                if out.is_empty() || out.last() == Some(&"..") {
-                    if allow_above_root {
-                        out.push("..");
-                    }
-                } else {
-                    out.pop();
-                }
-            }
-            s => out.push(s),
-        }
-    }
-    out
-}
-
-/// Node's `path.posix.normalize`.
-pub fn node_normalize(path: &str) -> String {
-    if path.is_empty() {
-        return ".".to_string();
-    }
-    let is_abs = path.starts_with('/');
-    let trailing = path.ends_with('/');
-    let mut body = normalize_segments(path, !is_abs).join("/");
-    if body.is_empty() {
-        return if is_abs {
-            "/".to_string()
-        } else if trailing {
-            "./".to_string()
-        } else {
-            ".".to_string()
-        };
-    }
-    if trailing {
-        body.push('/');
-    }
-    if is_abs {
-        format!("/{body}")
-    } else {
-        body
-    }
-}
-
-/// Node's `path.join`.
-pub fn node_join(parts: &[&str]) -> String {
-    let joined = parts
-        .iter()
-        .filter(|p| !p.is_empty())
-        .copied()
-        .collect::<Vec<_>>()
-        .join("/");
-    if joined.is_empty() {
-        ".".to_string()
-    } else {
-        node_normalize(&joined)
-    }
-}
-
-/// Node's `path.resolve` for one argument: against the cwd, normalized, no trailing slash.
-pub fn node_resolve(path: &str) -> String {
-    let abs = if path.starts_with('/') {
-        path.to_string()
-    } else {
-        let cwd = std::env::current_dir()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        format!("{cwd}/{path}")
-    };
-    format!("/{}", normalize_segments(&abs, false).join("/"))
-}
+// ---- frontmatter helpers -----------------------------------------------------------------
 
 /// `text.indexOf("\n---", 3)`: the 3 counts UTF-16 units, so convert it to a byte offset first.
 pub fn fence_index(text: &str) -> Option<usize> {
@@ -275,7 +133,7 @@ pub fn yaml_field(fm: &str, key: &str) -> String {
     // JavaScript's `^`, `$` and `.` break lines at \r, U+2028 and U+2029 as well as \n, so the
     // line start is `^` or a consumed terminator and the value stops at any of the four.
     let pattern = format!(
-        r"(?m)(?:^|[\r  ]){}:[{WS_CLASS}]*(>-?|\|-?)?[ \t]*([^\n\r  ]*)",
+        r"(?m)(?:^|[\r  ]){}:[{JS_SPACE}]*(>-?|\|-?)?[ \t]*([^\n\r  ]*)",
         regex::escape(key)
     );
     let Ok(re) = Regex::new(&pattern) else {
@@ -294,7 +152,7 @@ pub fn yaml_field(fm: &str, key: &str) -> String {
             if js_trim(line).is_empty() {
                 continue;
             }
-            if line.chars().take_while(|&c| is_ws(c)).count() < 2 {
+            if line.chars().take_while(|&c| is_js_space(c)).count() < 2 {
                 break;
             }
             body.push(js_trim(line));
@@ -366,7 +224,7 @@ pub fn trigger_phrases(text: &str) -> Vec<String> {
             if j < chars.len() && (4..=60).contains(&units) {
                 let raw: String = chars[i + 1..j].iter().collect();
                 let phrase = js_trim(&raw).to_lowercase();
-                if phrase.chars().any(is_ws) {
+                if phrase.chars().any(is_js_space) {
                     out.push(phrase);
                 }
                 i = j + 1;
@@ -410,17 +268,17 @@ pub fn load_skills(dir: &str) -> Vec<Skill> {
     let Some(entries) = read_dir_sorted(dir) else {
         return out;
     };
-    let line_item = Regex::new(&format!(r"^[{WS_CLASS}]*[-*][{WS_CLASS}]+[^{WS_CLASS}]")).ok();
+    let line_item = Regex::new(&format!(r"^[{JS_SPACE}]*[-*][{JS_SPACE}]+[^{JS_SPACE}]")).ok();
     let numbered = Regex::new(&format!(
-        r"^[{WS_CLASS}]*[0-9]+\.[{WS_CLASS}]+[^{WS_CLASS}]"
+        r"^[{JS_SPACE}]*[0-9]+\.[{JS_SPACE}]+[^{JS_SPACE}]"
     ))
     .ok();
     let disabled = Regex::new(&format!(
-        r"(?m)(?:^|[\r\u2028\u2029])disable-model-invocation:[{WS_CLASS}]*true"
+        r"(?m)(?:^|[\r\u2028\u2029])disable-model-invocation:[{JS_SPACE}]*true"
     ))
     .ok();
     for entry in entries {
-        let Some(text) = read_text(&dir.join(&entry).join("SKILL.md")) else {
+        let Some(text) = read_text(dir.join(&entry).join("SKILL.md")) else {
             continue;
         };
         let fm = frontmatter(&text);
@@ -443,7 +301,7 @@ pub fn load_skills(dir: &str) -> Vec<Skill> {
             })
             .count();
         let body_lines = body.split('\n').count();
-        let body_words = body.split(is_ws).filter(|w| !w.is_empty()).count();
+        let body_words = body.split(is_js_space).filter(|w| !w.is_empty()).count();
         let has_references = fs::read_dir(dir.join(&entry).join("references"))
             .map(|rd| {
                 rd.filter_map(|e| e.ok())
@@ -801,11 +659,10 @@ pub fn main(args: &[String]) -> i32 {
     };
     let as_json = p.flag("json");
     let quiet = p.flag("quiet");
-    let dir = node_resolve(
-        p.positionals
-            .first()
-            .map_or("plugins/viby-toolkit/skills", String::as_str),
-    );
+    let dir = resolve(&[p
+        .positionals
+        .first()
+        .map_or("plugins/viby-toolkit/skills", String::as_str)]);
     let SkillsReport {
         skills,
         mut findings,

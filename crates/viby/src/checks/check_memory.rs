@@ -27,7 +27,6 @@
 //! differently from its counterpart, and cannot know which of two conflicting entries is current. A
 //! clean run means the store is well-formed and its references resolve — not that it is correct.
 
-use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -36,29 +35,11 @@ use regex::Regex;
 use serde_json::{json, Value};
 
 use crate::core::args::{flag, parse_or_exit, value};
+use crate::core::js::{is_js_space, locale_compare, static_regex, JS_SPACE};
+use crate::core::nodepath::{basename, join};
 
-// JavaScript's `\s`: Unicode white space without U+0085, plus the byte-order mark. The `regex`
-// crate's own `\s` differs on both, and so does its `\b`, `\w` and `\d`, so every pattern below
-// spells them out or opts out of Unicode with `(?-u:..)` / `(?i-u:..)`.
-const JS_S: &str = r"\t\n\x0B\x0C\r \u{a0}\u{1680}\u{2000}-\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
-
-fn is_js_space(c: char) -> bool {
-    matches!(
-        c,
-        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-            ..='\u{200a}'
-                | '\u{2028}'
-                | '\u{2029}'
-                | '\u{202f}'
-                | '\u{205f}'
-                | '\u{3000}'
-                | '\u{feff}'
-    )
-}
-
-fn rx(pattern: &str) -> Regex {
-    Regex::new(pattern).expect("static regex")
-}
+// The `regex` crate's `\s`, `\b`, `\w` and `\d` differ from JavaScript's, so every pattern below
+// spells them out (`JS_SPACE`) or opts out of Unicode with `(?-u:..)` / `(?i-u:..)`.
 
 #[derive(Debug, Clone)]
 pub struct Finding {
@@ -91,19 +72,19 @@ impl Finding {
 }
 
 static DATE: LazyLock<Regex> = LazyLock::new(|| {
-    rx(&format!(
-        r"(?-u:\b)(20[0-9]{{2}}-[0-9]{{2}}-[0-9]{{2}}|(?-u:\b)(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[{JS_S}]+20[0-9]{{2}})(?-u:\b)"
+    static_regex(&format!(
+        r"(?-u:\b)(20[0-9]{{2}}-[0-9]{{2}}-[0-9]{{2}}|(?-u:\b)(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[{JS_SPACE}]+20[0-9]{{2}})(?-u:\b)"
     ))
 });
 /// How the entry knows what it claims.
 static PROVENANCE: LazyLock<Regex> = LazyLock::new(|| {
-    rx(
+    static_regex(
         r"(?i-u:\b(measured|verified|confirmed|tested|reproduced|observed|ran\b|source:|per the|according to|from the (docs?|changelog|error|logs?)|file:line|because|found (that|out)|turns out|it was|the error|the fix|documented in|see \[|https?://))",
     )
 });
 /// A claim that rests only on assertion. Sycophantic memory is storing what was said as if true.
 static HEARSAY: LazyLock<Regex> = LazyLock::new(|| {
-    rx(
+    static_regex(
         r"(?i-u:\b(the user (said|says|thinks|believes|mentioned)|apparently|I think|probably|seems? like|assume[ds]?)\b)",
     )
 });
@@ -116,55 +97,17 @@ const NOISE_TOKEN: &[&str] = &[
 ];
 
 /// A path reference worth resolving: backticked, has a slash, has an extension.
-static PATH_REF: LazyLock<Regex> =
-    LazyLock::new(|| rx(r"`([~A-Za-z0-9_./-]*/[A-Za-z0-9_.-]+\.[A-Za-z]{1,5})(?::[0-9]+)?`"));
+static PATH_REF: LazyLock<Regex> = LazyLock::new(|| {
+    static_regex(r"`([~A-Za-z0-9_./-]*/[A-Za-z0-9_.-]+\.[A-Za-z]{1,5})(?::[0-9]+)?`")
+});
 /// Placeholders that are illustrations, not references.
 static PLACEHOLDER: LazyLock<Regex> = LazyLock::new(|| {
-    rx(
+    static_regex(
         r"(?i-u:(^|/)(foo|bar|baz|example|sample|your|my|path|dir|some|thing|todo|xxx)([./]|$)|[<>*]|\.\.\.)",
     )
 });
-static FRONT_MATTER: LazyLock<Regex> = LazyLock::new(|| rx(r"(?s)^---.*?\n---\n"));
-static INDEX_LINK: LazyLock<Regex> = LazyLock::new(|| rx(r"\(([A-Za-z0-9_.-]+\.md)\)"));
-
-/// Node's `path.join`: the parts joined with `/` and lexically normalised, so `..` cancels a
-/// segment without asking the filesystem (which would resolve a symlink first).
-fn join(parts: &[&str]) -> PathBuf {
-    let joined = parts
-        .iter()
-        .filter(|p| !p.is_empty())
-        .copied()
-        .collect::<Vec<_>>()
-        .join("/");
-    if joined.is_empty() {
-        return PathBuf::from(".");
-    }
-    let absolute = joined.starts_with('/');
-    let mut stack: Vec<&str> = Vec::new();
-    for seg in joined.split('/') {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                if stack.last().is_some_and(|s| *s != "..") {
-                    stack.pop();
-                } else if !absolute {
-                    stack.push("..");
-                }
-            }
-            s => stack.push(s),
-        }
-    }
-    let mut out = stack.join("/");
-    if absolute {
-        out.insert(0, '/');
-    } else if out.is_empty() {
-        out.push('.');
-    }
-    if joined.ends_with('/') && !out.ends_with('/') {
-        out.push('/');
-    }
-    PathBuf::from(out)
-}
+static FRONT_MATTER: LazyLock<Regex> = LazyLock::new(|| static_regex(r"(?s)^---.*?\n---\n"));
+static INDEX_LINK: LazyLock<Regex> = LazyLock::new(|| static_regex(r"\(([A-Za-z0-9_.-]+\.md)\)"));
 
 /// Candidate absolute paths for a reference. A memory about a project naturally cites paths relative
 /// to the repo root, to a package subdirectory, or to home — so a single assumed root produces false
@@ -176,15 +119,15 @@ fn candidates(reference: &str, root: &str) -> Vec<PathBuf> {
     }
     if let Some(rest) = reference.strip_prefix("~/") {
         let home = std::env::var("HOME").unwrap_or_default();
-        return vec![join(&[&home, rest])];
+        return vec![PathBuf::from(join(&[&home, rest]))];
     }
     if reference.starts_with('/') {
         return vec![PathBuf::from(reference)];
     }
     vec![
-        join(&[root, reference]),
-        join(&[root, "..", reference]),
-        join(&[root, "..", "..", reference]),
+        PathBuf::from(join(&[root, reference])),
+        PathBuf::from(join(&[root, "..", reference])),
+        PathBuf::from(join(&[root, "..", "..", reference])),
     ]
 }
 
@@ -449,42 +392,6 @@ pub fn audit_store(dir: &str, root: &str) -> Result<Store, String> {
         findings,
         entries: entries.len(),
     })
-}
-
-/// ASCII order of the default ICU collation, which `localeCompare` uses: white space, punctuation,
-/// symbols, digits, then letters.
-const COLLATION_ORDER: &str = " _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789";
-
-fn primary(c: char) -> u32 {
-    let lower = c.to_ascii_lowercase();
-    if let Some(at) = COLLATION_ORDER.find(lower) {
-        return at as u32 + 1;
-    }
-    if lower.is_ascii_lowercase() {
-        return 100 + (lower as u32 - 'a' as u32);
-    }
-    // Beyond ASCII ICU orders by script and accent; code point order is an approximation.
-    1000 + c as u32
-}
-
-/// `a.localeCompare(b)` for the file names a memory store holds. Two levels, as ICU does: the
-/// letters and symbols first, ignoring case, then lower case before upper case.
-pub fn locale_compare(a: &str, b: &str) -> Ordering {
-    let keys = |s: &str| -> Vec<char> { s.chars().filter(|c| !c.is_control()).collect() };
-    let (ka, kb) = (keys(a), keys(b));
-    let pa: Vec<u32> = ka.iter().map(|c| primary(*c)).collect();
-    let pb: Vec<u32> = kb.iter().map(|c| primary(*c)).collect();
-    pa.cmp(&pb).then_with(|| {
-        let ta: Vec<bool> = ka.iter().map(|c| c.is_uppercase()).collect();
-        let tb: Vec<bool> = kb.iter().map(|c| c.is_uppercase()).collect();
-        ta.cmp(&tb)
-    })
-}
-
-/// Node's `path.basename`: the last segment, ignoring trailing slashes.
-fn basename(p: &str) -> &str {
-    let trimmed = p.trim_end_matches('/');
-    trimmed.rsplit('/').next().unwrap_or("")
 }
 
 fn order(severity: &str) -> u8 {
