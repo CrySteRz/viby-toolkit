@@ -1,0 +1,23 @@
+[package]
+name = "viby"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "viby-toolkit's checkers, hooks and MCP servers in one binary"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "viby"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+regex = "1"
+fancy-regex = "0.14"
+agentgrep = { git = "https://github.com/1jehuang/agentgrep", tag = "v0.1.7" }
+
+[dev-dependencies]
+tempfile = "3"
