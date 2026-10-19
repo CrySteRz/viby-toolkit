@@ -35,6 +35,15 @@ accessibility tree or DOM snapshot after every click pays that cost *per step* â
 across a six-step flow is 90k, and it loses to a cheaper tool taking one screenshot at the end.
 Measure the flow you will actually run, not one call.
 
+**The web driver here is this toolkit's `browser` tool** â€” the person's real Brave, Chrome, Edge
+or Firefox through a small extension, with their logins (no Playwright, nothing headless). Check
+`action='status'` first; `setup` installs it and prints the one-time Load-unpacked step. Read with
+`snapshot` (every control with a selector), act with those selectors, confirm with `wait`. For a
+flow of more than a few steps in one tab, dispatch the `viby-toolkit:browser` agent with the goal
+and the tab, so the clicks stay out of this context. It has no console or network log: read those
+through `eval` (for example `performance.getEntriesByType('resource')`) or the person's devtools.
+Commands, pitfalls and recovery: `references/browser.md`.
+
 **Privacy is a hard gate, not a preference.** Never drive a page containing real user data,
 credentials or payment details through a tool that ships page content to a third party for
 processing. If a tool has a cloud mode, keep it off. State which mode you used.

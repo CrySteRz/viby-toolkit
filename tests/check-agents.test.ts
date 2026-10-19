@@ -71,9 +71,9 @@ function fixture(opts: {
   return `---\nname: ${name}\ndescription: ${description}\ntools: ${tools}\n---\n${body}`;
 }
 
-test("REAL AGENTS: all seven shipped agent files pass clean", () => {
+test("REAL AGENTS: all eight shipped agent files pass clean", () => {
   const { agents, findings: f } = checkAgents(REAL_AGENTS_DIR);
-  assert.equal(agents.length, 7, `expected 7 real agent files, got ${agents.length}`);
+  assert.equal(agents.length, 8, `expected 8 real agent files, got ${agents.length}`);
   assert.deepEqual(f, [], `real agents must pass clean, got ${JSON.stringify(f, null, 2)}`);
 });
 
