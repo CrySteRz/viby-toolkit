@@ -1,9 +1,8 @@
 ---
 name: release
 description: >
-  Always load before cutting a release or publishing — "cut a release", "bump the version", "tag
-  this", "publish it", "write the changelog", "is this a major or a minor", "what changed since
-  the last release". Not /viby-toolkit:verify.
+  Always load before cutting a release or publishing — "cut a release", "bump the version", "write
+  the changelog", "is this a major or a minor". Not verify.
 
 ---
 

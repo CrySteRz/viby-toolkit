@@ -1,9 +1,8 @@
 ---
 name: handoff
 description: >
-  Always load when a task is mid-flight and the session is ending, out of context, or about to be
-  cleared — "hand off", "save state", "continue later", "I'll pick this up tomorrow", "write down
-  where we are". Ephemeral state, not lessons.
+  Always load when a task is mid-flight and the session is ending or about to be cleared — "hand
+  off", "save state", "I'll pick this up tomorrow". Ephemeral state, not lessons.
 
 ---
 

@@ -2,8 +2,7 @@
 name: schema
 description: >
   Always load for any database schema or data change — "add a column", "write a migration",
-  "change this table", "rename this field", "backfill", "add an index", or reviewing a migration.
-  Not /viby-toolkit:migrate, /viby-toolkit:analytics, /viby-toolkit:api.
+  "backfill", "add an index". Not migrate, analytics or api.
 
 ---
 

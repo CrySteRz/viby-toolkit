@@ -1,9 +1,8 @@
 ---
 name: evaluate
 description: >
-  Always load before adopting a tool, library, service or MCP server — "should we use X or Y",
-  "which library should we use", "is this worth adding", "run a spike", "benchmark these two", "is
-  this MCP worth installing". Not /viby-toolkit:study.
+  Always load before adopting a tool, library, service or MCP server — "should we use X or Y", "is
+  this worth adding", "benchmark these two". Not study.
 
 ---
 

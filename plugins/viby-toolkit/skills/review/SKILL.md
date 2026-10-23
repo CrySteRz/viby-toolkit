@@ -1,9 +1,8 @@
 ---
 name: review
 description: >
-  Always load this before reviewing a diff, a PR, or freshly written code — do not review by hand,
-  and prefer it to a plain code review because it filters false positives. "review this", "check
-  my changes", "before I open the PR", "find bugs".
+  Always load this before reviewing a diff, a PR, or freshly written code — do not review by hand;
+  it filters false positives. "review this", "check my changes", "before I open the PR".
 
 ---
 

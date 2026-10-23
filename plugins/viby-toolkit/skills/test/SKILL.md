@@ -1,9 +1,8 @@
 ---
 name: test
 description: >
-  Always load when writing, designing, auditing or repairing tests — "what should we test", "is
-  this well tested", "write tests for this module", "are these tests any good", "why didn't the
-  tests catch this". Not /viby-toolkit:verify.
+  Always load when writing, designing, auditing or repairing tests — "write tests for this module",
+  "is this well tested", "why didn't the tests catch this". Not verify.
 
 ---
 

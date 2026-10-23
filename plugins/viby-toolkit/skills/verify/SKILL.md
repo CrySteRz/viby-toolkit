@@ -1,9 +1,8 @@
 ---
 name: verify
 description: >
-  Always load before claiming any change is done, working or fixed — "is this ready to ship", "are
-  we done", "did that work", "verify this", "prove it", "are the tests passing", or when about to
-  write "should work". Not /viby-toolkit:test.
+  Always load before claiming any change is done, working or fixed — "is this ready to ship", "did
+  that work", "prove it", or when about to write "should work". Not test.
 
 ---
 

@@ -2,8 +2,7 @@
 name: analytics
 description: >
   Always load when implementing or debugging the numbers themselves — "the numbers don't match",
-  "write the query for this metric", "build the reporting pipeline", "the totals don't add up",
-  "test the data". Not /viby-toolkit:kpi or /viby-toolkit:schema.
+  "write the query for this metric", "the totals don't add up". Not kpi or schema.
 
 ---
 

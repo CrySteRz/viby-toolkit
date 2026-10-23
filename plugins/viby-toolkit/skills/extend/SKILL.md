@@ -1,9 +1,8 @@
 ---
 name: extend
 description: >
-  Always load before adding to or changing this toolkit — "add a skill for X", "extend viby-
-  toolkit", "add a checker", "improve this skill's description", "why isn't my skill triggering".
-  How a capability here routes, runs and is verified.
+  Always load before adding to or changing this toolkit — "add a skill for X", "add a checker", "why
+  isn't my skill triggering". How a capability here routes, runs and is verified.
 
 ---
 

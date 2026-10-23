@@ -1,9 +1,8 @@
 ---
 name: migrate
 description: >
-  Always load for a change that is mechanical but wide — a rename, an API upgrade, a framework
-  bump, a pattern sweep across many files. "rename X everywhere", "migrate", "replace all",
-  "codemod". Not /viby-toolkit:deps or /viby-toolkit:schema.
+  Always load for a change that is mechanical but wide — a rename, API upgrade or framework bump
+  across many files: "rename X everywhere", "codemod". Not deps or schema.
 
 ---
 

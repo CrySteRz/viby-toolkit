@@ -2,8 +2,7 @@
 name: adopt
 description: >
   Always load before touching code you did not write and do not trust — "we inherited this repo",
-  "the contractor delivered it", "take over this project", "clean this up to our conventions",
-  "this came from a vendor". Not /viby-toolkit:refactor or /viby-toolkit:explore.
+  "the contractor delivered it", "take over this project". Not refactor or explore.
 
 ---
 

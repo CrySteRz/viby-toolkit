@@ -1,9 +1,8 @@
 ---
 name: ui
 description: >
-  Always load when a change must be seen or driven to be believed — "does this render", "check the
-  UI", "is the layout broken", "click through this flow", "the button does nothing", "take a
-  screenshot", "check accessibility", "the page is blank".
+  Always load when a change must be seen or driven to be believed — "does this render", "is the
+  layout broken", "the button does nothing", "take a screenshot".
 
 ---
 

@@ -394,3 +394,32 @@ overwrites the other's `runs/` output.)
 No results table is kept here for the holdout set yet. When one is added, it goes here, appended below
 this note — not folded into or reconciled with the `probes.tsv` tables above, which are a record of what
 was tuned against, not a corrected version of it.
+
+## 2026-10-23 — shorter descriptions, paired A/B on opus
+
+The 31 descriptions were cut by a third (7,535 → 4,954 characters, about 620 tokens off every
+session's listing). The cuts were fewer quoted triggers, and `Not refactor` instead of
+`Not /viby-toolkit:refactor`. The measured pushy `Always load` wording was kept. Both arms ran at
+the same time from frozen copies via `PLUGIN_DIR`, on `probes-holdout.tsv`, `REPS=5`,
+`MODEL=opus`, `PAR=3` each:
+
+| arm | first-choice | 95% CI | `WRONG` | `NONE` |
+|---|---|---|---|---|
+| shortened | 73/155 = 47% | 39–55% | 0 | 82 |
+| previous | 68/155 = 44% | 36–52% | 0 | 87 |
+
+After the run, `extend` got back one clause of its old text ("How a capability here routes, runs
+and is verified."), because `check-skills` flagged the short form as drifting toward `observe`.
+
+`score.py` refused a delta because the intervals overlap. The finding is therefore **no measurable
+loss**, not "shorter is better", and the shorter text shipped on that basis.
+
+A free proxy agreed: forced-choice classification by a decision model scored 66/67 with either
+set (`docs/studies/2026-10-23-decision-model-mammoth.md`).
+
+Caveats:
+- The first three holdout lines were printed during the session that wrote the short text, so
+  the holdout was not perfectly unseen.
+- The holdout's ~45% on opus is far below the tuning set's 87%. That gap is the same in both arms
+  and is not explained here. It is a separate question, for the same reason the tuning-set number
+  should not be quoted as the library's accuracy.

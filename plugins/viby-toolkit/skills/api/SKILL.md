@@ -1,9 +1,8 @@
 ---
 name: api
 description: >
-  Always load before designing or changing an interface others depend on — an endpoint, a public
-  surface, an event schema, a CLI, an exported type. "design an API", "add an endpoint", "review
-  this interface", "is this a breaking change". Not /viby-toolkit:schema.
+  Always load before designing or changing an interface others depend on (endpoint, CLI, event
+  schema, exported type) — "add an endpoint", "is this a breaking change". Not schema.
 
 ---
 

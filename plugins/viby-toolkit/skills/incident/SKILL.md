@@ -1,9 +1,8 @@
 ---
 name: incident
 description: >
-  Always load when something is broken RIGHT NOW in production or a shared environment — "the site
-  is down", "we're getting paged", "users are reporting errors", "the deploy broke prod", "error
-  rate spiked", "it's timing out in prod".
+  Always load when something is broken RIGHT NOW in production — "the site is down", "we're getting
+  paged", "the deploy broke prod", "error rate spiked".
 
 ---
 

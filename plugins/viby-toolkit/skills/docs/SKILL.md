@@ -1,9 +1,8 @@
 ---
 name: docs
 description: >
-  Always load before writing prose a human will read — "write the README", "document this", "write
-  the PR description", "release notes", "an ADR for this decision", "explain this to the team",
-  "the docs are out of date".
+  Always load before writing prose a human will read — "write the README", "write the PR
+  description", "release notes", "the docs are out of date".
 
 ---
 

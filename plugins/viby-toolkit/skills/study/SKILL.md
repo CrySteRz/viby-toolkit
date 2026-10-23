@@ -1,9 +1,8 @@
 ---
 name: study
 description: >
-  Always load when the answer lives OUTSIDE the codebase and needs researching properly —
-  "research this", "do a deep dive on", "what's the state of the art", "how do others solve this",
-  "write me a study on", "is this claim true". Not /viby-toolkit:evaluate.
+  Always load when the answer lives OUTSIDE the codebase and needs researching properly — "research
+  this", "do a deep dive on", "is this claim true". Not evaluate.
 
 ---
 

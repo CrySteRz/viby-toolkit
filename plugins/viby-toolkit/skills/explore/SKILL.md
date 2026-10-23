@@ -1,9 +1,8 @@
 ---
 name: explore
 description: >
-  Always load when meeting an unfamiliar codebase or corner of one — "what is this repo", "how
-  does X work here", "where does Y live", "walk me through this", "I just cloned this", "help me
-  get oriented", "map this codebase", "what calls what".
+  Always load when meeting an unfamiliar codebase or corner of one — "what is this repo", "how does
+  X work here", "where does Y live", "I just cloned this".
 
 ---
 

@@ -1,9 +1,8 @@
 ---
 name: worktrees
 description: >
-  Always load before running work that must be isolated from the main checkout — parallel
-  implementer agents that would edit-conflict, a risky experiment, a migration off the working
-  branch. "isolate this", "work in a worktree", "without touching main".
+  Always load before work that must be isolated from the main checkout — parallel agents that would
+  edit-conflict, a risky experiment: "isolate this", "work in a worktree".
 
 ---
 

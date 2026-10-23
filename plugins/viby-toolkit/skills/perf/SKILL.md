@@ -1,9 +1,8 @@
 ---
 name: perf
 description: >
-  Always load for anything about speed, memory or cost — "this is slow", "optimize this", "why
-  does it take so long", "reduce memory", "it times out", "make the build faster", "is this a
-  bottleneck", or to check a performance claim.
+  Always load for speed, memory or cost — "this is slow", "optimize this", "it times out", "make the
+  build faster", or to check a performance claim.
 
 ---
 

@@ -1,9 +1,8 @@
 ---
 name: orchestrate
 description: >
-  Always load for any feature, fix or change worth doing carefully — more than a file or two,
-  ambiguous, or multi-step. "build", "implement", "add", "ship", "create", or a well-specified
-  ticket that just needs building. One-line change: skip it.
+  Always load for any feature, fix or change worth doing carefully — multi-file, ambiguous or
+  multi-step: "build", "implement", "add", "ship", or a clear ticket. One-line change: skip it.
 
 ---
 

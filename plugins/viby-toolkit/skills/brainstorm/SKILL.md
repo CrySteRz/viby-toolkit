@@ -1,9 +1,8 @@
 ---
 name: brainstorm
 description: >
-  Load first when WHAT to build isn't settled — a fuzzy idea, a vague goal, several directions. "I
-  want to build", "I'm thinking about", "should we", "help me figure out what". Once settled:
-  /viby-toolkit:plan or /viby-toolkit:orchestrate.
+  Load first when WHAT to build isn't settled — "I want to build", "I'm thinking about", "help me
+  figure out what". Once settled: plan or orchestrate.
 
 ---
 

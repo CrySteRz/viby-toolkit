@@ -1,9 +1,8 @@
 ---
 name: plan
 description: >
-  Always load when the HOW is not obvious, is cross-cutting or high-stakes, or direction needs
-  approval before code — "plan this", "how would you approach", "what's the plan", "break this
-  into steps", "what order". Not /viby-toolkit:brainstorm.
+  Always load when the HOW is not obvious, cross-cutting or high-stakes, or needs approval before
+  code — "plan this", "how would you approach", "break this into steps". Not brainstorm.
 
 ---
 

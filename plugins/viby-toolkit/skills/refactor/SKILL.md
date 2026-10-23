@@ -1,9 +1,8 @@
 ---
 name: refactor
 description: >
-  Always load when restructuring code without changing behaviour — "clean this up", "extract
-  this", "split this file", "this function is too long", "reduce duplication", "make this
-  testable". Not /viby-toolkit:migrate, /viby-toolkit:adopt.
+  Always load when restructuring code without changing behaviour — "clean this up", "split this
+  file", "reduce duplication", "make this testable". Not migrate or adopt.
 
 ---
 

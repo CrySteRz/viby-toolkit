@@ -1,9 +1,8 @@
 ---
 name: learn
 description: >
-  Always load after solving something non-obvious, hitting a build or test gotcha, or having a
-  review finding dismissed — "remember this", "remember we must never do that", "don't flag that
-  again", "note for next time". Not /viby-toolkit:brain.
+  Always load after solving something non-obvious or having a review finding dismissed — "remember
+  this", "don't flag that again", "note for next time". Not brain.
 
 ---
 

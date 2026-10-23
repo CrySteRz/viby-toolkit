@@ -1,9 +1,8 @@
 ---
 name: debug
 description: >
-  Always load when something is broken, failing, throwing, crashing, flaky or wrong and the cause
-  is not obvious — "why is this failing", "debug this", "it's broken", "root cause", "this test is
-  flaky", "passes locally but fails in CI", or a pasted stack trace.
+  Always load when something is broken, failing, flaky or wrong and the cause is not obvious — "why
+  is this failing", "this test is flaky", or a pasted stack trace.
 
 ---
 

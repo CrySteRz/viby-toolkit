@@ -1,10 +1,8 @@
 ---
 name: secure
 description: >
-  Always load for a security pass over code, dependencies or config — "is this secure", "security
-  review", "did I leak a secret", "check for vulnerabilities", "audit the dependencies", "is this
-  endpoint safe", before exposing anything publicly or committing CI config. Not /viby-
-  toolkit:review.
+  Always load for a security pass over code, dependencies or config — "is this secure", "did I leak
+  a secret", "is this endpoint safe", before exposing anything publicly. Not review.
 
 ---
 

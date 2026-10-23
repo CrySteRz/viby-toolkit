@@ -1,9 +1,8 @@
 ---
 name: brain
 description: >
-  Load when the question is about the memory system itself, not one lesson — "what do you
-  remember", "audit your memory", "clean up the memory", "you're working from something outdated",
-  "is that still true". Not /viby-toolkit:learn.
+  Load when the question is about the memory system itself — "what do you remember", "audit your
+  memory", "is that still true". Not learn.
 
 ---
 
