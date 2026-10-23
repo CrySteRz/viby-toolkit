@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.1.0
 
 **Skill descriptions are a third shorter.** They dropped from 7,535 to about 5,000 characters, so
 every session's skill listing costs about 600 fewer tokens. In a paired 310-session A/B on opus
