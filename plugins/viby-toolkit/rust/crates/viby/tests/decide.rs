@@ -100,12 +100,9 @@ impl Fake {
             .stderr(Stdio::piped())
             .spawn()
             .expect("spawn viby");
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(input.as_bytes())
-            .unwrap();
+        // Not opted in, viby exits without reading stdin; on Linux this write then fails with a
+        // broken pipe, which is the behaviour under test, not an error.
+        let _ = child.stdin.take().unwrap().write_all(input.as_bytes());
         let out = child.wait_with_output().unwrap();
         (
             out.status.code(),
@@ -385,15 +382,10 @@ fn the_shell_gate_prints_nothing_unless_opted_in() {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
-        let out = {
-            let mut out = out;
-            out.stdin
-                .take()
-                .unwrap()
-                .write_all(PROMPT.as_bytes())
-                .unwrap();
-            out.wait_with_output().unwrap()
-        };
+        let mut child = out;
+        // The gate exits without reading stdin, so this write may meet a closed pipe.
+        let _ = child.stdin.take().unwrap().write_all(PROMPT.as_bytes());
+        let out = child.wait_with_output().unwrap();
         assert_eq!(out.status.code(), Some(0), "{env:?}");
         assert!(out.stdout.is_empty() && out.stderr.is_empty(), "{env:?}");
     }
@@ -620,12 +612,7 @@ fn hook_opted_in(data: &Path) -> std::process::Output {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(PROMPT.as_bytes())
-        .unwrap();
+    let _ = child.stdin.take().unwrap().write_all(PROMPT.as_bytes());
     child.wait_with_output().unwrap()
 }
 
