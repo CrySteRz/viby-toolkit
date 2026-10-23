@@ -17,7 +17,8 @@
 # SessionStart hook) puts the binary in the cache and copies it beside this script. The plugin
 # folder is per version, so the copy goes away with the version it belongs to.
 #
-# VIBY_RELEASE_URL overrides the download base (tests).
+# VIBY_RELEASE_URL overrides the download base (tests). VIBY_CACHED_ONLY=1 makes a cache miss exit 0
+# quietly instead of downloading or building: for hooks on the prompt path, which must stay fast.
 set -u
 
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
@@ -41,6 +42,8 @@ if [ "${1:-}" = --install ]; then
   if [ -x "$exe" ]; then place_beside; exit 0; fi
 elif [ -x "$exe" ]; then
   exec "$exe" "$@"
+elif [ -n "${VIBY_CACHED_ONLY:-}" ]; then
+  exit 0
 fi
 
 command=${1:-}

@@ -446,6 +446,11 @@ impl Session {
         if mode == "trace" || mode == "outline" {
             self.remember(&root, &shown_in(mode, text));
         }
+        if mode == "find" && input.get("paths_only") != Some(&Value::Bool(true)) {
+            if let Some(line) = decided_pick(&input, &root) {
+                return ToolResult::text(clip(&format!("{line}\n\n{text}")));
+            }
+        }
         ToolResult::text(clip(text))
     }
 }
@@ -465,6 +470,79 @@ fn merge(into: &mut Value, from: &Value) {
         let extra: &Map<String, Value> = from;
         into.extend(extra.iter().map(|(k, v)| (k.clone(), v.clone())));
     }
+}
+
+/// Files a decision model chooses among: `find`'s top files, more than it shows by default, since the
+/// right one is often ranked below 10.
+const PICK_CANDIDATES: usize = 25;
+const PICK_DESCRIPTION: usize = 500;
+/// At 0.9 the pick was right 19 times out of 19 on 40 labelled queries, against `find`'s own first
+/// file 7 times (`docs/studies/2026-10-23-decision-model-mammoth.md`).
+const PICK_CONFIDENCE: f64 = 0.9;
+
+/// Opt-in (`decide::opted_in`): one line naming the file a decision model would open first, when
+/// it is confident. None on any failure, so the result is then exactly what agentgrep printed.
+fn decided_pick(input: &Value, root: &Path) -> Option<String> {
+    if !crate::hooks::decide::opted_in() {
+        return None;
+    }
+    let query = text_field(input, "query")?;
+    let mut wide = input.clone();
+    wide["max_files"] = json!(PICK_CANDIDATES);
+    let output = run_bounded(build_search(&wide, root, None).ok()?, root).ok()?;
+    let files = find_candidates(&output);
+    if files.len() < 2 {
+        return None;
+    }
+    let criteria: Map<String, Value> = files
+        .into_iter()
+        .map(|(path, about)| {
+            let text = format!("{path} — {about}");
+            let text: String = text.chars().take(PICK_DESCRIPTION).collect();
+            (path, Value::String(text))
+        })
+        .collect();
+    let state = format!(
+        "A developer asked their coding agent: {}. Candidate files from a code search are the options.",
+        Value::String(query.to_string())
+    );
+    let questions = json!({"file": {
+        "type": "choice",
+        "instructions": "Which file should the developer open first to find what they asked about?",
+        "criteria": criteria,
+    }});
+    let decision = crate::hooks::decide::evaluate(&state, &questions)?;
+    let answer = decision.answers.get("file")?;
+    let choice = answer.get("choice").and_then(Value::as_str)?;
+    let confidence = answer
+        .get("confidence")
+        .and_then(Value::as_f64)
+        .or_else(|| answer.get("probabilities")?.get(choice)?.as_f64())?;
+    let known = questions["file"]["criteria"].get(choice).is_some();
+    (confidence >= PICK_CONFIDENCE && known).then(|| {
+        format!("Decision model's pick: {choice} (confidence {confidence:.2}; open it first if it fits)")
+    })
+}
+
+/// `find` output's files in rank order, each with its role, reasons and structure on one line. A
+/// header is `N. <path>` at the margin, and the path is printed raw, spaces included.
+pub fn find_candidates(output: &str) -> Vec<(String, String)> {
+    let head = Regex::new(r"^\d+\. (\S.*)$").expect("valid regex");
+    let mut files: Vec<(String, String)> = Vec::new();
+    for line in output.lines() {
+        if let Some(c) = head.captures(line) {
+            files.push((c[1].trim_end().to_string(), String::new()));
+        } else if let Some((_, about)) = files.last_mut() {
+            let line = line.trim();
+            if !line.is_empty() && about.len() < PICK_DESCRIPTION {
+                if !about.is_empty() {
+                    about.push(' ');
+                }
+                about.push_str(line);
+            }
+        }
+    }
+    files
 }
 
 /// The context handed to agentgrep is read from a file; this one lives for a single call.

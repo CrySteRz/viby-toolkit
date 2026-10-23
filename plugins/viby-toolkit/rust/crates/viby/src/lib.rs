@@ -37,6 +37,8 @@ pub const COMMANDS: &[(&str, Entry)] = &[
     ("detect-stack", checks::detect_stack::main),
     ("statusline", hooks::statusline::main),
     ("format-hook", hooks::format::main),
+    ("decide", hooks::decide::main),
+    ("prompt-hint", hooks::prompt_hint::main),
     ("browser-server", browser::server::main),
     ("browser-host", browser::host::main),
     ("agentgrep-server", agentgrep::main),

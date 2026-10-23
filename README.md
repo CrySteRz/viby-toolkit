@@ -5,7 +5,8 @@ debugging, and the checks that keep each one honest. Install it once at user sco
 applies to every project on the machine.
 
 It is built around how I work, so read it as a working reference rather than a product. It sends
-nothing anywhere, and no hook blocks or intercepts a command.
+nothing anywhere unless you switch on the skill hint below, and no hook blocks or intercepts a
+command.
 
 ## Install
 
@@ -113,8 +114,9 @@ grep and Read (`docs/research/2026-10-19-agentgrep-measurement.md`).
 `debugger` and `browser` run on Sonnet; `worker` (the general Workflow stage agent) takes the
 model its stage asks for. Cheap models find; the main session decides and writes.
 
-**One hook.** At session start it adds a short working-style contract (evidence before claiming
-done, fan out reads but keep writes single-threaded, the smallest change that fully works).
+**Two hooks.** At session start one adds a short working-style contract (evidence before claiming
+done, fan out reads but keep writes single-threaded, the smallest change that fully works). The
+other, the skill hint, is off unless you switch it on (below).
 
 ## How it runs
 
@@ -169,6 +171,26 @@ A 2.x statusline line that runs `hooks/run.sh … statusline.ts` keeps working t
 
 **Format hook.** `viby format-hook` formats edited files, only with a formatter the project
 already uses, and never blocks. Add it as a `PostToolUse` hook if you want it.
+
+**Skill hint (opt-in).** With both `AI_GATEWAY_API_KEY` (a Vercel AI Gateway key) and
+`VIBY_DECIDE=on` set, each prompt you type is sent to a decision model on Vercel AI Gateway. If
+the model is at least 0.9 sure which skill fits, Claude gets one line of context, e.g.
+`Skill hint: viby-toolkit:test (confidence 0.97, …)`. It never runs a skill itself. Slash
+commands, prompts that name a skill and replies under four words are never sent. On the
+labelled routing prompts the default models picked the intended skill 97–100 % of the time
+(`docs/studies/2026-10-23-decision-model-mammoth.md`).
+
+Without both variables nothing runs, and the prompt never leaves the machine. With them, the
+prompt text goes to Vercel and the model's provider; the gateway's free tier offers no
+zero-retention guarantee, so leave it off for work you can't share. Every failure (no network,
+rate limit, timeout, an unusable answer) is silent and costs at most about 3 s.
+The same switch adds one line to agentgrep `find` results: the file a decision model would open
+first, chosen from `find`'s top 25, shown only at 0.9 confidence or above. On 40 labelled "where
+is X" questions over two repos, `find`'s own first file was right 7 times; at that threshold the
+model named a file 19 times and was right all 19. Below the threshold the result is exactly
+agentgrep's. `VIBY_DECIDE_MODELS` sets the models tried in order (default
+`baseten/mammoth-1,baseten/elephant-1,liquid/d1-ultra`). `viby decide` asks one question
+directly: JSON `{state, questions}` on stdin, `{model, answers}` on stdout.
 
 ## Working on the toolkit
 

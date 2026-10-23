@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+**Skill descriptions are a third shorter.** They dropped from 7,535 to about 5,000 characters, so
+every session's skill listing costs about 600 fewer tokens. In a paired 310-session A/B on opus
+over the holdout prompts, routing was 47 % for the short text and 44 % for the old, and the
+intervals overlap: no measurable loss (`tests/routing/README.md`).
+
+**An opt-in skill hint from a decision model.** A new `UserPromptSubmit` hook asks a small decision
+model on Vercel AI Gateway which skill fits the prompt, and adds one line of context naming it when
+the model is at least 0.9 sure. It is off unless both `AI_GATEWAY_API_KEY` and `VIBY_DECIDE=on` are
+set; otherwise no binary runs and nothing leaves the machine. Models are tried in order and any
+failure is silent, so the toolkit behaves exactly as before whenever the gateway is unavailable.
+The same switch makes agentgrep `find` lead with the file the model would open first, when it is at
+least 0.9 sure; on 40 labelled queries that pick was right 19 of 19 times, against 7 of 40 for
+`find`'s own first file. `viby decide` exposes the same call for one typed question. The study behind it is
+`docs/studies/2026-10-23-decision-model-mammoth.md`.
+
 ## 3.0.1
 
 **Offline machines get the binary too.** Each release now also publishes

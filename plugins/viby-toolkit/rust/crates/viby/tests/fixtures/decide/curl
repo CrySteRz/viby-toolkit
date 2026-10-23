@@ -1,0 +1,17 @@
+#!/bin/sh
+# A fake curl for tests/decide.rs. Logs and the plan live in $FAKE_CURL_DIR.
+dir=$FAKE_CURL_DIR
+cfg=$(cat)
+printf '%s\n' "$*" >> "$dir/argv.log"
+printf '%s\n' "$cfg" >> "$dir/config.log"
+model=$(printf '%s' "$cfg" | sed -n 's/.*\\"model\\":\\"\([^\\]*\)\\".*/\1/p' | head -n 1)
+printf '%s\n' "$model" >> "$dir/models.log"
+b=$(awk -v m="$model" '$1 == m { sub(/^[^ ]+ /, ""); print; exit }' "$dir/plan")
+case "$b" in
+  ok:*) printf '%s\n200' "${b#ok:}" ;;
+  sleep) exec sleep 10 ;;
+  garbage) printf 'not json at all\n200' ;;
+  crash) exit 7 ;;
+  [0-9]*) printf '{"error":{"message":"no"}}\n%s' "$b" ;;
+  *) printf '{}\n404' ;;
+esac
