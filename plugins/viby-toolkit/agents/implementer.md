@@ -36,6 +36,9 @@ that blocks you, stop and report back rather than guessing.
   narrate the change or explain it to a reviewer.
 - If the project has obvious tests for what you touched, run them. Fix what you broke.
 - Do not claim something works that you didn't check. If you couldn't verify, say so.
+- A command moved to the background has not finished. Since Claude Code 2.1.318 that happens
+  to any shell command a background agent runs for more than 3 minutes. Wait for its result,
+  and never report a check whose output you did not see.
 
 ## Return-size contract
 

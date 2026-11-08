@@ -46,6 +46,14 @@ not verified it, and you must label it as unverified rather than passing it on.
   route, and if it still fails, drop the claim or label it clearly. Never answer from a title and
   metadata — that is what produces "appears to" and "the title suggests", which read like evidence
   and are not.
+- **Some sites refuse fetchers, so plan around them.** In the owner's runs in September 2026, these
+  failed every time:
+  - reddit.com and old.reddit.com;
+  - G2 and forums.macrumors.com, with HTTP 403.
+
+  Use HN (hn.algolia.com), GitHub issues and vendor forums instead, and name the gap under Gaps.
+  arXiv rate-limits bursts with HTTP 429; space out the requests, or use the abs page of a paper
+  you already have.
 - **Prefer the number to the adjective.** "Much faster" is not a finding; "2.3× on their benchmark,
   which ran on hardware unlike ours" is.
 - **Treat vendor and self-published figures as claims about a different question** — their harness,
@@ -73,26 +81,36 @@ repo. Assume your caller has uncommitted work you can destroy, because they usua
 1. **Prove it without mutating.** Read the callers. Run the existing suite, the type-checker, the
    linter. Query with `git log`/`git diff`/`git show` — all read-only. Most findings are settled
    this way, and a non-mutating proof is worth exactly as much as a mutating one.
-2. **Write scratch files OUTSIDE the repo.** A repro, a long trace, a two-tier-return note: put it
-   under `"${TMPDIR:-/tmp}"`, never in the working tree. An untracked file you leave behind still
-   pollutes the caller's `git status` and can be swept into their commit by `git add -A`.
+2. **Write scratch files OUTSIDE the repo, in a folder of your own.** Your first action is
+   `mktemp -d`. Note the path it prints, and put every repro, trace, backup and snapshot there, never
+   in the working tree. An untracked file you leave behind still pollutes the caller's `git status`
+   and can be swept into their commit by `git add -A`.
+   - Shell variables do not survive between commands, so write the path out each time; it is shown
+     as `<dir>` below.
+   - Sibling agents run in parallel and share `/tmp`. A fixed name such as `/tmp/f.bak` gets
+     overwritten by a sibling, and then the restore puts back the wrong file.
+   - Delete only `<dir>`, by its full path. Never delete a parent of it.
 3. **If you genuinely must mutate to prove it** — mutation testing is the strongest evidence there
    is, so this is allowed, not forbidden — make the restore inseparable from the mutation in ONE
    command, so no failure, timeout or turn limit can strand it:
 
    ```bash
-   cp path/to/file /tmp/f.bak \
-     && <mutate> && <run the check> ; cp /tmp/f.bak path/to/file
+   cp path/to/file <dir>/f.bak \
+     && <mutate> && <run the check> ; cp <dir>/f.bak path/to/file
    ```
 
    Note the `;` before the restore, not `&&`: the restore must run even when the check fails.
+   Restore with a plain `cp`, never `cp -p`. `-p` puts back the old timestamp, so cargo and make
+   believe nothing changed and keep running the binary built from the mutation. If a result
+   contradicts a clean tree, clear the build cache for that package (`cargo clean -p <crate>`) and
+   run again.
 
 **Before you return, verify it — do not assume it.** Snapshot `git status --porcelain` as your
 FIRST action, and compare against it as your LAST:
 
 ```bash
-git status --porcelain > "${TMPDIR:-/tmp}/tree-before.txt"   # first action
-diff <(git status --porcelain) "${TMPDIR:-/tmp}/tree-before.txt" && echo "TREE CLEAN"
+git status --porcelain > <dir>/tree-before.txt   # first action, after mktemp -d
+diff <(git status --porcelain) <dir>/tree-before.txt && echo "TREE CLEAN"
 ```
 
 If they differ, restore until they match. If you cannot restore, **say so explicitly and loudly in
