@@ -95,6 +95,39 @@ fn version_drift_across_manifests_is_flagged() {
 }
 
 #[test]
+fn a_manifest_git_ignores_is_not_part_of_the_release() {
+    let dir = repo(&[
+        ("package.json", &pkg("1.2.0")),
+        (".gitignore", "runs/\n"),
+        ("runs/probe-1/package.json", &pkg("1.0.0")),
+        CI,
+    ]);
+    let found = checks(&dir);
+    assert!(
+        !has(&found, "version-drift"),
+        "an ignored copy is not shipped, got {found:?}"
+    );
+}
+
+#[test]
+fn an_untracked_manifest_git_would_add_still_counts() {
+    let dir = repo_with(
+        &[
+            ("package.json", &pkg("1.2.0")),
+            ("pyproject.toml", "[project]\nname='x'\nversion = '1.1.0'\n"),
+            CI,
+        ],
+        false,
+        &[],
+    );
+    let found = checks(&dir);
+    assert!(
+        has(&found, "version-drift"),
+        "untracked but not ignored is still the release's, got {found:?}"
+    );
+}
+
+#[test]
 fn consistent_versions_across_manifests_are_not_flagged() {
     let dir = repo(&[
         ("package.json", &pkg("1.2.0")),

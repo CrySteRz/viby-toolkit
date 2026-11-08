@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.2.2
+
+**`viby check-release` judges only what git would ship.** It read every manifest under the tree,
+including folders git ignores. Running it on this repo after 3.2.1 reported a P1 version drift
+against 155 gitignored copies of a test fixture's `package.json`. Inside a git repo, ignored files
+are now left out. Untracked files that git would add still count. The same run's `exec-bit-lost`
+finding was real: `tests/routing/score.py` is now 100755.
+
+**Routing measured with and without the owner's setup** (`tests/routing/README.md`). On the
+holdout, on opus, the toolkit alone routed 147/155 (95%, CI 90–97%). With the owner's settings,
+plugins and CLAUDE.md it routed 155/155 (100%, CI 98–100%). The same prompts scored 47% on 23
+October; why the level moved is unexplained.
+
 ## 3.2.1
 
 **3.2.0, now through the release gate.** 3.2.0 was built and published, but its fresh-machine

@@ -280,6 +280,24 @@ pub fn check_release(root: &str) -> Release {
 
     let mut files: Vec<(String, String)> = Vec::new();
     walk(root_path, "", 0, &mut files);
+    // A release ships what git ships. A manifest git ignores (build output, a local copy of a
+    // fixture) is not part of it: gitignored routing-run copies of a fixture's package.json were
+    // reported as version drift against the real manifests.
+    if is_repo {
+        let listed = git(
+            root_path,
+            &[
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+            ],
+        )
+        .1;
+        let shipped: std::collections::HashSet<&str> = listed.split('\0').collect();
+        files.retain(|(_, rel)| shipped.contains(rel.as_str()));
+    }
 
     // ---- versions
     let monorepo = files.iter().any(|(_, rel)| r.monorepo_marker.is_match(rel));

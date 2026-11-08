@@ -423,3 +423,30 @@ Caveats:
 - The holdout's ~45% on opus is far below the tuning set's 87%. That gap is the same in both arms
   and is not explained here. It is a separate question, for the same reason the tuning-set number
   should not be quoted as the library's accuracy.
+
+## 2026-11-08: the owner's setup against the toolkit alone, paired on opus
+
+Both arms ran at the same time:
+- prompts `probes-holdout.tsv`, `REPS=5`, `MODEL=opus`, `PAR=3` each;
+- Claude Code 2.1.319;
+- the plugin loaded from the checkout, whose descriptions are unchanged since 3.1.0.
+
+`ISOLATE=1` (new in `drive.py`) drops user settings, the user CLAUDE.md, user skills, other plugins
+and MCP servers. The other arm loads all of them, as every earlier run here did.
+
+| arm | first-choice | 95% CI | `WRONG` | `NONE` |
+|---|---|---|---|---|
+| isolated | 147/155 = 95% | 90–97% | 0 | 8 |
+| owner's setup | 155/155 = 100% | 98–100% | 0 | 0 |
+
+- **The owner's setup raised routing; it did not contaminate it.** The intervals do not overlap.
+  - The eight misses are all `NONE`: `docs` 0/5, `plan` 3/5 and `debug` 4/5.
+  - In each, the model explored with Bash and Read and never loaded a skill. On `docs` it ended with
+    "this repo doesn't have an auth flow".
+  - With the owner's setup all three went 5/5. Which part of that setup does it is not known; its
+    listing also carries `anthropic-skills:docs` and about 30 more skills.
+- **Both arms are far above the 47% measured on 2026-10-23**, with the same prompts and the same
+  descriptions. That is a comparison across time, which the section "The result that undercuts every
+  cross-session comparison here" warns against. Claude Code moved from 2.1.309 to 2.1.319 in
+  between, and the model behind `opus` may have changed. The level on this holdout is now about
+  95–100%; why it moved is unexplained.
