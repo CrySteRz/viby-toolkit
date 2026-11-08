@@ -1,5 +1,58 @@
 # Changelog
 
+## 3.2.0
+
+**A timed-out or cancelled code search now stops.** Before this, when an agentgrep search passed
+its 30 seconds, the tool returned an error. The search itself kept running on its thread, using CPU
+and memory. agentgrep v0.2.0 (upstream's fix for jcode #1932) adds a cancel flag that the search
+checks as it goes. The tool now sets that flag on its own timeout, and also when Claude Code sends
+`notifications/cancelled`, for example when you press Esc. v0.2.0 also bounds the work: 16 MiB of
+subprocess output, 8 MiB per file and 100,000 matches. A search that hits a bound returns an error
+instead of a silently cut result. On two parity queries the output is byte-identical to 0.1.7.
+
+**`viby check-release` catches a script that will lose its executable bit.** With
+`core.fileMode=false`, or after a Windows checkout, git records an executable script as 100644.
+Tests pass locally; on a fresh clone or a CI runner the file is no longer executable. That is how a
+fake `curl` test fixture here once fell through to the real `curl`. The new P1 finding,
+`exec-bit-lost`, lists each script (a file whose first line is `#!`) that is executable on disk but
+100644 in git, with the `git update-index --chmod=+x` fix. On viby-shot it found 51 such scripts.
+
+**Lessons from using the toolkit are now in the toolkit.** The owner's recorded failures from
+VibyFlow and VibyShot workflow runs had stayed in memory notes. They now sit where agents read them:
+- **Research stages get no schema.** Researchers given a schema failed or returned placeholder
+  text in two runs. The plain-markdown format never failed. Schemas stay for verify and judge
+  stages. This corrects "ask for short, schema-bound returns".
+- **Briefs state a budget below the agent's turn cap**, with "a partial result returned beats a
+  complete one lost". Before that change, 11 of 11 scouts were cut off. After it, 16 of 16
+  returned.
+- **At most 3 builders run at once.** Nine Opus builders started together and used up two
+  5-hour usage windows in about 2 hours each.
+- **Launch a workflow only from a turn whose latest message asks for the work**, because agents
+  hear that message as the user's voice. **An agent's return is final**, so a stage that needs a
+  lock takes it itself.
+- **Each agent keeps its scratch in its own `mktemp -d` folder**, deletes only that folder, and
+  restores planted files with a plain `cp`.
+  - Five agents backed up to the same `/tmp/f.bak`, which parallel skeptics could overwrite, and
+    then restore the wrong file.
+  - `cp -p` keeps the old timestamp, so cargo kept running the planted binary.
+- **A command Claude Code moved to the background has not finished.** The implementer, debugger,
+  reviewer and skeptic now wait for its result.
+- **Smaller additions:**
+  - the researcher names the sites that refuse fetchers (Reddit, G2, MacRumors) and arXiv's rate
+    limit;
+  - `test` covers the Linux-only broken pipe that failed 3.1.0's CI;
+  - `orchestrate` checks the staged set before a partial commit.
+
+**Claude Code facts brought up to date (2.1.301 to 2.1.318).**
+- Resuming a workflow no longer re-runs finished agents. That needs 2.1.318 or later.
+- An agent on a different model from the main thread uses that model's effort (2.1.317), and
+  `CLAUDE_CODE_SUBAGENT_EFFORT` sets a fallback (2.1.316). A same-model agent with nothing set
+  still inherits the session's effort, so setting both stays the rule.
+- The skill listing is sent again after every compaction (2.1.304).
+- The `browser` agent needs 2.1.311 or later.
+
+The study behind this release is `docs/studies/2026-11-08-improvement-round.md`.
+
 ## 3.1.0
 
 **Skill descriptions are a third shorter.** They dropped from 7,535 to about 5,000 characters, so
