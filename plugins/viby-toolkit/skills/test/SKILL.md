@@ -127,6 +127,10 @@ is the same as deleting the suite.
 - No shared mutable state between tests and no ordering dependence — each test sets up and
   tears down its own world. Unique temp dirs, fresh fixtures, isolated DB per test.
 - Don't swallow exceptions in a test; the exception is often the thing under test.
+- **A test that passes on one OS can still fail on another, and CI's OS decides.** Writing to a
+  child that exits without reading its stdin passes on macOS and fails with a broken pipe (EPIPE)
+  on Linux. That is how 3.1.0's release check failed after 36 of 36 local checks had passed. Ignore
+  that write's result, assert on the child's output, and run the suite on CI's OS before a release.
 - **A flaky test gets root-caused (`/viby-toolkit:debug`) or quarantined with an owner — never
   blanket-retried.** `retry: 3` converts a real intermittent bug into invisible tech debt.
 

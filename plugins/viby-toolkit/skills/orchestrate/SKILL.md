@@ -141,7 +141,8 @@ and point the reviewer at the risky part.
 
 **Split in the order a reviewer can follow**: mechanical and formatting-only changes in their own
 commit, then structural moves, then anything touching behaviour. Never mix them — an unreviewable
-diff is where inherited bugs hide.
+diff is where inherited bugs hide. Before each partial commit, run `git diff --cached --name-only`.
+An earlier `git rm` or `git add` is already staged, and the next commit takes it along unseen.
 
 ### Phase 6 — Compound (when something was non-obvious)
 

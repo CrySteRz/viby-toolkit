@@ -103,7 +103,9 @@ own background tab. It can click, type, fill forms, upload, drag and drop, take 
 run several steps or pages in one call. Passwords are masked in everything Claude reads. The
 first call walks you through loading the extension (Developer mode, Load unpacked); browsers
 don't let any program install an extension silently. Ported from JCode's bridge; details in
-`plugins/viby-toolkit/browser/NOTICE.md` and `skills/ui/references/browser.md`.
+`plugins/viby-toolkit/browser/NOTICE.md` and `skills/ui/references/browser.md`. The `browser` agent
+needs Claude Code 2.1.311 or later. Before that, a subagent could not use MCP tools from a server
+that finished connecting after the agent started.
 
 **Code search** (MCP, `agentgrep`). Structure-aware grep, find, outline and trace over Rust,
 TypeScript/JavaScript and Python, from [1jehuang/agentgrep](https://github.com/1jehuang/agentgrep).
