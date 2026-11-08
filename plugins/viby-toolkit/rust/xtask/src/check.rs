@@ -38,6 +38,7 @@ const MIN_PASSING: &[(&str, usize)] = &[
     ("tests/scanner.rs", 69),
     ("tests/skill_safety.rs", 22),
     ("tests/statusline.rs", 19),
+    ("tests/stop_gate.rs", 14),
     ("tests/strip.rs", 3),
     ("tests/test_drift.rs", 23),
 ];

@@ -16,6 +16,8 @@ IRON LAW: A completion claim requires a command you ran FRESH, its real output, 
 
 Claude stops when work *looks* done; absent a check, "looks done" is the only signal it
 has. This skill replaces that signal with evidence. Follow `/viby-toolkit:principles` §5.
+The opt-in enforcement is `viby stop-gate`, a Stop hook that blocks finishing once when code
+changed after the last check ran (README, "Stop gate").
 
 ## 1. Identify the real checks — don't guess them
 

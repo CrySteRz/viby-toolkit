@@ -172,6 +172,18 @@ A 2.x statusline line that runs `hooks/run.sh … statusline.ts` keeps working t
 **Format hook.** `viby format-hook` formats edited files, only with a formatter the project
 already uses, and never blocks. Add it as a `PostToolUse` hook if you want it.
 
+**Stop gate.** `viby stop-gate` turns the verify skill's rule into a mechanism. If Claude edited
+code this turn and ran no test, build, type-check or linter after the last edit, the gate stops
+it from finishing once and asks it to run a check or say why none applies. Edits to docs
+(`.md`, `.mdx`, `.txt`, `.rst`, `docs/`) don't count, and anything it cannot read lets Claude
+stop. It is opt-in and unmeasured: the one published figure for a hook like this counts the hook
+and a skill together. Add to `~/.claude/settings.json` (it works under `SubagentStop` too):
+
+```json
+{ "hooks": { "Stop": [ { "hooks": [ { "type": "command",
+    "command": "sh \"$(ls -t \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/plugins/cache/viby-toolkit/viby-toolkit/*/launcher/viby | head -n 1)\" stop-gate" } ] } ] } }
+```
+
 ## Working on the toolkit
 
 ```
