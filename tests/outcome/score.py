@@ -18,7 +18,11 @@ import statistics
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-RUNS = os.path.join(ROOT, "runs-" + os.environ.get("NAME", "main"))
+# Runs live OUTSIDE the checkout, in a durable folder (a scratchpad wipe once lost a routing matrix
+# after its numbers were quoted). Inside the checkout an agent could read
+# ../../fixtures/<task>/reference.patch and hidden_test.py, and parent CLAUDE.md files would load.
+RUNS_ROOT = os.environ.get("RUNS_ROOT") or os.path.join(os.path.expanduser("~"), ".cache", "viby-toolkit", "outcome")
+RUNS = os.path.join(RUNS_ROOT, "runs-" + os.environ.get("NAME", "main"))
 ARMS = ("skill", "bare")
 Z_POWER = 0.8416212335729143  # one-sided normal quantile for 80% power
 
@@ -73,9 +77,15 @@ def total(values):
     return sum(v for v in values if v is not None)
 
 
+def solved(r):
+    """A pass is the hidden test passing AND the original visible tests still passing: a fix that
+    breaks something else is not a solved task."""
+    return bool(r["hidden_pass"] and r["visible_pass"])
+
+
 def arm_row(label, runs):
     n = len(runs)
-    passes = sum(r["hidden_pass"] for r in runs)
+    passes = sum(solved(r) for r in runs)
     regressions = sum(not r["visible_pass"] for r in runs)
     costs = [r["cost"] for r in runs]
     per_pass = f"${total(costs) / passes:.2f}" if passes else "n/a"
@@ -99,7 +109,7 @@ def report_skill(skill, runs):
         cells = {}
         for arm in ARMS:
             rs = [r for r in by_arm[arm] if r["task"] == task]
-            cells[arm] = (sum(r["hidden_pass"] for r in rs), len(rs))
+            cells[arm] = (sum(solved(r) for r in rs), len(rs))
         shown = {arm: f"{p}/{n}" for arm, (p, n) in cells.items()}
         if all(n for _p, n in cells.values()):
             d = cells["skill"][0] / cells["skill"][1] - cells["bare"][0] / cells["bare"][1]
@@ -146,7 +156,8 @@ def main():
     if unfinished:
         print(f"\n!! {len(unfinished)} run(s) have no result.json yet and were left out: "
               f"{', '.join(unfinished[:8])}. A partial matrix is not a result.")
-    print("\nregr = runs whose original visible tests failed afterwards. Costs are the CLI's"
+    print("\npass = hidden test passes and the original visible tests still pass; regr = runs whose"
+          " visible tests failed afterwards (never counted as a pass). Costs are the CLI's"
           " total_cost_usd; medians, not means, so one capped run cannot dominate.")
     return 0 if counted else 2
 

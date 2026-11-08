@@ -33,9 +33,11 @@ MODEL = os.environ.get("MODEL", "sonnet")
 PAR = int(os.environ.get("PAR", "4"))
 MAX_TURNS = os.environ.get("MAX_TURNS", "40")
 TIMEOUT = int(os.environ.get("TIMEOUT", "900"))
-# Results live next to the harness, as routing's do, because a scratchpad wipe once lost a whole
-# matrix after its numbers had been quoted. runs*/ is gitignored.
-RUNS = os.path.join(ROOT, "runs-" + os.environ.get("NAME", "main"))
+# Runs live OUTSIDE the checkout, in a durable folder (a scratchpad wipe once lost a routing matrix
+# after its numbers were quoted). Inside the checkout an agent could read
+# ../../fixtures/<task>/reference.patch and hidden_test.py, and parent CLAUDE.md files would load.
+RUNS_ROOT = os.environ.get("RUNS_ROOT") or os.path.join(os.path.expanduser("~"), ".cache", "viby-toolkit", "outcome")
+RUNS = os.path.join(RUNS_ROOT, "runs-" + os.environ.get("NAME", "main"))
 USER_SETTINGS = os.path.expanduser("~/.claude/settings.json")
 
 

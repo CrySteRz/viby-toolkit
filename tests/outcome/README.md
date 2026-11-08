@@ -72,7 +72,8 @@ NAME=debug-sonnet python3 score.py
 | `PAR` | `4` | sessions at once; both arms share the pool |
 | `MAX_TURNS` | `40` | passed to `--max-turns` |
 | `TIMEOUT` | `900` | seconds before a session is killed and graded as it stands |
-| `NAME` | `main` | results go to `runs-<NAME>/`, gitignored, next to the harness |
+| `NAME` | `main` | results go to `runs-<NAME>/` under `RUNS_ROOT` |
+| `RUNS_ROOT` | `~/.cache/viby-toolkit/outcome` | outside the checkout on purpose: from inside it an agent could read a fixture's `reference.patch` and `hidden_test.py` |
 
 Every run is isolated: `--setting-sources project,local --strict-mcp-config --plugin-dir
 <this checkout's plugins/viby-toolkit>`, with `CLAUDECODE` stripped from the environment. That
@@ -111,6 +112,9 @@ task, not to rank skills. Rates near 0% or 100% need fewer runs; a ceiling, wher
 nearly everything, measures nothing.
 
 ## Reading the report
+
+A run passes only when the hidden test passes **and** the repo's original visible tests still pass:
+a fix that breaks something else is not a solved task.
 
 For each skill and arm: pass rate with a 95% Wilson interval, regressions in the visible tests,
 median and total cost, cost per passing run, median and total turns and wall time. Then each
