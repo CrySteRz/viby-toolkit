@@ -177,7 +177,8 @@ code this turn and ran no test, build, type-check or linter after the last edit,
 it from finishing once and asks it to run a check or say why none applies. Edits to docs
 (`.md`, `.mdx`, `.txt`, `.rst`, `docs/`) don't count, and anything it cannot read lets Claude
 stop. It is opt-in and unmeasured: the one published figure for a hook like this counts the hook
-and a skill together. Add to `~/.claude/settings.json` (it works under `SubagentStop` too):
+and a skill together. Claude Code labels a block "Stop hook error occurred"; that notice is the
+gate working, not failing. Add to `~/.claude/settings.json` (it works under `SubagentStop` too):
 
 ```json
 { "hooks": { "Stop": [ { "hooks": [ { "type": "command",
@@ -196,6 +197,7 @@ plugins/viby-toolkit/
   browser/extension/                the browser extension (JavaScript)
   rust/                             Cargo workspace: crates/viby (the binary), xtask (the gate)
 tests/routing/                      checks that prompts route to the right skill (Python)
+tests/outcome/                      checks whether forcing a skill beats no skill on graded tasks (Python)
 docs/                               plans, decisions, research, provenance
 ```
 

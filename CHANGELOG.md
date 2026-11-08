@@ -1,5 +1,37 @@
 # Changelog
 
+## 3.3.0
+
+**An opt-in stop gate: `viby stop-gate`.** The verify skill's rule, "never claim done without a
+fresh check", can now be a mechanism for those who want one.
+- **What it blocks:** if Claude edited code this turn and ran no test, build, type-check or linter
+  after the last edit, the gate stops it from finishing once. It asks for the check, or for a plain
+  reason why none applies.
+- **What does not count:** edits to docs (`.md`, `.mdx`, `.txt`, `.rst`, `docs/`), and edits from
+  an earlier turn.
+- **How it fails:** it blocks at most once per stop. Anything it cannot read lets Claude stop.
+- **Where it works:** it handles `SubagentStop` too, by reading the agent's own transcript.
+- **Proven live:** in a headless Claude Code 2.1.319 session, Claude edited a file, the gate
+  blocked with its reason, Claude answered it, and the session ended after one block.
+- **Off by default:** it is not in the plugin's hooks. Add it to your settings (README, "Stop
+  gate").
+- **Unmeasured:** the one published figure for a hook like this counts the hook and a skill
+  together.
+
+**`tests/outcome/`: does forcing a skill beat no skill on real work?** Routing tests only show
+that a skill fires. This harness grades outcomes.
+- **Tasks:** ten fixtures, each graded by a hidden test. Six are planted bugs for `debug` (money
+  rounding, DST, a mutable default, a cache key, pagination and a sort key). Four are multi-file
+  tickets for `plan`.
+- **Ground truth:** `validate.py` proves, with no model, that each hidden test fails on the
+  starting code and passes with the reference fix.
+- **Arms:** the forced-skill arm and the no-skill arm run together, isolated from the owner's
+  setup but keeping their guard hooks.
+- **What counts as a pass:** the hidden test passes and nothing else broke.
+- **Where runs live:** outside the checkout, so an agent cannot read the answers.
+- **Not run at scale yet:** the README's sample-size table is the reason. A 10-point difference
+  needs about 360 runs per arm.
+
 ## 3.2.2
 
 **`viby check-release` judges only what git would ship.** It read every manifest under the tree,
