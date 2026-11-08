@@ -25,7 +25,9 @@ case "$(uname -s)" in
   *) windows='' exe=viby; native() { printf '%s\n' "$1"; } ;;
 esac
 full_path=$PATH
-no_cargo_path=$(printf '%s\n' "$PATH" | tr ':' '\n' | grep -v -e '\.cargo' -e '\.rustup' | paste -sd: -)
+# `rustup`, not `\.rustup`: since November 2026 macos-latest puts Homebrew's rustup on PATH as
+# /opt/homebrew/opt/rustup/bin, which has no dot, and v3.2.0 failed here before testing anything.
+no_cargo_path=$(printf '%s\n' "$PATH" | tr ':' '\n' | grep -v -e '\.cargo' -e 'rustup' | paste -sd: -)
 if PATH=$no_cargo_path command -v cargo >/dev/null 2>&1; then
   echo "cannot hide cargo: $(PATH=$no_cargo_path command -v cargo)" >&2
   exit 1

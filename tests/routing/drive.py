@@ -24,6 +24,14 @@ CLEAN = os.environ.get("CLEAN") == "1"
 # one environment. Comparing arms measured at different times does not work — see the docs result in
 # README: byte-identical description, 0/5 then 4/5, because unrelated parts of the listing moved.
 PLUGIN_DIR = os.environ.get("PLUGIN_DIR")
+# ISOLATE=1 measures the toolkit alone: Claude Code's built-ins plus this checkout's plugin, and none
+# of the machine owner's user settings, user CLAUDE.md, user skills, other plugins or MCP servers.
+# The default arm keeps all of those on purpose (the real competition in the listing); this one is
+# the number another machine can reproduce. Checked 2026-11-08 on 2.1.319: --safe-mode also drops
+# --plugin-dir skills (0 of 31 loaded), so it cannot be used here.
+ISOLATE = os.environ.get("ISOLATE") == "1"
+if ISOLATE and not PLUGIN_DIR:
+    PLUGIN_DIR = os.path.normpath(os.path.join(ROOT, "..", "..", "plugins", "viby-toolkit"))
 
 # Results live NEXT TO the harness, not in a temp dir. A whole 155-run matrix was lost to a session
 # restart wiping the scratchpad — about half an hour of compute, and worse, the numbers were already
@@ -73,6 +81,8 @@ def one(job):
            "--max-turns", MAX_TURNS, "--model", MODEL]
     if PLUGIN_DIR:
         cmd.extend(["--plugin-dir", PLUGIN_DIR])
+    if ISOLATE:
+        cmd.extend(["--setting-sources", "project,local", "--strict-mcp-config"])
     if ARM == "bare":
         # Control arm: skills unavailable, everything else identical. NOT `--bare`, which also skips
         # credential loading — every run came back "Not logged in · Please run /login", a 67-character
@@ -102,7 +112,8 @@ def main():
     jobs = [(pid, rep, prompt) for pid, _exp, prompt in probes for rep in range(1, REPS + 1)]
     shutil.rmtree(RUNS, ignore_errors=True)
     os.makedirs(RUNS, exist_ok=True)
-    print(f"{len(jobs)} runs · model={MODEL} · arm={ARM} · parallelism={PAR}", flush=True)
+    print(f"{len(jobs)} runs · model={MODEL} · arm={ARM} · isolated={ISOLATE} · parallelism={PAR}",
+          flush=True)
     done = 0
     with ThreadPoolExecutor(max_workers=PAR) as ex:
         for name in ex.map(one, jobs):
