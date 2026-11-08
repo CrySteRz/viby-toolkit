@@ -149,7 +149,11 @@ fn edits_after_check(transcript: &Path, skip_sidechain: bool) -> Option<Vec<Stri
         if line.trim().is_empty() {
             continue;
         }
-        let entry: Value = serde_json::from_str(&line).ok()?;
+        // A line that does not parse (most often the one still being written) is skipped: judge
+        // the session on what can be read, rather than letting one bad line switch the gate off.
+        let Ok(entry) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
         if skip_sidechain && entry.get("isSidechain") == Some(&Value::Bool(true)) {
             continue;
         }

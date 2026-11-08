@@ -174,12 +174,52 @@ fn doc_only_edits_let_it_stop() {
 }
 
 #[test]
-fn a_malformed_transcript_line_fails_open() {
+fn a_malformed_line_is_skipped_and_the_rest_still_counts() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("session.jsonl");
+    // A half-written last line is the usual case: the edit before it still needs a check.
     std::fs::write(&path, format!("{}\n{{not json\n", edit("/repo/a.rs"))).unwrap();
-    let input = json!({ "stop_hook_active": false, "transcript_path": path });
+    let input = json!({ "stop_hook_active": false, "transcript_path": path, "cwd": "/repo" });
+    let (status, out) = run(input.to_string().as_bytes());
+    assert_eq!(status, Some(0));
+    assert!(block_reason(&out).starts_with("You changed a.rs"), "{out}");
+    // Nothing readable at all: nothing to judge, so it lets Claude stop.
+    std::fs::write(&path, "{not json\n").unwrap();
     assert_eq!(run(input.to_string().as_bytes()), (Some(0), String::new()));
+}
+
+#[test]
+fn a_new_prompt_as_text_blocks_starts_a_turn_but_a_tool_result_does_not() {
+    let next = json!({ "type": "user", "message": { "role": "user", "content": [
+        { "type": "text", "text": "thanks, now explain it" }
+    ] } });
+    assert_eq!(
+        stop(&[prompt("fix it"), edit("/repo/a.rs"), result(), next]),
+        ""
+    );
+    assert!(!stop(&[prompt("fix it"), edit("/repo/a.rs"), result()]).is_empty());
+}
+
+#[test]
+fn a_check_after_a_semicolon_counts() {
+    let out = stop(&[
+        prompt("fix"),
+        edit("/repo/a.rs"),
+        result(),
+        bash("cd /repo; cargo test"),
+        result(),
+    ]);
+    assert_eq!(out, "");
+}
+
+#[test]
+fn an_edit_tool_with_a_path_key_counts() {
+    let out = stop(&[
+        prompt("fix"),
+        tool("Write", json!({ "path": "/repo/b.rs", "content": "x" })),
+        result(),
+    ]);
+    assert!(block_reason(&out).starts_with("You changed b.rs"), "{out}");
 }
 
 #[test]
