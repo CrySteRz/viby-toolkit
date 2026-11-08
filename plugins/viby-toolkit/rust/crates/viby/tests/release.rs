@@ -351,3 +351,63 @@ fn a_manifest_with_a_utf8_bom_is_still_parsed_so_drift_is_still_caught() {
         "a BOM must not hide a real version drift"
     );
 }
+
+/// A repo whose `core.fileMode` is false, so `git add` records every file as 100644 even when
+/// the file is executable on disk. That is how the lost-bit trap is made.
+#[cfg(unix)]
+fn script_repo(mode: u32) -> TempDir {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::Builder::new()
+        .prefix("rel-")
+        .tempdir()
+        .expect("tempdir");
+    let p = dir.path();
+    git(p, &["init", "-q"]);
+    git(p, &["config", "core.fileMode", "false"]);
+    git(p, &["config", "user.email", "t@example.com"]);
+    git(p, &["config", "user.name", "T"]);
+    write(p, CI.0, CI.1);
+    write(p, "bin/curl", "#!/bin/sh\necho fake\n");
+    fs::set_permissions(p.join("bin/curl"), fs::Permissions::from_mode(mode)).expect("chmod");
+    git(p, &["add", "-A"]);
+    git(p, &["commit", "-qm", "init"]);
+    dir
+}
+
+#[cfg(unix)]
+#[test]
+fn an_executable_file_committed_as_100644_is_flagged() {
+    let dir = script_repo(0o755);
+    let found = check_release(&dir.path().to_string_lossy()).findings;
+    let hit = found.iter().find(|f| f.check == "exec-bit-lost");
+    let hit = hit.unwrap_or_else(|| panic!("expected exec-bit-lost, got {found:?}"));
+    let detail = hit.detail.as_deref().unwrap_or_default();
+    assert!(
+        detail.contains("git update-index --chmod=+x bin/curl"),
+        "the finding must name the path and the fix, got {detail:?}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn an_executable_file_with_its_index_bit_set_is_not_flagged() {
+    let dir = script_repo(0o755);
+    git(dir.path(), &["update-index", "--chmod=+x", "bin/curl"]);
+    git(dir.path(), &["commit", "-qm", "fix mode"]);
+    let found = checks(&dir);
+    assert!(
+        !has(&found, "exec-bit-lost"),
+        "100755 in the index is correct, got {found:?}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_non_executable_file_with_a_shebang_is_not_flagged() {
+    let dir = script_repo(0o644);
+    let found = checks(&dir);
+    assert!(
+        !has(&found, "exec-bit-lost"),
+        "a shebang alone is not an executable bit, got {found:?}"
+    );
+}

@@ -7,6 +7,7 @@
 //!   dirty-tree        uncommitted changes would not be in the release
 //!   unpushed          local commits the tag would point at but nobody else has
 //!   tag-exists        the tag for this version is already taken
+//!   exec-bit-lost     executable on disk but committed as 100644, so a fresh clone loses the bit
 //!   changelog-stale   a CHANGELOG exists but does not mention this version
 //!   debug-artifact    a focused/skipped test or a debugger statement is still in the tree
 //!   no-ci             nothing automated gates this release
@@ -362,6 +363,37 @@ pub fn check_release(root: &str) -> Release {
                 ),
                 detail: None,
             });
+        }
+
+        // `core.fileMode=false` (or a Windows checkout) commits an executable file as 100644. The
+        // tests pass locally, then a fresh clone or CI runner has no x bit. Unix only: elsewhere
+        // the disk has no x bit to compare.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let staged = git(root_path, &["ls-files", "-s", "-z"]).1;
+            let lost: Vec<&str> = staged
+                .split('\0')
+                .filter_map(|e| e.strip_prefix("100644 ")?.split_once('\t').map(|(_, p)| p))
+                .filter(|p| {
+                    fs::metadata(root_path.join(p))
+                        .is_ok_and(|m| m.permissions().mode() & 0o111 != 0)
+                })
+                .collect();
+            if !lost.is_empty() {
+                findings.push(Finding {
+                    check: "exec-bit-lost".to_string(),
+                    severity: "P1",
+                    message: format!("{} file(s) are executable on disk but committed as 100644 — a fresh clone loses the executable bit", lost.len()),
+                    detail: Some(
+                        lost.iter()
+                            .take(8)
+                            .map(|p| format!("{p}: git update-index --chmod=+x {p}, then confirm git ls-files -s shows 100755"))
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                    ),
+                });
+            }
         }
 
         if let Some(cur) = current {
