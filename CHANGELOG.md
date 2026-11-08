@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.2.1
+
+**3.2.0, now through the release gate.** 3.2.0 was built and published, but its fresh-machine
+check on `macos-latest` stopped before it tested anything. The runner image now puts Homebrew's
+rustup on PATH as `/opt/homebrew/opt/rustup/bin`, and the script that hides cargo only knew
+`.rustup`. `main` therefore never moved to 3.2.0, and installs go from 3.1.0 to 3.2.1. The plugin
+is the same as 3.2.0; read the entry below for what changed.
+
+The routing harness also gained `ISOLATE=1`. It measures the toolkit alone: Claude Code's built-ins
+plus this checkout, with no user settings, user CLAUDE.md, user skills, other plugins or MCP
+servers. The default arm stays the realistic one.
+
 ## 3.2.0
 
 **Removed: the decision-model skill hint, `viby decide`, and agentgrep's model pick (all from
