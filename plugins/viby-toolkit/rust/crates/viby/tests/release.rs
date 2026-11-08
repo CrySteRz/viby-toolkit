@@ -411,3 +411,20 @@ fn a_non_executable_file_with_a_shebang_is_not_flagged() {
         "a shebang alone is not an executable bit, got {found:?}"
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn an_executable_file_that_is_not_a_script_is_not_flagged() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = script_repo(0o644);
+    let p = dir.path();
+    write(p, "LICENSE", "MIT License\n");
+    fs::set_permissions(p.join("LICENSE"), fs::Permissions::from_mode(0o755)).expect("chmod");
+    git(p, &["add", "-A"]);
+    git(p, &["commit", "-qm", "license"]);
+    let found = checks(&dir);
+    assert!(
+        !has(&found, "exec-bit-lost"),
+        "only a script breaks when its x bit is lost, got {found:?}"
+    );
+}

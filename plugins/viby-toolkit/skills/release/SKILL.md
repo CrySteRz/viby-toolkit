@@ -42,8 +42,9 @@ sh "$VIBY" check-release .
 It reports only what is exactly decidable, so anything it flags is real: version drift
 between manifests, an uncommitted tree, unpushed commits, a tag already taken, a changelog
 that omits this version, a focused test or `debugger` left in, a script executable on disk
-but committed without its executable bit, and whether CI gates the release at all. It deliberately does **not** guess whether the change is breaking. Monorepos
-are detected, so independent per-package versions are reported as normal rather than as drift.
+but committed without its executable bit, and whether CI gates the release at all. It
+deliberately does **not** guess whether the change is breaking. Monorepos are detected, so
+independent per-package versions are reported as normal rather than as drift.
 
 Fix everything it finds before continuing — these are the failures that make a release
 embarrassing rather than wrong.
