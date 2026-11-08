@@ -13,8 +13,8 @@ use std::process::{Command, Stdio};
 /// never lower one to make a run green. A test binary missing from this table fails the check, so
 /// a new suite gets a minimum the day it lands.
 const MIN_PASSING: &[(&str, usize)] = &[
-    ("unittests src/lib.rs", 8),
-    ("tests/agentgrep.rs", 8),
+    ("unittests src/lib.rs", 9),
+    ("tests/agentgrep.rs", 9),
     ("tests/analytics_sql.rs", 25),
     ("tests/api_surface.rs", 20),
     ("tests/browser.rs", 50),
@@ -32,7 +32,7 @@ const MIN_PASSING: &[(&str, usize)] = &[
     ("tests/format_hook.rs", 9),
     ("tests/launcher.rs", 8),
     ("tests/logging.rs", 20),
-    ("tests/mcp.rs", 2),
+    ("tests/mcp.rs", 3),
     ("tests/migration.rs", 19),
     ("tests/read_cost.rs", 20),
     ("tests/release.rs", 20),

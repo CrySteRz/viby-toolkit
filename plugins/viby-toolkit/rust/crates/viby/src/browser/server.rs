@@ -975,7 +975,7 @@ pub fn main(_args: &[String]) -> i32 {
             description: TOOL_DESCRIPTION.into(),
             input_schema: input_schema(),
         },
-        move |input| server.call_tool(&input),
+        move |input, _cancel| server.call_tool(&input),
     );
     0
 }

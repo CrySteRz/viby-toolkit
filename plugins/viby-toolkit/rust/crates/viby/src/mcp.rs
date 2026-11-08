@@ -2,11 +2,13 @@
 //!
 //! Shared by the browser and agentgrep servers, which differ only in the tool they serve. Each
 //! tool call runs on its own thread, as the TypeScript ran them as concurrent promises, so a
-//! long browser wait never holds up a `ping`. When stdin closes, calls already asked are still
-//! answered before the process exits.
+//! long browser wait never holds up a `ping`. A `notifications/cancelled` naming a call in flight
+//! sets that call's cancel flag; the call still answers. When stdin closes, calls already asked
+//! are still answered before the process exits.
 
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// A tool call's result: MCP content blocks, and whether it is an error.
@@ -51,7 +53,8 @@ pub struct Server {
     pub version: String,
 }
 
-type Call = dyn Fn(Value) -> ToolResult + Send + Sync;
+/// A tool call: its arguments, and a flag set when the client cancels it.
+type Call = dyn Fn(Value, Arc<AtomicBool>) -> ToolResult + Send + Sync;
 
 /// The reply to one message, or None for a notification. Tool calls are not answered here.
 fn answer(message: &Value, server: &Server, tool: &Tool) -> Option<Value> {
@@ -102,7 +105,7 @@ pub fn serve_on(
     call: Arc<Call>,
 ) {
     let out = Arc::new(Mutex::new(output));
-    let mut in_flight = Vec::new();
+    let mut in_flight: Vec<(Value, Arc<AtomicBool>, std::thread::JoinHandle<()>)> = Vec::new();
     for line in input.lines() {
         let Ok(line) = line else { break };
         if line.trim().is_empty() {
@@ -125,19 +128,30 @@ pub fn serve_on(
                 .pointer("/params/arguments")
                 .cloned()
                 .unwrap_or_else(|| json!({}));
-            in_flight.push(std::thread::spawn(move || {
+            let cancel = Arc::new(AtomicBool::new(false));
+            let flag = Arc::clone(&cancel);
+            let reply_id = id.clone();
+            let handle = std::thread::spawn(move || {
                 send(
                     &out,
-                    json!({ "id": id, "result": call(arguments).to_json() }),
+                    json!({ "id": reply_id, "result": call(arguments, flag).to_json() }),
                 )
-            }));
-            in_flight.retain(|h| !h.is_finished());
+            });
+            in_flight.retain(|(_, _, h)| !h.is_finished());
+            in_flight.push((id, cancel, handle));
+        } else if message.get("method").and_then(Value::as_str) == Some("notifications/cancelled") {
+            let target = message.pointer("/params/requestId");
+            for (id, cancel, _) in &in_flight {
+                if Some(id) == target {
+                    cancel.store(true, Ordering::Relaxed);
+                }
+            }
         } else if let Some(reply) = answer(&message, &server, &tool) {
             send(&out, reply);
         }
     }
     // Answer what was already asked before exiting; a closed stdin must not drop a reply.
-    for handle in in_flight {
+    for (_, _, handle) in in_flight {
         let _ = handle.join();
     }
 }
@@ -146,7 +160,7 @@ pub fn serve_on(
 pub fn serve(
     server: Server,
     tool: Tool,
-    call: impl Fn(Value) -> ToolResult + Send + Sync + 'static,
+    call: impl Fn(Value, Arc<AtomicBool>) -> ToolResult + Send + Sync + 'static,
 ) {
     serve_on(
         std::io::stdin().lock(),

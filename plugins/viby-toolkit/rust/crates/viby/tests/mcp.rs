@@ -1,7 +1,8 @@
-//! The MCP stdio loop: the handshake, one tool, concurrent calls, and replies kept after stdin closes.
+//! The MCP stdio loop: the handshake, one tool, concurrent calls, cancellation, and replies kept after stdin closes.
 
 use serde_json::{json, Value};
 use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use viby::mcp::{serve_on, Server, Tool, ToolResult};
@@ -36,9 +37,22 @@ fn run(lines: &[Value], raw_extra: &str) -> Vec<Value> {
             version: "1.0.0".into(),
         },
         tool,
-        Arc::new(|args: Value| {
+        Arc::new(|args: Value, cancel: Arc<AtomicBool>| {
             if let Some(ms) = args.get("sleep").and_then(Value::as_u64) {
                 std::thread::sleep(Duration::from_millis(ms));
+            }
+            if let Some(ms) = args.get("wait_cancel").and_then(Value::as_u64) {
+                let start = std::time::Instant::now();
+                while !cancel.load(Ordering::Relaxed) && start.elapsed() < Duration::from_millis(ms)
+                {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                let said = if cancel.load(Ordering::Relaxed) {
+                    "cancelled"
+                } else {
+                    "ran out"
+                };
+                return ToolResult::text(said);
             }
             if args.get("fail").is_some() {
                 ToolResult::error("no")
@@ -118,4 +132,26 @@ fn calls_run_concurrently_and_are_answered_after_stdin_closes() {
     );
     assert_eq!(by_id(&replies, 3)["result"]["isError"], true);
     assert!(by_id(&replies, 2)["result"].get("isError").is_none());
+}
+
+#[test]
+fn a_cancel_notification_flags_only_the_call_it_names() {
+    let replies = run(
+        &[
+            json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": { "name": "echo", "arguments": { "wait_cancel": 20000 } } }),
+            json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": { "name": "echo", "arguments": { "wait_cancel": 300 } } }),
+            json!({ "jsonrpc": "2.0", "method": "notifications/cancelled", "params": { "requestId": 1, "reason": "user" } }),
+        ],
+        "",
+    );
+    assert_eq!(
+        by_id(&replies, 1)["result"]["content"][0]["text"],
+        "cancelled"
+    );
+    assert_eq!(
+        by_id(&replies, 2)["result"]["content"][0]["text"],
+        "ran out",
+        "a cancel for another call must not stop this one"
+    );
+    assert_eq!(replies.len(), 2, "a cancel notification gets no reply");
 }

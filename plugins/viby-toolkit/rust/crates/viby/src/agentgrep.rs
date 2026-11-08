@@ -6,11 +6,12 @@
 //! On top it adds the part JCode's harness adds around it: the session remembers which file
 //! structures and code regions it has already been shown, and hands that to agentgrep (its
 //! context file), which then shortens them in later `trace` results (the only mode that takes
-//! it in 0.1.7). A file edited since is shown in full again. An `outline` is always an explicit
+//! it in 0.2.0). A file edited since is shown in full again. An `outline` is always an explicit
 //! ask for one file, so it is never shortened, but what it showed counts as seen.
 
 use crate::mcp::{self, Server, Tool, ToolResult};
 use agentgrep::cli::{FindArgs, FullRegionMode, GrepArgs, OutlineArgs, SmartArgs};
+use agentgrep::control::{with_search_control, SearchControl, SearchLimits};
 use agentgrep::find::run_find;
 use agentgrep::outline::run_outline;
 use agentgrep::render::{
@@ -22,12 +23,12 @@ use agentgrep::smart_engine::run_smart;
 use regex::Regex;
 use serde_json::{json, Map, Value};
 use std::path::{Component, Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime};
 
 /// The agentgrep release this is built against (the `agentgrep` dependency's tag).
-pub const AGENTGREP_TAG: &str = "v0.1.7";
+pub const AGENTGREP_TAG: &str = "v0.2.0";
 const MAX_TEXT: usize = 60_000;
 const RUN_TIMEOUT: Duration = Duration::from_secs(30);
 const MODES: [&str; 4] = ["grep", "find", "outline", "trace"];
@@ -223,7 +224,7 @@ pub struct Shown {
     pub regions: Vec<(usize, usize)>,
 }
 
-/// Reads agentgrep 0.1.7's text output for what it showed. Unknown output yields nothing.
+/// Reads agentgrep 0.2.0's text output for what it showed. Unknown output yields nothing.
 pub fn shown_in(mode: &str, output: &str) -> Vec<Shown> {
     static RES: OnceLock<[Regex; 3]> = OnceLock::new();
     let [file_line, header_line, region_line] = RES.get_or_init(|| {
@@ -405,8 +406,8 @@ impl Session {
         )
     }
 
-    /// Runs one tool call.
-    pub fn call_tool(&self, input: Value) -> ToolResult {
+    /// Runs one tool call. Setting `cancel` stops its search.
+    pub fn call_tool(&self, input: Value, cancel: Arc<AtomicBool>) -> ToolResult {
         let mode = input.get("mode").and_then(Value::as_str).unwrap_or("");
         if !MODES.contains(&mode) {
             return ToolResult::error(unknown_mode(input.get("mode")));
@@ -431,7 +432,7 @@ impl Session {
             Ok(search) => search,
             Err(message) => return fail(message),
         };
-        let output = match run_bounded(search, &root) {
+        let output = match run_bounded(search, &root, Arc::clone(&cancel)) {
             Ok(output) => output,
             Err(stderr) => {
                 let stderr = stderr.trim();
@@ -447,7 +448,7 @@ impl Session {
             self.remember(&root, &shown_in(mode, text));
         }
         if mode == "find" && input.get("paths_only") != Some(&Value::Bool(true)) {
-            if let Some(line) = decided_pick(&input, &root) {
+            if let Some(line) = decided_pick(&input, &root, cancel) {
                 return ToolResult::text(clip(&format!("{line}\n\n{text}")));
             }
         }
@@ -482,14 +483,14 @@ const PICK_CONFIDENCE: f64 = 0.9;
 
 /// Opt-in (`decide::opted_in`): one line naming the file a decision model would open first, when
 /// it is confident. None on any failure, so the result is then exactly what agentgrep printed.
-fn decided_pick(input: &Value, root: &Path) -> Option<String> {
+fn decided_pick(input: &Value, root: &Path, cancel: Arc<AtomicBool>) -> Option<String> {
     if !crate::hooks::decide::opted_in() {
         return None;
     }
     let query = text_field(input, "query")?;
     let mut wide = input.clone();
     wide["max_files"] = json!(PICK_CANDIDATES);
-    let output = run_bounded(build_search(&wide, root, None).ok()?, root).ok()?;
+    let output = run_bounded(build_search(&wide, root, None).ok()?, root, cancel).ok()?;
     let files = find_candidates(&output);
     if files.len() < 2 {
         return None;
@@ -581,17 +582,38 @@ impl Drop for ContextFile {
 
 /// Runs agentgrep as its command does (same calls, same rendering) and returns its text, or the
 /// text its command prints to stderr on failure. Bounded: a search that takes too long, or
-/// panics, comes back as an error and never holds the session.
-fn run_bounded(search: Search, root: &Path) -> Result<String, String> {
+/// panics, comes back as an error and never holds the session. Within agentgrep's other budgets
+/// (output, file size, matches), and stopped once `cancel` is set, which a timeout also does.
+fn run_bounded(search: Search, root: &Path, cancel: Arc<AtomicBool>) -> Result<String, String> {
+    run_within(search, root, cancel, RUN_TIMEOUT)
+}
+
+fn run_within(
+    search: Search,
+    root: &Path,
+    cancel: Arc<AtomicBool>,
+    timeout: Duration,
+) -> Result<String, String> {
+    // The one deadline is `timeout`: it answers even when a search is stuck where agentgrep
+    // cannot check, so agentgrep's own deadline is left out rather than racing it.
+    let limits = SearchLimits {
+        timeout: Duration::MAX,
+        ..SearchLimits::default()
+    };
+    let control = SearchControl::new(Arc::clone(&cancel), limits);
     let root = root.to_path_buf();
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
-        let _ = tx.send(run(search, &root));
+        let result = with_search_control(control, || run(search, &root))
+            .map_err(|err| format!("error: {err}"))
+            .and_then(|result| result);
+        let _ = tx.send(result);
     });
-    match rx.recv_timeout(RUN_TIMEOUT) {
+    match rx.recv_timeout(timeout) {
         Ok(result) => result,
         Err(mpsc::RecvTimeoutError::Timeout) => {
-            Err(format!("timed out after {} seconds", RUN_TIMEOUT.as_secs()))
+            cancel.store(true, Ordering::Relaxed);
+            Err(format!("timed out after {} seconds", timeout.as_secs()))
         }
         Err(mpsc::RecvTimeoutError::Disconnected) => Err("internal error".into()),
     }
@@ -603,7 +625,9 @@ fn run(search: Search, root: &Path) -> Result<String, String> {
         Search::Grep(args) => run_grep(root, &args)
             .map(|result| render_grep_output(&result, &args, None))
             .map_err(failed),
-        Search::Find(args) => Ok(render_find_output(&run_find(root, &args), &args)),
+        Search::Find(args) => run_find(root, &args)
+            .map(|result| render_find_output(&result, &args))
+            .map_err(failed),
         Search::Outline(args) => run_outline(root, &args)
             .map(|result| render_outline_output(&result))
             .map_err(failed),
@@ -653,7 +677,36 @@ pub fn main(_args: &[String]) -> i32 {
             description: TOOL_DESCRIPTION.to_string(),
             input_schema: input_schema(),
         },
-        move |input| session.call_tool(input),
+        move |input, cancel| session.call_tool(input, cancel),
     );
     0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn grep_here() -> (Search, PathBuf) {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
+        let search = build_search(&json!({ "mode": "grep", "query": "fn" }), &root, None).unwrap();
+        (search, root)
+    }
+
+    #[test]
+    fn a_timeout_sets_the_cancel_flag_so_the_search_stops() {
+        let (search, root) = grep_here();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let result = run_within(search, &root, Arc::clone(&cancel), Duration::ZERO);
+        assert_eq!(result, Err("timed out after 0 seconds".to_string()));
+        assert!(
+            cancel.load(Ordering::Relaxed),
+            "the worker was not told to stop"
+        );
+
+        // Must not: an answer in time leaves the flag alone.
+        let (search, root) = grep_here();
+        let cancel = Arc::new(AtomicBool::new(false));
+        assert!(run_within(search, &root, Arc::clone(&cancel), RUN_TIMEOUT).is_ok());
+        assert!(!cancel.load(Ordering::Relaxed));
+    }
 }

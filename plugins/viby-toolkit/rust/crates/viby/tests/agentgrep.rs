@@ -8,6 +8,8 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use viby::agentgrep::{
     build_search, clip, input_schema, shown_in, Search, Session, Shown, TOOL_DESCRIPTION,
@@ -52,7 +54,7 @@ fn repo() -> (tempfile::TempDir, PathBuf) {
     (dir, repo)
 }
 
-/// agentgrep 0.1.7 trace output, trimmed from a real run (`trace subject:bridgeRequest relation:called_from`).
+/// agentgrep 0.1.7 trace output (0.2.0 prints the same), trimmed from a real run (`trace subject:bridgeRequest relation:called_from`).
 const TRACE: &str = "query parameters:
   subject: bridgeRequest
   relation: called_from
@@ -96,7 +98,7 @@ best answer likely in actions.ts
 
 /// One tool call: whether it is an error, and its text.
 fn call(session: &Session, input: Value) -> (bool, String) {
-    let result = session.call_tool(input);
+    let result = session.call_tool(input, Arc::new(AtomicBool::new(false)));
     let text = result
         .content
         .iter()
@@ -356,6 +358,25 @@ fn server_agentgreps_own_errors_come_back_as_tool_errors_a_missing_folder_never_
         unknown,
         "Unknown mode: read. Use one of grep, find, outline, trace."
     );
+}
+
+#[test]
+fn server_a_cancelled_search_stops_with_an_error_a_live_one_answers() {
+    let (_dir, repo) = repo();
+    let session = Session::new();
+    let input = json!({ "mode": "grep", "query": "bridge", "path": &repo });
+    let cancelled = Arc::new(AtomicBool::new(true));
+    let result = session.call_tool(input.clone(), Arc::clone(&cancelled));
+    assert!(result.is_error);
+    assert_eq!(
+        result.content[0]["text"],
+        "agentgrep grep failed: error: search cancelled"
+    );
+    assert!(cancelled.load(Ordering::Relaxed));
+
+    let (error, text) = call(&session, input);
+    assert!(!error, "{text}");
+    assert!(text.starts_with("query: bridge\n"), "{text}");
 }
 
 #[test]

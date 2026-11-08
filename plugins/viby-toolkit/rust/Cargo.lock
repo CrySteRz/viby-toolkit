@@ -4,15 +4,17 @@ version = 4
 
 [[package]]
 name = "agentgrep"
-version = "0.1.7"
-source = "git+https://github.com/1jehuang/agentgrep?tag=v0.1.7#525fc54117962f5f75f93cbffb53b8becf7b3add"
+version = "0.2.0"
+source = "git+https://github.com/1jehuang/agentgrep?tag=v0.2.0#a2c52bbfea9fbcf1d7e89d74ef607c6d1fb4ba14"
 dependencies = [
  "clap",
  "globset",
  "ignore",
+ "libc",
  "regex",
  "serde",
  "serde_json",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -201,7 +203,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -400,7 +402,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -484,7 +486,7 @@ dependencies = [
  "getrandom",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -530,7 +532,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
