@@ -127,7 +127,8 @@ Adding a skill is not free, but the cost is not where intuition puts it. Two dis
   indistinguishable from zero. So the rule is distinguishable descriptions, not few skills.
 - **The listing budget.** Claude Code fits all descriptions into ~1% of the context window and, on
   overflow, truncates them **starting with the skills you invoke least**. So a longer, more explicit
-  description makes mis-routing *worse*.
+  description makes mis-routing *worse*. The listing is not paid once: since Claude Code 2.1.304,
+  every compaction sends it again.
 
 Both point one way: **a description is a trigger, not a summary** — and when two skills look alike,
 add distinguishing words as *triggers*, never as summaries. Checked by

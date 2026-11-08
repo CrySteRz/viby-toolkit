@@ -89,6 +89,25 @@ This cuts against the instinct to over-specify. Give every schema a free-text fi
 abandon its argument to fit it. Structure the parts you will *machine-read*; leave prose for the parts
 you will *judge*.
 
+**Web research stages get no schema at all.** A researcher spends its turns on searching and reaches
+the output step last. Here are the results from the owner's runs:
+
+| Date | Schema | Researchers | Result |
+|---|---|---|---|
+| 2026-09-22 | 8 required keys | 10 | 3 failed; 2 more returned placeholder output (`answer: "test"`) |
+| 2026-10-29 | 3 required keys | 4 | 2 "completed without calling StructuredOutput" |
+| 2026-10-29 rerun | none, fixed bullet format | 2 | 2 returned |
+| 2026-11-08 | none | 4 | 4 returned |
+
+A turn cap may also explain the 2026-10-29 failures. Even so, the plain format never failed.
+
+So give a researcher a fixed plain-markdown format and no schema:
+- one bullet per finding: claim, verbatim quote, URL, fetched or search-summary;
+- then a `Gaps:` section;
+- the line "a short honest report beats a padded one; never write placeholder text".
+
+Keep schemas for short verify and judge stages, whose whole job is the structured answer.
+
 ## The skeleton
 
 ```js
@@ -121,6 +140,20 @@ Notes that save a re-run:
   `reviewer`, `skeptic`, `debugger`. They are read-only by construction, which is rule 1 enforced by
   the tool rather than by the prompt. Where none fits, use `viby-toolkit:worker` (next section).
 - No `Date.now()` / `Math.random()` in a script; they break resume. Vary by index instead.
+- **Launch only in a turn whose latest user message asks for the work.**
+  - Every agent receives that one message as "the only user voice". The message is fixed at launch.
+  - If the user asks a side question before the launch, answer it, end the turn, and launch on the
+    next go-ahead.
+  - A run launched from a turn that opened with a task notification relays no user message at all.
+  - Owner's runs, 2026-10-16: a Sonnet builder relayed a side question. It answered the question and
+    built nothing.
+  - Claude Code 2.1.301 fixed a related step-skip. This case has not been retested since.
+  - Put "questions from the user are for the main thread, not a reason to stop" in long briefs.
+- **An agent's return is final, so it cannot wait for something.** An agent that arms a background
+  wait and replies has already returned, and the script reads its reply as the result. So a stage
+  that needs a held resource takes the lock itself, inside one shell command, or reports "lock held"
+  and leaves the retry to the script. In the owner's run of 2026-10-31, an agent replied "will reply
+  free", and four dependent stages then hit the held lock.
 - Concurrency is capped around 10 regardless of how many items you pass, so passing 40 items is safe —
   it is the *stage width per decision* that rule 2 constrains, not the queue length.
 - The script is persisted to disk and the run is resumable — edit the file and re-invoke with
@@ -134,7 +167,13 @@ these are rules, not tips.
 - **Set `model` and `effort` on every `agent()` call.** Only a typed toolkit agent's frontmatter may
   stand in for them. An agent with neither inherits the session's effort at launch: 74% of workflow
   agents did, often at max. Thinking stays in context and is re-read every turn (Sonnet 5.5: ~2,100
-  thinking tokens per turn at max, ~60 at medium).
+  thinking tokens per turn at max, ~60 at medium). Claude Code changed this in two releases, but the
+  rule stands:
+  - Since 2.1.317, an agent on a *different* model from the main thread uses that model's saved or
+    default effort.
+  - Since 2.1.316, `CLAUDE_CODE_SUBAGENT_EFFORT` sets a fallback.
+
+  A same-model agent with nothing set still inherits the session's effort.
 - **Route by stage.** `max` only for one hard problem, never for a fan-out.
 
   | Stage | agentType | model | effort |
@@ -157,13 +196,30 @@ these are rules, not tips.
   all of them build the same tools-and-system-prompt prefix and share one prompt cache.
 - **After editing a script, resume the run** (`resumeFromRunId`) instead of relaunching it, and put the
   stages most likely to change last: the first agent whose prompt differs re-runs, and so does every
-  agent after it.
-- **Ask for short, schema-bound returns.** Big results go to a file; return its path and at most 10
-  lines.
+  agent after it. Resume needs Claude Code 2.1.318 or later. Before 2.1.305, finished `pipeline()`
+  and `parallel()` agents ran again. Before 2.1.318, so did agents finished before a usage limit.
+- **Ask for short returns.** Use a schema for verify and judge stages, and plain markdown for research
+  (rule 5). Big results go to a file; return its path and at most 10 lines.
 - **Never quote a turn budget above the agent's `maxTurns`.** Agents do not count their turns, so the
   cap stops them: 81 of 90 failed typed agents stopped exactly at it, and a cut workflow agent fails or
   returns an empty string. Briefs promised more than the cap in 44 of 101 implementer and 60 of 117 reviewer
   prompts that named a budget.
+- **State the budget below the cap, and say what to do when it runs out.** For example: "HARD
+  BUDGET: at most N rounds of tool calls; at round N stop and return what you have; a partial result
+  returned beats a complete one lost."
+  - Owner's runs, 2026-10-10: 11 of 11 scouts with one broad question each were cut off and returned
+    nothing. The relaunch returned 16 of 16. It used narrow questions that named their files, the
+    stated budget and the stop sentence, and no extra write step before the return.
+  - Those changes were made together, so no single one gets the credit; use all of them.
+- **At most 3 builders run at once; read-only agents may run wider.** Cost is concurrency × turns ×
+  context size, because every turn re-reads the whole context.
+  - Owner's runs, 2026-10-28: nine Opus builders started within three minutes. They used up two
+    5-hour usage windows in about 2 hours each. When resumed, the builders cut off at the limit ran
+    again from the start.
+  - Hold the cap with a slot gate in the script.
+  - Have builders commit after each finished piece, so a cut run loses little.
+  - Split any run whose context would pass about 100 turns into stages. For example, one agent runs
+    and saves evidence, then a fresh agent writes it up.
 - **Never set `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` or `subagentPromptCacheTtl`.** The first moves every
   stage, build and review included, to one model. The second puts agents on the 1h cache, an estimated
   net loss of 5–12 points of usage: every cache write costs 2× instead of 1.25×.
