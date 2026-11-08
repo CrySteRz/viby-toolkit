@@ -1,5 +1,7 @@
 # Study: decision models inside viby-toolkit — optional, never required
 
+> **Removed on 2026-11-08 at the owner's request.** The skill hint, `viby decide` and agentgrep's model pick are gone. This document is kept as the record of what was tried and measured.
+
 **Status (2026-10-23):** protocol approved, then run. 6 research angles (4 planned + 2 added on free-tier
 eligibility), ~58 sources read, 27 cited. Local measurements: 5 decision models × 73 routing probes,
 4 models × 48 injection cases, 27 eligibility probes, all on a free-tier key, $0.013 spent. 4 claims

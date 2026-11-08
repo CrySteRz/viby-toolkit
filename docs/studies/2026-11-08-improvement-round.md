@@ -138,6 +138,8 @@ See CHANGELOG 3.2.0. Each item, with the candidate it came from:
   confirmed.
 - **Agent scratch fences and backgrounded-command waits (C2, C6).**
 - **Test, orchestrate and README lines.**
+- **Removed at the owner's request, mid-round:** 3.1.0's decision-model skill hint, `viby decide`
+  and agentgrep's model pick, which came from jcode's Jev classifier idea.
 
 ## Deferred: these need a measurement or a decision from the owner
 

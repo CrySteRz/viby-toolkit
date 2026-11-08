@@ -1,5 +1,7 @@
 # Plan: `viby decide` and an opt-in skill hint
 
+> **Removed on 2026-11-08 at the owner's request.** The skill hint, `viby decide` and agentgrep's model pick are gone. This document is kept as the record of what was tried and measured.
+
 **Goal**: an advisory skill hint on each prompt from a decision model, per
 `docs/studies/2026-10-23-decision-model-mammoth.md` §8. The toolkit behaves exactly as today unless the
 person opts in.

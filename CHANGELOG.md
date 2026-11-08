@@ -2,6 +2,18 @@
 
 ## 3.2.0
 
+**Removed: the decision-model skill hint, `viby decide`, and agentgrep's model pick (all from
+3.1.0).** The removal was the owner's call. The toolkit again sends nothing anywhere, and it has one
+hook again.
+- The `UserPromptSubmit` hook, `hooks/prompt-hint.sh`, and the `prompt-hint` and `decide`
+  subcommands are gone.
+- agentgrep `find` no longer adds a "Decision model's pick" line.
+- `VIBY_DECIDE`, `VIBY_DECIDE_MODELS` and `AI_GATEWAY_API_KEY` no longer do anything, and the
+  launcher's `VIBY_CACHED_ONLY` went with them.
+- Anything that ran `viby decide` now gets the unknown-command exit, 2.
+
+The study and plan stay in `docs/` as the record of what was measured.
+
 **A timed-out or cancelled code search now stops.** Before this, when an agentgrep search passed
 its 30 seconds, the tool returned an error. The search itself kept running on its thread, using CPU
 and memory. agentgrep v0.2.0 (upstream's fix for jcode #1932) adds a cancel flag that the search
