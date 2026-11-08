@@ -1,0 +1,13 @@
+diff --git a/billing/rates.py b/billing/rates.py
+index b5f61ea..7522bf7 100644
+--- a/billing/rates.py
++++ b/billing/rates.py
+@@ -22,7 +22,7 @@ def rate_for(category):
+         rate = VAT_RATES[category]
+     except KeyError:
+         raise ValueError(f"unknown VAT category: {category!r}") from None
+-    return Decimal(rate)
++    return Decimal(str(rate))
+ 
+ 
+ def percent_label(category):

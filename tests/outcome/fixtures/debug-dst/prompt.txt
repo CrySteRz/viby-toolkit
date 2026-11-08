@@ -1,0 +1,1 @@
+Since the clocks went forward last weekend, people's daily reminders show up an hour late: someone who set a reminder for 09:00 gets it at 10:00. The first reminder right after setting one up is on time, it's the following days that are wrong. Please find out what's going on and fix it.

@@ -1,0 +1,1 @@
+Our best quiz player has 104 points this week but the leaderboard shows her below people with 98 and 87 points. Last week's board looked right. Can you find out why the ranking is wrong and fix it?

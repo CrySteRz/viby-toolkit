@@ -1,0 +1,1 @@
+In production some customers get a discount they never entered a code for. It seems to happen after someone else used a promo code, and restarting the worker makes it go away for a while. Our tests are all green. Can you find the cause and fix it?

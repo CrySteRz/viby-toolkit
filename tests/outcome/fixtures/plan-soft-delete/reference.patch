@@ -1,0 +1,140 @@
+diff --git a/notes/api.py b/notes/api.py
+index c587a7b..6bca03c 100644
+--- a/notes/api.py
++++ b/notes/api.py
+@@ -2,10 +2,11 @@
+ import re
+ from urllib.parse import parse_qs, urlsplit
+ 
+-from .errors import NotFound, ValidationError
++from .errors import Conflict, NotFound, ValidationError
+ from .service import NoteService
+ 
+ NOTE_PATH = re.compile(r"^/notes/(\d+)$")
++RESTORE_PATH = re.compile(r"^/notes/(\d+)/restore$")
+ 
+ 
+ class Api:
+@@ -21,6 +22,8 @@ class Api:
+             return 404, {"error": str(e)}
+         except ValidationError as e:
+             return 400, {"error": str(e)}
++        except Conflict as e:
++            return 409, {"error": str(e)}
+ 
+     def _route(self, method, path, query, body):
+         if path == "/notes":
+@@ -28,7 +31,7 @@ class Api:
+                 if "q" in query:
+                     notes = self.service.search(query["q"])
+                 else:
+-                    notes = self.service.list(tag=query.get("tag"))
++                    notes = self.service.list(tag=query.get("tag"), include_deleted=query.get("include_deleted") == "1")
+                 return 200, {"notes": [n.to_dict() for n in notes]}
+             if method == "POST":
+                 note = self.service.create(body.get("title", ""), body.get("body", ""), body.get("tags", ()))
+@@ -46,4 +49,9 @@ class Api:
+                 self.service.delete(note_id)
+                 return 204, None
+             return 405, {"error": "method not allowed"}
++        m = RESTORE_PATH.match(path)
++        if m:
++            if method != "POST":
++                return 405, {"error": "method not allowed"}
++            return 200, self.service.restore(int(m.group(1))).to_dict()
+         return 404, {"error": "no such route"}
+diff --git a/notes/errors.py b/notes/errors.py
+index 5e728b9..5215e0f 100644
+--- a/notes/errors.py
++++ b/notes/errors.py
+@@ -2,5 +2,9 @@ class NotFound(LookupError):
+     """The note does not exist (HTTP 404)."""
+ 
+ 
++class Conflict(Exception):
++    """The request conflicts with the note's state (HTTP 409)."""
++
++
+ class ValidationError(ValueError):
+     """The request is malformed (HTTP 400)."""
+diff --git a/notes/models.py b/notes/models.py
+index a45ff29..9214736 100644
+--- a/notes/models.py
++++ b/notes/models.py
+@@ -9,6 +9,7 @@ class Note:
+     created_at: object  # aware datetime
+     updated_at: object
+     tags: list = field(default_factory=list)
++    deleted_at: object = None  # aware datetime once soft-deleted
+ 
+     def to_dict(self):
+         return {
+@@ -18,4 +19,5 @@ class Note:
+             "tags": list(self.tags),
+             "created_at": self.created_at.isoformat(),
+             "updated_at": self.updated_at.isoformat(),
++            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
+         }
+diff --git a/notes/repository.py b/notes/repository.py
+index 6ca03b4..117282a 100644
+--- a/notes/repository.py
++++ b/notes/repository.py
+@@ -25,8 +25,9 @@ class NoteRepository:
+     def remove(self, note_id):
+         return self._notes.pop(note_id, None) is not None
+ 
+-    def list(self):
+-        return [self._notes[i] for i in sorted(self._notes)]
++    def list(self, include_deleted=False):
++        notes = [self._notes[i] for i in sorted(self._notes)]
++        return notes if include_deleted else [n for n in notes if n.deleted_at is None]
+ 
+     def search(self, text):
+         needle = text.lower()
+diff --git a/notes/service.py b/notes/service.py
+index 7bf5432..80374f5 100644
+--- a/notes/service.py
++++ b/notes/service.py
+@@ -1,7 +1,7 @@
+ """Business rules for notes. The clock is injectable so tests control time."""
+ from datetime import datetime, timezone
+ 
+-from .errors import NotFound, ValidationError
++from .errors import Conflict, NotFound, ValidationError
+ from .models import Note
+ from .repository import NoteRepository
+ 
+@@ -34,7 +34,7 @@ class NoteService:
+ 
+     def get(self, note_id):
+         note = self.repo.get(note_id)
+-        if note is None:
++        if note is None or note.deleted_at is not None:
+             raise NotFound(f"note {note_id} not found")
+         return note
+ 
+@@ -50,11 +50,21 @@ class NoteService:
+         return self.repo.save(note)
+ 
+     def delete(self, note_id):
+-        if not self.repo.remove(note_id):
++        note = self.get(note_id)
++        note.deleted_at = self.clock()
++        self.repo.save(note)
++
++    def restore(self, note_id):
++        note = self.repo.get(note_id)
++        if note is None:
+             raise NotFound(f"note {note_id} not found")
++        if note.deleted_at is None:
++            raise Conflict(f"note {note_id} is not deleted")
++        note.deleted_at = None
++        return self.repo.save(note)
+ 
+-    def list(self, tag=None):
+-        notes = self.repo.list()
++    def list(self, tag=None, include_deleted=False):
++        notes = self.repo.list(include_deleted=include_deleted)
+         return [n for n in notes if tag in n.tags] if tag else notes
+ 
+     def search(self, text):

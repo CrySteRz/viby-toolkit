@@ -1,0 +1,75 @@
+diff --git a/shortener/api.py b/shortener/api.py
+index 25fec69..788720b 100644
+--- a/shortener/api.py
++++ b/shortener/api.py
+@@ -1,10 +1,12 @@
+ """HTTP-shaped handler: handle(method, path, headers, body) -> (status, headers, body)."""
++from .ratelimit import RateLimiter
+ from .service import InvalidUrl, LinkService
+ 
+ 
+ class App:
+-    def __init__(self, service):
++    def __init__(self, service, limiter):
+         self.service = service
++        self.limiter = limiter
+ 
+     def handle(self, method, path, headers=None, body=None):
+         headers = headers or {}
+@@ -14,6 +16,9 @@ class App:
+             if not user:
+                 return 401, {}, {"error": "X-User header required"}
+             if method == "POST":
++                if not self.limiter.allow(user):
++                    retry = self.limiter.retry_after(user)
++                    return 429, {"Retry-After": str(retry)}, {"error": "rate limit exceeded"}
+                 try:
+                     link = self.service.create(user, body.get("url"))
+                 except InvalidUrl as e:
+@@ -31,5 +36,5 @@ class App:
+         return 404, {}, {"error": "no such route"}
+ 
+ 
+-def create_app(repo=None):
+-    return App(LinkService(repo))
++def create_app(repo=None, clock=None, limiter=None):
++    return App(LinkService(repo), limiter or RateLimiter(clock=clock))
+diff --git a/shortener/ratelimit.py b/shortener/ratelimit.py
+new file mode 100644
+index 0000000..80237b7
+--- /dev/null
++++ b/shortener/ratelimit.py
+@@ -0,0 +1,33 @@
++"""Sliding-window rate limit per user."""
++import math
++import time
++from collections import deque
++
++
++class RateLimiter:
++    def __init__(self, limit=5, window=60.0, clock=None):
++        self.limit = limit
++        self.window = window
++        self.clock = clock or time.monotonic
++        self._hits = {}
++
++    def _recent(self, user_id, now):
++        hits = self._hits.setdefault(user_id, deque())
++        while hits and now - hits[0] >= self.window:
++            hits.popleft()
++        return hits
++
++    def allow(self, user_id):
++        now = self.clock()
++        hits = self._recent(user_id, now)
++        if len(hits) >= self.limit:
++            return False
++        hits.append(now)
++        return True
++
++    def retry_after(self, user_id):
++        now = self.clock()
++        hits = self._recent(user_id, now)
++        if len(hits) < self.limit:
++            return 0
++        return max(1, math.ceil(hits[0] + self.window - now))

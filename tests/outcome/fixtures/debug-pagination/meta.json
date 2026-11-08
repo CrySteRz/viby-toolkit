@@ -1,0 +1,1 @@
+{"skill": "debug", "about": "total_pages uses floor division, so the partial last page is never announced by has_next and the app stops a page early"}

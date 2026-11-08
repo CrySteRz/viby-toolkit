@@ -1,0 +1,13 @@
+Ticket HOOK-31: retry webhook deliveries with exponential backoff
+
+Right now a webhook is sent once, and a single network blip or a 503 from the receiver loses the event. Add retries with exponential backoff:
+
+- New module webhooks/retry.py with `RetryPolicy(max_attempts=5, base_delay=0.5, max_delay=30.0)`. `policy.delay(n)` is the wait before the n-th retry (n = 1, 2, ...): base_delay * 2 ** (n - 1), capped at max_delay.
+- `WebhookSender(transport, clock=None, policy=None)` uses `RetryPolicy()` when no policy is given. The clock stays injectable: it is any object with `now()` and `sleep(seconds)`, and the sender must wait only through `clock.sleep`, never time.sleep.
+- Retry when the transport raises ConnectionError or TimeoutError, or answers 429 or any 5xx. Any other non-2xx status fails at once with no retry. Stop after max_attempts attempts in total.
+- Between two attempts call clock.sleep exactly once, with policy.delay(n). Never sleep after a success or after the last attempt. When a 429 answer carries a Retry-After header with whole seconds, sleep that long instead, capped at max_delay.
+- Every attempt is signed afresh, so its X-Webhook-Timestamp is the clock's time at that attempt.
+- `DeliveryResult` gets an `attempts` field (how many POSTs were made); `ok`, `status` and `error` describe the last attempt.
+- API: each entry in the "deliveries" list of POST /events also carries "attempts". The status codes stay as they are: 202 when every delivery succeeded, 502 otherwise.
+
+The existing tests must keep passing. The plan is approved in advance and nobody is around to confirm anything, so plan as you see fit and then implement the whole ticket in this session.

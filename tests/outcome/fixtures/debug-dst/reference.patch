@@ -1,0 +1,20 @@
+diff --git a/reminders/planner.py b/reminders/planner.py
+index 7fa5646..22d1805 100644
+--- a/reminders/planner.py
++++ b/reminders/planner.py
+@@ -15,8 +15,13 @@ def first_occurrence(rule, after):
+ 
+ 
+ def following(rule, previous):
+-    """The firing after `previous`, which is itself a firing of this rule."""
+-    return clock.to_utc(previous) + timedelta(days=rule.every_days)
++    """The firing after `previous`, which is itself a firing of this rule.
++
++    Days are added on the local calendar, not in UTC: across a daylight-saving change a
++    local day is 23 or 25 hours long, and the reminder must stay at its wall-clock time."""
++    local = clock.to_local(previous, rule.tz)
++    nxt = local.date() + timedelta(days=rule.every_days)
++    return clock.to_utc(clock.local_wall(rule.tz, nxt.year, nxt.month, nxt.day, rule.hour, rule.minute))
+ 
+ 
+ def upcoming(rule, after, count):

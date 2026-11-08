@@ -1,0 +1,1 @@
+A user says some documents never show up when she scrolls through her search results in the app. She can open the document directly by its link, and it does match the search words, but paging through the results for "report" never shows it. It only seems to happen for some searches. Can you figure out what's wrong and fix it?

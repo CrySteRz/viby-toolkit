@@ -1,0 +1,1 @@
+{"skill": "debug", "about": "Order defaults adjustments to a shared module-level list, so a promo appended to one order leaks into every order created without explicit adjustments"}

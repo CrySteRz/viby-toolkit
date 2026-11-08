@@ -1,0 +1,1 @@
+Customers in Europe sometimes see a price that is really the dollar amount but labelled in euros (the desk lamp showed as 49.00 EUR instead of about 45). It doesn't happen all the time and a restart seems to fix it for a while. Can you track this down and fix it?

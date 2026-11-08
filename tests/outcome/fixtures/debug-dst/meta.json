@@ -1,0 +1,1 @@
+{"skill": "debug", "about": "the next firing adds whole days in UTC, so every firing after a DST change drifts an hour off the local wall-clock time"}

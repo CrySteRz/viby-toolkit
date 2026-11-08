@@ -1,0 +1,70 @@
+diff --git a/contacts/api.py b/contacts/api.py
+index caa3125..79bac4f 100644
+--- a/contacts/api.py
++++ b/contacts/api.py
+@@ -7,6 +7,10 @@ from .service import ContactService
+ 
+ JSON = {"Content-Type": "application/json"}
+ CONTACT = re.compile(r"^/contacts/(\d+)$")
++CSV_HEADERS = {
++    "Content-Type": "text/csv; charset=utf-8",
++    "Content-Disposition": 'attachment; filename="contacts.csv"',
++}
+ ARCHIVE = re.compile(r"^/contacts/(\d+)/archive$")
+ 
+ 
+@@ -31,6 +35,8 @@ class Api:
+         if path == "/contacts" and method == "POST":
+             c = self.service.create(body.get("name"), body.get("email"), body.get("company"), body.get("tags", ()))
+             return 201, JSON, c.to_dict()
++        if path == "/contacts/export.csv" and method == "GET":
++            return 200, dict(CSV_HEADERS), self.service.export_csv(query.get("include_archived") == "1")
+         m = CONTACT.match(path)
+         if m and method == "GET":
+             return 200, JSON, self.service.get(int(m.group(1))).to_dict()
+diff --git a/contacts/export.py b/contacts/export.py
+new file mode 100644
+index 0000000..334b112
+--- /dev/null
++++ b/contacts/export.py
+@@ -0,0 +1,21 @@
++"""CSV export: RFC 4180 quoting, CRLF line endings, and a guard against spreadsheet formulas."""
++import csv
++import io
++
++HEADER = ["id", "name", "email", "company", "tags", "created_at"]
++FORMULA_PREFIXES = ("=", "+", "-", "@")
++
++
++def _cell(value):
++    text = "" if value is None else str(value)
++    return "'" + text if text.startswith(FORMULA_PREFIXES) else text
++
++
++def to_csv(contacts):
++    out = io.StringIO()
++    writer = csv.writer(out, lineterminator="\r\n")
++    writer.writerow(HEADER)
++    for c in contacts:
++        row = [c.id, c.name, c.email, c.company, ";".join(c.tags), c.created_at.date().isoformat()]
++        writer.writerow([_cell(v) for v in row])
++    return out.getvalue()
+diff --git a/contacts/service.py b/contacts/service.py
+index 2756faa..8e19ee5 100644
+--- a/contacts/service.py
++++ b/contacts/service.py
+@@ -2,6 +2,7 @@
+ import re
+ from datetime import datetime, timezone
+ 
++from . import export
+ from .errors import NotFound, ValidationError
+ from .models import Contact
+ from .repository import ContactRepository
+@@ -39,3 +40,6 @@ class ContactService:
+     def list(self, include_archived=False, tag=None):
+         rows = self.repo.list(include_archived=include_archived)
+         return [c for c in rows if tag in c.tags] if tag else rows
++
++    def export_csv(self, include_archived=False):
++        return export.to_csv(self.repo.list(include_archived=include_archived))

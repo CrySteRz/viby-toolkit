@@ -1,0 +1,26 @@
+diff --git a/orders/models.py b/orders/models.py
+index e1f52bb..9c8a07d 100644
+--- a/orders/models.py
++++ b/orders/models.py
+@@ -1,7 +1,5 @@
+ """Order data. Kept as plain classes so the ORM layer can subclass them."""
+ 
+-NO_ADJUSTMENTS = []
+-
+ 
+ class OrderLine:
+     def __init__(self, sku, unit_cents, quantity=1):
+@@ -34,11 +32,11 @@ class Adjustment:
+ 
+ 
+ class Order:
+-    def __init__(self, order_id, customer, lines, adjustments=NO_ADJUSTMENTS):
++    def __init__(self, order_id, customer, lines, adjustments=None):
+         self.order_id = order_id
+         self.customer = customer
+         self.lines = list(lines)
+-        self.adjustments = adjustments
++        self.adjustments = list(adjustments) if adjustments is not None else []
+         self.status = "open"
+ 
+     def codes(self):

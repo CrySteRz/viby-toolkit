@@ -1,0 +1,101 @@
+diff --git a/webhooks/api.py b/webhooks/api.py
+index b3f5320..caa3beb 100644
+--- a/webhooks/api.py
++++ b/webhooks/api.py
+@@ -28,6 +28,6 @@ class Api:
+                 return 400, {"error": "type is required"}
+             results = [self.sender.send(s, body) for s in self.store.for_event(body["type"])]
+             self.log.extend(results)
+-            deliveries = [{"subscription": r.subscription_id, "ok": r.ok, "status": r.status} for r in results]
++            deliveries = [{"subscription": r.subscription_id, "ok": r.ok, "status": r.status, "attempts": r.attempts} for r in results]
+             return (202 if all(r.ok for r in results) else 502), {"deliveries": deliveries}
+         return 404, {"error": "no such route"}
+diff --git a/webhooks/retry.py b/webhooks/retry.py
+new file mode 100644
+index 0000000..e224e7e
+--- /dev/null
++++ b/webhooks/retry.py
+@@ -0,0 +1,17 @@
++"""How often and how long to wait before re-sending a webhook."""
++from dataclasses import dataclass
++
++
++@dataclass(frozen=True)
++class RetryPolicy:
++    max_attempts: int = 5
++    base_delay: float = 0.5
++    max_delay: float = 30.0
++
++    def delay(self, n):
++        """Seconds to wait before the n-th retry (n starts at 1)."""
++        return min(self.max_delay, self.base_delay * 2 ** (n - 1))
++
++
++def retryable_status(status):
++    return status == 429 or 500 <= status < 600
+diff --git a/webhooks/sender.py b/webhooks/sender.py
+index a20d1fd..aed07de 100644
+--- a/webhooks/sender.py
++++ b/webhooks/sender.py
+@@ -5,6 +5,7 @@ import json
+ from dataclasses import dataclass
+ 
+ from .clock import SystemClock
++from .retry import RetryPolicy, retryable_status
+ 
+ 
+ @dataclass
+@@ -13,6 +14,7 @@ class DeliveryResult:
+     ok: bool
+     status: object  # int, or None when no HTTP answer came back
+     error: str = ""
++    attempts: int = 1
+ 
+ 
+ def sign(secret, body):
+@@ -20,9 +22,10 @@ def sign(secret, body):
+ 
+ 
+ class WebhookSender:
+-    def __init__(self, transport, clock=None):
++    def __init__(self, transport, clock=None, policy=None):
+         self.transport = transport
+         self.clock = clock or SystemClock()
++        self.policy = policy or RetryPolicy()
+ 
+     def _request(self, sub, event):
+         body = json.dumps(event, sort_keys=True, separators=(",", ":")).encode()
+@@ -33,11 +36,30 @@ class WebhookSender:
+         }
+         return body, headers
+ 
+-    def send(self, sub, event):
++    def _attempt(self, sub, event):
++        """One POST. Returns (result, retryable, retry_after seconds or None)."""
+         body, headers = self._request(sub, event)
+         try:
+             resp = self.transport.post(sub.url, body, headers)
+         except (ConnectionError, TimeoutError) as e:
+-            return DeliveryResult(sub.id, False, None, f"{type(e).__name__}: {e}")
++            return DeliveryResult(sub.id, False, None, f"{type(e).__name__}: {e}"), True, None
+         ok = 200 <= resp.status < 300
+-        return DeliveryResult(sub.id, ok, resp.status, "" if ok else f"HTTP {resp.status}")
++        result = DeliveryResult(sub.id, ok, resp.status, "" if ok else f"HTTP {resp.status}")
++        retry_after = None
++        if resp.status == 429:
++            value = str(resp.headers.get("Retry-After", "")).strip()
++            retry_after = int(value) if value.isdigit() else None
++        return result, (not ok and retryable_status(resp.status)), retry_after
++
++    def send(self, sub, event):
++        attempt = 1
++        while True:
++            result, retryable, retry_after = self._attempt(sub, event)
++            result.attempts = attempt
++            if result.ok or not retryable or attempt >= self.policy.max_attempts:
++                return result
++            wait = self.policy.delay(attempt)
++            if retry_after is not None:
++                wait = min(retry_after, self.policy.max_delay)
++            self.clock.sleep(wait)
++            attempt += 1

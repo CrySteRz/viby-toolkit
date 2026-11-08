@@ -1,0 +1,12 @@
+Ticket SHORT-57: per-user rate limit on creating links
+
+A few accounts are creating thousands of short links a minute. Limit how fast each user can create links, without limiting redirects or listing:
+
+- New module shortener/ratelimit.py with `RateLimiter(limit=5, window=60.0, clock=None)`. The clock is injectable: a zero-argument callable returning seconds as a float; the default is time.monotonic.
+- `limiter.allow(user_id) -> bool` uses a sliding window: a request is allowed when the user has fewer than `limit` allowed requests with a timestamp t where now - t < window. An allowed request is recorded; a denied one is not. Each user is limited separately.
+- `limiter.retry_after(user_id) -> int`: whole seconds, rounded up, until that user would be allowed again; 0 if they are allowed now.
+- `create_app(repo=None, clock=None, limiter=None)`: when no limiter is given, it builds `RateLimiter(clock=clock)` (with the default clock if clock is None).
+- POST /links checks the limit after the X-User check and before URL validation. A request without X-User (401) does not count; a request that passes the limiter counts even if its URL then fails validation (400). When the user is over the limit, answer 429 with the header Retry-After set to str(retry_after) and a JSON body with an "error" key.
+- GET /<code> redirects and GET /links listing are never limited.
+
+The existing tests must keep passing. The plan is approved in advance and nobody is around to confirm anything, so plan as you see fit and then implement the whole ticket in this session.

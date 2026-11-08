@@ -1,0 +1,1 @@
+{"skill": "debug", "about": "VAT rates stored as floats become inexact Decimals, so a half-cent VAT rounds down"}

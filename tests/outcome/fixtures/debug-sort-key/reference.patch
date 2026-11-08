@@ -1,0 +1,13 @@
+diff --git a/leaderboard/loader.py b/leaderboard/loader.py
+index 8b0336c..8a04983 100644
+--- a/leaderboard/loader.py
++++ b/leaderboard/loader.py
+@@ -20,7 +20,7 @@ def _clean(row, line_no):
+         raise LoadError(f"line {line_no}: score must be a whole number, got {score!r}")
+     return Submission(
+         player=row["player"].strip(),
+-        score=score,
++        score=int(score),
+         submitted_at=int(row["submitted_at"]),
+         week=row["week"].strip(),
+     )

@@ -1,0 +1,11 @@
+Ticket CRM-88: export contacts as CSV
+
+Sales wants to download the contact list and open it in Excel or Google Sheets. Add a CSV export through the service and API layers:
+
+- `ContactService.export_csv(include_archived=False)` returns the whole file as one str. Archived contacts are left out unless include_archived=True.
+- Columns, in this order, with this header row: id,name,email,company,tags,created_at. One row per contact, ordered by id. tags are joined with ";". created_at is the date only, YYYY-MM-DD. An empty export is just the header row.
+- Escaping follows RFC 4180: a field that contains a comma, a double quote, a CR or an LF is wrapped in double quotes, and double quotes inside it are doubled. Every line ends with CRLF, including the last one.
+- Spreadsheet formula injection: any field value that starts with =, +, - or @ gets a single quote (') put in front of it before escaping.
+- API: GET /contacts/export.csv answers 200 with the CSV text as the body and the headers Content-Type: text/csv; charset=utf-8 and Content-Disposition: attachment; filename="contacts.csv". GET /contacts/export.csv?include_archived=1 includes archived contacts.
+
+The existing routes and tests must keep working. The plan is approved in advance and nobody is around to confirm anything, so plan as you see fit and then implement the whole ticket in this session.

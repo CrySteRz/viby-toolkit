@@ -1,0 +1,12 @@
+Ticket NOTES-142: soft delete for notes
+
+Today DELETE /notes/<id> removes a note for good, and support cannot recover notes people delete by mistake. Change deletion to a soft delete through the repository, service and API layers:
+
+- Note gets a `deleted_at` attribute: None while the note is live, the service clock's time once deleted. `Note.to_dict()` includes "deleted_at" as an ISO-8601 string or null.
+- `NoteService.delete(note_id)` marks the note deleted instead of removing it. Deleting an unknown or already-deleted note raises `NotFound`.
+- `NoteService.get(note_id)` raises `NotFound` for a deleted note. `NoteService.search(text)` never returns deleted notes.
+- `NoteService.list(..., include_deleted=False)` leaves deleted notes out unless include_deleted=True.
+- `NoteService.restore(note_id)` clears deleted_at and returns the note. Restoring a note that is not deleted raises a new `Conflict` exception, defined in notes/errors.py next to NotFound; an unknown id raises NotFound.
+- API: DELETE /notes/<id> answers 204, or 404 if the note is unknown or already deleted. GET /notes/<id> answers 404 for a deleted note. GET /notes leaves deleted notes out; GET /notes?include_deleted=1 includes them. GET /notes?q=... never returns deleted notes. New route POST /notes/<id>/restore answers 200 with the note, 404 for an unknown id, 409 if the note is not deleted.
+
+The existing tests must keep passing. The plan is approved in advance and nobody is around to confirm anything, so plan as you see fit and then implement the whole ticket in this session.

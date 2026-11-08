@@ -1,0 +1,24 @@
+diff --git a/catalog/pricing.py b/catalog/pricing.py
+index eec53d9..97d191f 100644
+--- a/catalog/pricing.py
++++ b/catalog/pricing.py
+@@ -3,8 +3,8 @@ from . import fx, products
+ from .cache import TTLCache
+ 
+ 
+-def cache_key(sku, tier):
+-    return f"price:{sku}:{tier}"
++def cache_key(sku, currency, tier):
++    return f"price:{sku}:{currency}:{tier}"
+ 
+ 
+ class PriceService:
+@@ -19,7 +19,7 @@ class PriceService:
+     def price(self, sku, currency="USD", tier="retail"):
+         """Price in integer minor units of `currency` (cents; whole yen for JPY)."""
+         return self.cache.get_or_compute(
+-            cache_key(sku, tier), lambda: self._compute(sku, currency, tier)
++            cache_key(sku, currency, tier), lambda: self._compute(sku, currency, tier)
+         )
+ 
+     def price_list(self, currency="USD", tier="retail"):
