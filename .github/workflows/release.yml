@@ -33,7 +33,7 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       release: ${{ steps.v.outputs.release }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - id: v
         run: |
           version=$(jq -r .version plugins/viby-toolkit/.claude-plugin/plugin.json)
@@ -55,10 +55,10 @@ jobs:
     if: needs.plan.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; toolchain is set below
         with:
           toolchain: 1.98.1
           components: clippy, rustfmt
@@ -85,8 +85,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@master
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; toolchain is set below
         with:
           toolchain: 1.98.1
           targets: ${{ matrix.target }}
@@ -100,7 +100,7 @@ jobs:
           dir=plugins/viby-toolkit/rust/target/${{ matrix.target }}/release
           tar -czf "viby-${{ matrix.target }}.tar.gz" -C "$dir" "$name"
           tar -tzf "viby-${{ matrix.target }}.tar.gz"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: viby-${{ matrix.target }}
           path: viby-${{ matrix.target }}.tar.gz
@@ -113,8 +113,8 @@ jobs:
       VERSION: ${{ needs.plan.outputs.version }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           path: dist
           merge-multiple: true
@@ -164,7 +164,7 @@ jobs:
     if: ${{ !contains(needs.plan.outputs.version, '-') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: v${{ needs.plan.outputs.version }}
           fetch-depth: 0
