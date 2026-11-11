@@ -435,6 +435,34 @@ fn console_log_in_application_code_is_still_debug() {
 }
 
 #[test]
+fn a_hash_line_is_code_where_the_language_says_so() {
+    // Found on a Swift test diff: every `#expect(...)` was reported as commented-out code.
+    for (file, line) in [
+        (
+            "Tests/CoreTests/SnapTests.swift",
+            "#expect(snapped == point)",
+        ),
+        ("Sources/App/Badge.swift", "#Preview {"),
+        ("src/counter.ts", "#count = 0;"),
+    ] {
+        assert!(
+            !has(&checks(&diff_of(file, &[line])), "commented-out-code"),
+            "{file}: `{line}` is code"
+        );
+    }
+    // The must-flag half: `#` is still a comment in Python, and `//` still is in Swift.
+    for (file, line) in [
+        ("tools/score.py", "# do_thing(arg)"),
+        ("Sources/App/Badge.swift", "// doThing(arg)"),
+    ] {
+        assert!(
+            has(&checks(&diff_of(file, &[line])), "commented-out-code"),
+            "{file}: `{line}` is commented-out code"
+        );
+    }
+}
+
+#[test]
 fn comment_shaped_rules_do_not_run_on_prose_files() {
     // Found dogfooding this on its own repo: `#` is a heading in Markdown, so `commented-out-code`
     // fired on six SKILL.md files at once. A TODO in a design doc is also normal writing.

@@ -82,6 +82,14 @@ const SOURCE_EXT: &[&str] = &[
     ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".py", ".go", ".rs", ".java", ".rb",
     ".php", ".cs", ".kt", ".swift", ".scala", ".c", ".cc", ".cpp", ".h", ".hpp",
 ];
+/// Source languages where a line starting with `#` is code, not a comment: Swift's `#expect(…)`
+/// and `#Preview {`, the C family's preprocessor, C#'s `#region`, Rust's `#[attr]` and a
+/// JavaScript class's `#count = 0;`. Read as comments, every Swift test assertion was
+/// commented-out code (found on a Swift test diff in viby-shot, November 11, 2026).
+const HASH_IS_CODE_EXT: &[&str] = &[
+    ".swift", ".c", ".cc", ".cpp", ".h", ".hpp", ".cs", ".rs", ".ts", ".tsx", ".js", ".jsx",
+    ".mjs", ".cjs", ".mts",
+];
 const LOCKFILES: &[&str] = &[
     "package-lock.json",
     "yarn.lock",
@@ -360,7 +368,12 @@ fn todo_added(t: &str, _: &str) -> bool {
     RES.todo.is_match(t)
 }
 
-fn commented_out_code(t: &str, _: &str) -> bool {
+fn commented_out_code(t: &str, f: &str) -> bool {
+    if t.trim_start().starts_with('#')
+        && HASH_IS_CODE_EXT.contains(&extname(f).to_lowercase().as_str())
+    {
+        return false;
+    }
     RES.commented_head.is_match(t) && RES.commented_tail.is_match(t)
 }
 
