@@ -370,6 +370,17 @@ fn mode_is_decided_from_path_and_title_not_from_the_documents_own_fields() {
 }
 
 #[test]
+fn a_status_heading_counts_as_the_status_line() {
+    let with_heading = "# Study\n\n## Status\n\nRun on 2026-11-26 with 4 agents.\n";
+    assert!(
+        !checks_of(with_heading, Mode::Study).contains(&"no-status-line"),
+        "a '## Status' heading followed by a line break is a status section"
+    );
+    let without = "# Study\n\nThe answer holds.\n";
+    assert!(checks_of(without, Mode::Study).contains(&"no-status-line"));
+}
+
+#[test]
 fn a_study_missing_its_status_line_is_still_held_to_the_rest_of_the_contract() {
     let naked =
         "# Study of caching\n\nThe answer is yes. See https://example.com and https://other.org\n";

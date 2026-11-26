@@ -292,7 +292,7 @@ static CITED_WORDS: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static HAS_STATUS: LazyLock<Regex> =
-    LazyLock::new(|| static_regex("status[: ]|what was actually done|searched|sources read"));
+    LazyLock::new(|| static_regex(r"status[:\s]|what was actually done|searched|sources read"));
 static HAS_FALSIFIER: LazyLock<Regex> = LazyLock::new(|| {
     static_regex("would change (my|the) mind|would change (this|the) (conclusion|answer)|falsif|what would decide")
 });
