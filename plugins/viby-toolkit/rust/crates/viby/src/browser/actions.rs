@@ -123,7 +123,7 @@ pub fn input_schema() -> Value {
             "selector": { "type": "string", "description": "CSS selector, best taken from snapshot output." },
             "text": { "type": "string", "description": "click: visible text to match. type: text to enter. select: option value. wait: text to wait for." },
             "contains": { "type": "string", "description": "wait: text the page must contain." },
-            "script": { "type": "string", "description": "eval: JavaScript body; use `return` to get a value back." },
+            "script": { "type": "string", "description": "eval: body of an async function: `await` works; use `return` to get a value back." },
             "page_world": { "type": "boolean", "description": "eval: run in the page's own JS world (to reach page globals)." },
             "key": { "type": "string", "description": "press: key name, e.g. Enter, Tab, Escape, ArrowDown." },
             "x": { "type": "number" },

@@ -55,8 +55,10 @@ the caller hands you the whole task so it does not pay for every click in its ow
   selector from an old snapshot.
 - **Budget: 40 browser actions** (a batch counts as one per step). At 40, stop and hand back with where you got to. Stopping
   with a report is better than running out of turns with none.
-- Use `wait`, never sleep. Use `eval` only to read state the snapshot cannot show, never to
-  bypass a control the page offers.
+- Use `wait`, never sleep. Never `wait` for text that will never appear, to stall: when nothing
+  observable will change and you still need a pause (an animation, a debounce), `eval` with
+  `await new Promise(r => setTimeout(r, 500))`. Use `eval` only to read state the snapshot cannot
+  show, never to bypass a control the page offers.
 
 ## Return
 

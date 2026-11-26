@@ -17,7 +17,7 @@ const MIN_PASSING: &[(&str, usize)] = &[
     ("tests/agentgrep.rs", 9),
     ("tests/analytics_sql.rs", 25),
     ("tests/api_surface.rs", 20),
-    ("tests/browser.rs", 50),
+    ("tests/browser.rs", 53),
     ("tests/check_agents.rs", 26),
     ("tests/check_docs.rs", 14),
     ("tests/check_hooks.rs", 32),

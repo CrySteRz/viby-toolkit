@@ -63,7 +63,8 @@ function fabMainWorldEvaluate(script) {
     catch (e) { return { result: String(value), type: "string" }; }
   };
   try {
-    return Promise.resolve(new Function(script)()).then(
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+    return new AsyncFunction(script)().then(
       (value) => Object.assign(serialize(value), { mainWorld: true }),
       (err) => ({ __bridgeError: "Evaluate error: " + ((err && err.message) || String(err)) })
     );

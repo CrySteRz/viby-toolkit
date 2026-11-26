@@ -1842,6 +1842,99 @@ fn extension_snapshots_never_carry_a_password_fields_value() {
     );
 }
 
+/// Runs each eval body through one of the extension's evaluators in Node and returns the
+/// JSON array of results, then the value of `globalThis.__n`. `setup` defines the browser
+/// globals the evaluator reads.
+fn eval_in_node(setup: &str, source: &str, name: &str, call: &str) -> Option<Value> {
+    let cases = json!([
+        "await new Promise(r => setTimeout(r, 10)); return 1;",
+        "window.__n = (window.__n || 0) + 1; return Promise.resolve(window.__n);",
+        "return 2 + 3;",
+        "throw new Error('boom');",
+    ]);
+    let script = format!(
+        "{setup} const evaluate = new Function({}); (async () => {{ const out = []; for (const code of {cases}) {{ try {{ out.push(await {call}); }} catch (e) {{ out.push({{ thrown: e.message }}); }} }} out.push(globalThis.__n); console.log(JSON.stringify(out)); }})();",
+        json!(format!("{source}; return {name};"))
+    );
+    node(&script).map(|out| serde_json::from_str(&out).expect("json"))
+}
+
+#[test]
+fn extension_page_world_eval_awaits_and_runs_the_script_once() {
+    let content = content();
+    let source = re(r"function runInPageWorld\(code\) \{[\s\S]*?\n\}")
+        .find(&content)
+        .expect("runInPageWorld")
+        .as_str();
+    // Firefox's Xray path: window.wrappedJSObject is the page's window, with its own eval.
+    let setup = "globalThis.window = globalThis; globalThis.wrappedJSObject = globalThis;";
+    let Some(out) = eval_in_node(setup, source, "runInPageWorld", "evaluate()(code)") else {
+        return; // Node is not installed: the extension's JavaScript cannot run here.
+    };
+    assert_eq!(
+        out,
+        json!([
+            { "ok": true, "value": 1 },
+            { "ok": true, "value": 1 },
+            { "ok": true, "value": 5 },
+            { "ok": false, "error": "boom" },
+            1
+        ]),
+        "await works, and a script returning a promise runs once, not twice"
+    );
+}
+
+#[test]
+fn extension_content_world_eval_accepts_await() {
+    let content = content();
+    let source = re(r"async function handleEvaluate\(params\) \{[\s\S]*?\n\}")
+        .find(&content)
+        .expect("handleEvaluate")
+        .as_str();
+    let setup = "globalThis.window = globalThis; class Element {} class NodeList {} class HTMLCollection {} globalThis.Element = Element; globalThis.NodeList = NodeList; globalThis.HTMLCollection = HTMLCollection;";
+    let Some(out) = eval_in_node(
+        setup,
+        source,
+        "handleEvaluate",
+        "evaluate()({ script: code })",
+    ) else {
+        return;
+    };
+    assert_eq!(
+        out,
+        json!([
+            { "result": 1, "type": "number" },
+            { "result": 1, "type": "number" },
+            { "result": 5, "type": "number" },
+            { "thrown": "Evaluate error: boom" },
+            1
+        ])
+    );
+}
+
+#[test]
+fn extension_main_world_eval_accepts_await() {
+    let background = background();
+    let source = re(r"function fabMainWorldEvaluate\(script\) \{[\s\S]*?\n\}")
+        .find(&background)
+        .expect("fabMainWorldEvaluate")
+        .as_str();
+    let setup = "globalThis.window = globalThis;";
+    let Some(out) = eval_in_node(setup, source, "fabMainWorldEvaluate", "evaluate()(code)") else {
+        return;
+    };
+    assert_eq!(
+        out,
+        json!([
+            { "result": 1, "type": "number", "mainWorld": true },
+            { "result": 1, "type": "number", "mainWorld": true },
+            { "result": 5, "type": "number", "mainWorld": true },
+            { "__bridgeError": "Evaluate error: boom" },
+            1
+        ])
+    );
+}
+
 #[test]
 fn extension_a_chunked_drop_reassembles_into_the_file_the_content_script_reads() {
     let background = background();

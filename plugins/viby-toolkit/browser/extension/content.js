@@ -17,35 +17,29 @@ function runInPageWorld(code) {
         runInPageWorldViaScriptElement(code).then(resolve);
         return;
       }
-      const wrapped = '(function(){' + code + '})()';
-      const result = pageWin.eval(wrapped);
-      if (result && typeof result === 'object' && typeof result.then === 'function') {
-        const resultKey = '__fab_eval_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-        pageWin.eval(
-          '(' + JSON.stringify(wrapped) + ').then ? void 0 : void 0;' +
-          'Promise.resolve(' + wrapped + ').then(function(r){' +
-          'window["' + resultKey + '"]=JSON.stringify({ok:true,value:r})' +
-          '}).catch(function(e){' +
-          'window["' + resultKey + '"]=JSON.stringify({ok:false,error:e.message})' +
-          '})'
-        );
-        let attempts = 0;
-        const poll = () => {
-          let raw;
-          try { raw = pageWin[resultKey]; } catch(e) { raw = undefined; }
-          if (raw && raw !== 'null') {
-            try { delete pageWin[resultKey]; } catch(e) {}
-            try { resolve(JSON.parse(raw)); } catch(e) { resolve({ok:true, value: raw}); }
-            return;
-          }
-          if (++attempts > 150) { resolve({ok:false, error:'timeout'}); return; }
-          setTimeout(poll, 20);
-        };
-        setTimeout(poll, 10);
-      } else {
-        const value = (result && typeof result === 'object') ? JSON.parse(JSON.stringify(result)) : result;
-        resolve({ ok: true, value: value });
-      }
+      // The body runs once, as an async function, so `await` works; the page world
+      // stores the settled result under a one-off key that this content script polls.
+      const resultKey = '__fab_eval_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      pageWin.eval(
+        '(async function(){' + code + '\n})().then(function(r){' +
+        'window["' + resultKey + '"]=JSON.stringify({ok:true,value:r})' +
+        '}).catch(function(e){' +
+        'window["' + resultKey + '"]=JSON.stringify({ok:false,error:(e&&e.message)||String(e)})' +
+        '})'
+      );
+      let attempts = 0;
+      const poll = () => {
+        let raw;
+        try { raw = pageWin[resultKey]; } catch(e) { raw = undefined; }
+        if (raw && raw !== 'null') {
+          try { delete pageWin[resultKey]; } catch(e) {}
+          try { resolve(JSON.parse(raw)); } catch(e) { resolve({ok:true, value: raw}); }
+          return;
+        }
+        if (++attempts > 150) { resolve({ok:false, error:'timeout'}); return; }
+        setTimeout(poll, 20);
+      };
+      setTimeout(poll, 0);
     } catch (e) {
       resolve({ ok: false, error: e.message || String(e) });
     }
@@ -72,7 +66,7 @@ function runInPageWorldViaScriptElement(code) {
     const source = '(function(){' +
       'var emit=function(v){document.dispatchEvent(new CustomEvent(' + JSON.stringify(eventName) + ',{detail:JSON.stringify(v)}));};' +
       'var ser=function(r){if(r===undefined)return null;try{return JSON.parse(JSON.stringify(r));}catch(e){return String(r);}};' +
-      'try{Promise.resolve((function(){' + code + '\n})()).then(function(r){emit({ok:true,value:ser(r)});},function(e){emit({ok:false,error:(e&&e.message)||String(e)});});}' +
+      'try{Promise.resolve((async function(){' + code + '\n})()).then(function(r){emit({ok:true,value:ser(r)});},function(e){emit({ok:false,error:(e&&e.message)||String(e)});});}' +
       'catch(e){emit({ok:false,error:(e&&e.message)||String(e)});}' +
       '})();';
     const script = document.createElement('script');
@@ -1340,7 +1334,8 @@ async function handleEvaluate(params) {
 
   let fn;
   try {
-    fn = new Function(params.script);
+    // An async body, so `await` works; the extension CSP still governs it like Function.
+    fn = new (Object.getPrototypeOf(async function () {}).constructor)(params.script);
   } catch (err) {
     if (err instanceof EvalError || /unsafe-eval|Content Security Policy/i.test(String(err && err.message))) {
       // Extension CSP forbids eval in this browser's isolated world; run in the page instead.
@@ -1352,10 +1347,7 @@ async function handleEvaluate(params) {
   }
 
   try {
-    const result = fn();
-
-    // Handle promises
-    const resolvedResult = result instanceof Promise ? await result : result;
+    const resolvedResult = await fn();
 
     // Serialize the result appropriately
     if (resolvedResult === undefined) {
