@@ -783,6 +783,7 @@ pub fn explain_error(action: &str, details: &str) -> String {
     }
     if lower.contains("content security policy")
         || lower.contains("unsafe-eval")
+        || lower.contains("blocked by csp")
         || lower.contains("trusted type")
     {
         return format!("{details}\nThis page's Content Security Policy blocks running scripts, so retrying will fail the same way. Read it with get_content, snapshot or interactables, and act with click, type and press.");

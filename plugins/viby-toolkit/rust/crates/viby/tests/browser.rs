@@ -663,6 +663,10 @@ fn actions_screenshots_come_back_as_an_image_block_errors_name_the_next_step() {
         "Refused to evaluate a string as JavaScript because 'unsafe-eval' is not allowed",
     );
     assert!(csp.contains("get_content") && csp.contains("retrying will fail"));
+    assert!(
+        explain_error("eval", "call to eval() blocked by CSP").contains("retrying will fail"),
+        "Firefox words it its own way"
+    );
     assert_eq!(
         explain_error("click", "Something else broke"),
         "Something else broke",

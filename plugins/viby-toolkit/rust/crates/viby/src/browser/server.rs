@@ -911,6 +911,7 @@ impl BrowserServer {
                     s.tab_id = None;
                 }
                 s.forks.retain(|(_, id)| *id != tab_id);
+                s.opened.retain(|t| Some(*t) != tab_id);
             }
             if action == "open" && session_tab {
                 note = "The session's tab had been closed, so this opened a new background tab.\n";
