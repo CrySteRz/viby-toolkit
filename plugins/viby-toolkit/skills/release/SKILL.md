@@ -122,7 +122,10 @@ In this order, because each step depends on the previous being true:
 1. Bump the version in **every** manifest the pre-flight listed — one artifact, one number.
 2. Update the changelog and commit the release together with the bump.
 3. **Push, and confirm CI is green on that exact commit.** A tag on unpushed or unverified
-   code is a promise you have not checked.
+   code is a promise you have not checked. Read the run's state, not a watcher's exit code:
+   `gh run list --commit <sha> --json status,conclusion` must show `completed` and `success`
+   (`gh run watch --exit-status` has returned 1 while the run was still in progress). Chain the
+   next step with `&&`, never `;`, so a failed check stops it.
 4. Tag that commit, then push the tag.
 5. Publish, then **verify the published artifact** — install it fresh somewhere clean and
    confirm the version and that it imports/runs. The evidence gate applies here too: a

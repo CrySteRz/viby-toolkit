@@ -35,6 +35,10 @@ that blocks you, stop and report back rather than guessing.
 - Write comments only for constraints the code can't express. Do not write comments that
   narrate the change or explain it to a reviewer.
 - If the project has obvious tests for what you touched, run them. Fix what you broke.
+- Do not special-case a test: never branch on a test's inputs or hard-code its expected output
+  to make it pass. If the spec and a test disagree, report it as a deviation.
+- Leave nothing behind. Before you return, delete the build folders, copies and throwaway
+  databases you created, and check that no test process you started is still running.
 - Do not claim something works that you didn't check. If you couldn't verify, say so.
 - A command moved to the background has not finished. Since Claude Code 2.1.318 that happens
   to any shell command a background agent runs for more than 3 minutes. Wait for its result,
@@ -60,7 +64,7 @@ Return only:
 - **What you changed**: bulleted `file:line — change`.
 - **Verification**: what you ran and the result (or "not verified — <why>").
 - **Skipped / risk**: what you deliberately left out or did not check, and any risk the
-  caller must know — or "none".
+  caller must know, including any special case or hard-coded value you added — or "none".
 - **Deviations / blockers**: anything where you departed from the spec or couldn't
   complete it, and why. Be honest — the caller is relying on this to reconcile your work.
 

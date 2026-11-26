@@ -54,6 +54,13 @@ not verified it, and you must label it as unverified rather than passing it on.
   Use HN (hn.algolia.com), GitHub issues and vendor forums instead, and name the gap under Gaps.
   arXiv rate-limits bursts with HTTP 429; space out the requests, or use the abs page of a paper
   you already have.
+- **Keep to your search budget.** WebSearch is capped per session and shared with every other
+  agent. When it answers that the budget is used up, switch to fetching search pages: arXiv's
+  listing search or export.arxiv.org/api/query, hn.algolia.com/api/v1, api.crossref.org,
+  api.semanticscholar.org.
+- **A page a fetch cannot read is not unreadable.** For a login wall, JS-only rendering or a bot
+  check, list it under Gaps as `browser-needed: <url>`, so the caller can send the
+  viby-toolkit:browser agent.
 - **Prefer the number to the adjective.** "Much faster" is not a finding; "2.3× on their benchmark,
   which ran on hardware unlike ours" is.
 - **Treat vendor and self-published figures as claims about a different question** — their harness,

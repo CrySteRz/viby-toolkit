@@ -88,6 +88,10 @@ have a shopping list.
   snippets and fetched pages die with it. Give each one its angle, the oracle, and the opposing
   query. Reconcile their findings yourself; they gather, you decide. Cost rules for the script:
   `/viby-toolkit:principles` §3b.
+- **Split the search budget before launch.** WebSearch is capped per session: 200 calls shared by
+  every agent and the main thread. Nine researchers once ran dry two-thirds of the way in and left
+  the main thread none. Give each researcher about 200 ÷ agents less a reserve, as a stated
+  number, and tell it to search early and fetch later.
 - **Then snowball**: from a good source, work backwards through its references and forwards
   through what cites it. Search plus forward-citation chasing finds more than search alone.
 - **Write neutral queries, plus one that argues the opposite.** Leading or loaded phrasing

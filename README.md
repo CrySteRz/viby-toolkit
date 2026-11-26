@@ -176,8 +176,11 @@ already uses, and never blocks. Add it as a `PostToolUse` hook if you want it.
 code this turn and ran no test, build, type-check or linter after the last edit, the gate stops
 it from finishing once and asks it to run a check or say why none applies. Edits to docs
 (`.md`, `.mdx`, `.txt`, `.rst`, `docs/`) don't count, and anything it cannot read lets Claude
-stop. It is opt-in and unmeasured: the one published figure for a hook like this counts the hook
-and a skill together. Claude Code labels a block "Stop hook error occurred"; that notice is the
+stop. It is opt-in and unmeasured here. Two published figures disagree. One counts a hook like
+this together with a skill. In the other, a rival collection removed its own after-last-edit check:
+with its verify skill loaded, models already tested after the last edit in 96% and 89% of runs, and
+the check added "between -0.5 and +2 points, inside the noise"
+([gstack 1.100.0.0](https://github.com/garrytan/gstack/blob/main/CHANGELOG.md), fetched 2026-11-26). Claude Code labels a block "Stop hook error occurred"; that notice is the
 gate working, not failing. Add to `~/.claude/settings.json` (it works under `SubagentStop` too):
 
 ```json

@@ -198,6 +198,11 @@ these are rules, not tips.
   stages most likely to change last: the first agent whose prompt differs re-runs, and so does every
   agent after it. Resume needs Claude Code 2.1.318 or later. Before 2.1.305, finished `pipeline()`
   and `parallel()` agents ran again. Before 2.1.318, so did agents finished before a usage limit.
+  When the prompt that must change belongs to an early stage that other, finished tasks follow,
+  do not edit and resume: resume unchanged (builder briefs carry "if work from an interrupted run
+  is on disk, continue from it"), or launch a new, smaller workflow with only the pending items.
+  On 2026-11-13 an edited early prompt re-ran about seven finished agents of other tasks, and a
+  second fix pass edited crates that were already done.
 - **Ask for short returns.** Use a schema for verify and judge stages, and plain markdown for research
   (rule 5). Big results go to a file; return its path and at most 10 lines.
 - **Never quote a turn budget above the agent's `maxTurns`.** Agents do not count their turns, so the
@@ -220,6 +225,15 @@ these are rules, not tips.
   - Have builders commit after each finished piece, so a cut run loses little.
   - Split any run whose context would pass about 100 turns into stages. For example, one agent runs
     and saves evidence, then a fresh agent writes it up.
+- **Disk and processes are cost too; agents leave nothing behind.** Every agent that builds deletes
+  the build output of any copy it made, drops the databases it created, and checks before returning
+  that no test process it started is still alive. Planted-fault and mutation runs go under
+  `timeout` (`gtimeout` where only coreutils' copy exists), because an agent's command timeout does
+  not kill the child. At each check of a long run, the main thread lists orphans
+  (`ps -Ao pid,ppid,pcpu,etime,command | awk '$2==1'`) and the scratch folder's size.
+  - Owner's runs, 2026-11-13: verifier copies and build output reached 88 GB in the project and
+    149 GB in the temp folder, with 63 throwaway databases left behind. An orphaned test binary ran
+    at about 490% CPU for nearly 15 hours, and its load made other agents' timing tests flaky.
 - **Never set `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` or `subagentPromptCacheTtl`.** The first moves every
   stage, build and review included, to one model. The second puts agents on the 1h cache, an estimated
   net loss of 5–12 points of usage: every cache write costs 2× instead of 1.25×.

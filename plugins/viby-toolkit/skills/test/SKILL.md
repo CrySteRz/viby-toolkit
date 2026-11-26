@@ -164,7 +164,10 @@ Then judge the suite on signal, not size:
 
 - **Coverage is a floor, not a goal.** It tells you a line executed, not that a wrong value
   would be caught. 100% coverage with no assertions catches nothing. Use it to find
-  *untouched* code, then ask what a mutation of that code would do.
+  *untouched* code, then ask what a mutation of that code would do. When a change adds a
+  function plus the wiring that calls it, also mutate the call site: replace the call with a
+  type-valid null. A unit suite imports the function directly and cannot see that no caller
+  invokes it; deleting the key fails the type check, so only the null variant is silent.
 - **Mutation score is the real measure** where tooling exists (`mutmut`, `cosmic-ray`,
   Stryker, PIT, `cargo-mutants`). Surviving mutants are precisely your blind spots — and
   feeding surviving mutants back as explicit test targets is what recent research finds

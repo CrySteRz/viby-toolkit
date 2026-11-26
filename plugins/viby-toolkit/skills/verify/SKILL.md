@@ -110,7 +110,8 @@ $ curl -s -o /dev/null -w '%{http_code}' localhost:3000/api/session   → 200
 The failure is the result — report it plainly, with the output. Then:
 
 - Fix the **code**, never the check. Editing a test so it stops failing, adding `|| true`,
-  loosening an assertion, or bumping a timeout to make things pass is falsifying evidence.
+  loosening an assertion, bumping a timeout, or special-casing the code to fit a failing
+  assertion (branching on the test's input, hard-coding its expected value) is falsifying evidence.
   If a test is genuinely wrong, say so explicitly and separately — don't quietly retune it.
 - Re-run the same check after the fix. A fix isn't verified by a *different* command.
 - Two failed correction attempts on the same issue → stop patching. Reassess (and consider

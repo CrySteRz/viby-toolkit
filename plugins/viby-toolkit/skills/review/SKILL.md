@@ -38,6 +38,11 @@ Default is the current diff: `git diff` + `git diff --staged`, or `git diff <bas
 for a branch/PR, or files the user names. If there's nothing substantive to review
 (docs/whitespace only), say so and stop — don't manufacture findings.
 
+Asked to review a PR **again**: find the head SHA the earlier review covered, from that review or
+its comment on the PR. If the head has not moved, say so in one line and stop, with no agents. If
+it moved, review only `git diff <old>..HEAD` and list each earlier finding as fixed, still open,
+or gone with the code. With no earlier SHA to be found, review the whole diff.
+
 ## 2. Reviewers — coverage (parallel, cheap, read-only)
 
 **Author a `Workflow` for the whole cluster** — §2 and §4 are one script, not two rounds of

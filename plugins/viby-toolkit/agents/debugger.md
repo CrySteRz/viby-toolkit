@@ -81,7 +81,8 @@ repo. Assume your caller has uncommitted work you can destroy, because they usua
 
    ```bash
    cp path/to/file <dir>/f.bak \
-     && <mutate> && <run the check> ; cp <dir>/f.bak path/to/file
+     && <mutate> && sed -n '<N>p' path/to/file \
+     && timeout 300 <run the check> ; cp <dir>/f.bak path/to/file
    ```
 
    Note the `;` before the restore, not `&&`: the restore must run even when the check fails.
@@ -89,6 +90,19 @@ repo. Assume your caller has uncommitted work you can destroy, because they usua
    believe nothing changed and keep running the binary built from the mutation. If a result
    contradicts a clean tree, clear the build cache for that package (`cargo clean -p <crate>`) and
    run again.
+
+   Each of these turns a mutation run into a confident wrong verdict:
+   - **A mutant that never applied.** The `sed -n` prints the mutated line before the check runs;
+     name it in your report. A substitution without `/g` changes only the first match, which may
+     be in a comment. `git diff` prints nothing for an untracked file, so it cannot prove the edit.
+   - **A hang.** `timeout 300` (`gtimeout` where only coreutils' copy exists) bounds the run.
+     Removing a guard can turn "fails" into "hangs", and your own command timeout does not kill
+     the test process it started.
+   - **Siblings on the same tree.** If other agents may run on this checkout at the same time, a
+     sibling's live mutation gives you a false RED or a false GREEN. Mutate in a private plain
+     copy under `<dir>` instead (`cp -R`, which carries the uncommitted diff under review). Never
+     use `cp -al` or `rsync --link-dest`: a hard-linked copy writes through to the real files. For
+     a copy you did not make, `find <copy> -type f -links +1` must print nothing.
 
 **Before you return, verify it — do not assume it.** Snapshot `git status --porcelain` as your
 FIRST action, and compare against it as your LAST:

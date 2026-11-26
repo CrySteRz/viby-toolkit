@@ -9,17 +9,24 @@ line for material that is consulted, not obeyed continuously.
 Route each unit of work to the cheapest model that can do it *correctly*. Agents declare
 their model in frontmatter; the orchestrator picks per task.
 
-Use the **whole lineup**, matched to need — Haiku 4.5 → Sonnet 5 → Opus 4.8 → Fable 5:
+Use the **whole lineup**, matched to need — haiku → sonnet → opus → fable (on 2026-11-26: Haiku 5.5,
+Sonnet 5.5, Opus 5.5, Fable 5.2):
 
 | Work type | Model | Why |
 |---|---|---|
 | Mechanical search, file-location, "does X exist", grep-and-report | **haiku** | Pattern-matching, no deep judgment. High rate-limit headroom. |
 | Reading a subsystem and summarizing, single-file implementation to a clear spec, one review dimension, refuting one claim | **sonnet** | Solid reasoning at a fraction of the cost. The workhorse for read-only fan-out. |
 | Planning, architecture, cross-cutting judgment, final synthesis, ambiguous root-cause, reconciling conflicting reports, all writes to shared code | **opus / inherit (main thread)** | Hard judgment where a wrong call is expensive. Never delegate the final decision to a cheap model. |
-| The hardest, highest-stakes calls: authoring the reproduction test (the proven bottleneck), resolving conflicting validator verdicts, a subtle security/concurrency judgment, a gnarly root-cause that beat opus, the top rung of the escalation ladder | **fable** | The most capable tier. Reserve it for where being wrong is most expensive — it's the heaviest on rate-limit, so it's a scalpel, not a default. |
+| The hardest, highest-stakes calls: authoring the reproduction test (the proven bottleneck), resolving conflicting validator verdicts, a subtle concurrency judgment, a gnarly root-cause that beat opus, the top rung of the escalation ladder | **fable** | The most capable tier. Reserve it for where being wrong is most expensive — it's the heaviest on rate-limit, so it's a scalpel, not a default. |
 
 The main thread runs whatever model you've selected (it makes the final decisions); the
 table governs what each **subagent** is dispatched with, and where to escalate.
+
+**Security work stops at opus.** Fable 5.2's safeguards "will block most cybersecurity-related
+tasks", and a blocked query "will instead receive a response from Opus 4.8"
+([Anthropic](https://www.anthropic.com/claude-fable-and-mythos-5-2), fetched 2026-11-26). That
+quietly answers with an older model than the opus rung. Escalate a security judgment to opus, not
+fable, and say which model answered.
 
 - **Cheap models find; the strong main thread decides.** Most tokens spent cheaply,
   accuracy preserved where it matters.
