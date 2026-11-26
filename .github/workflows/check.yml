@@ -21,7 +21,7 @@ jobs:
       # Same version as plugins/viby-toolkit/rust/rust-toolchain.toml, so CI cannot drift from local builds.
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; toolchain is set below
         with:
-          toolchain: 1.98.1
+          toolchain: 1.100.0
           components: clippy, rustfmt
 
       # Every suite with its minimum pass count, clippy, the scanner on its own tests,
