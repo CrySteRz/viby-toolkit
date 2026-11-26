@@ -27,7 +27,18 @@ and context: `docs/studies/2026-11-26-papers-and-github-sweep.md`, candidate C6.
 
 Not released; a push of a `plugin.json` bump is the release.
 
-**Next step.** Read `tests/outcome/README.md` and `validate.py`, then write a 2-3 task pilot:
+**Update 2026-11-26, pilot done.** The branch `outcome/secure-arm` (`ebf41bc`) has three fixtures
+and report scoring. On Sonnet the pilot came out 9/9 against 9/9: a ceiling, and the skill cost
+1.7×. Run `drive.py` with plain `python3`; `-I` breaks `import validate`.
+
+**Next step, revised.** Write 8–12 harder `secure-*` fixtures that make the arms differ:
+- 300+ lines across several files;
+- the taint enters in one file and the sink sits in another;
+- two or three decoys;
+- authorization or IDOR and SSRF classes.
+Then rerun on Sonnet, and on Opus only with the owner's go.
+
+**Original next step (done).** Read `tests/outcome/README.md` and `validate.py`, then write a 2-3 task pilot:
 - `secure-*` fixtures, each planting one vulnerability modelled on a public advisory.
 - A report-scoring path in `validate.py`, proven with no model: a reference report passes and an
   empty report fails.

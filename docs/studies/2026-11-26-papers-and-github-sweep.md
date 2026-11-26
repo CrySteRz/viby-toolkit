@@ -130,6 +130,13 @@ A measurement on Opus 5.5 found accuracy barely moved with tool count (94.6% at 
   security skill after a comparison on Opus 5.5 (13 vs 7 and 12 vs 8 of 51 tasks).
   `tests/outcome` grades a hidden test, and /secure writes a report, not a patch. So this needs
   report scoring first, then a 2-3 task pilot.
+- **C6 pilot, run 2026-11-26 on Sonnet** (measured here, `NAME=secure-pilot-sonnet`): 3 tasks ×
+  2 arms × 3 reps. `/secure` and the plain request each passed 9 of 9 (95% interval 70–100%). The
+  skill arm cost $0.84 against $0.50, and no session went past 5 turns. Each arm added one
+  defensible low-severity note on the decoy, and neither made a real false positive. The fixtures
+  sit at the ceiling: one obvious bug in 60–80 lines cannot separate the arms. The harness and
+  scorer work, so the next step is harder fixtures: larger repos, a taint path that crosses files,
+  several decoys, and authorization bugs.
 - **Dropped:** C5, departures listed before coding
   ([arXiv 2611.16289](https://arxiv.org/html/2611.16289), fetched 2026-11-26). There was no
   Claude result, and it harmed one model.
