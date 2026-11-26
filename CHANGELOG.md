@@ -1,5 +1,78 @@
 # Changelog
 
+## 3.4.0
+
+**The browser, measured on the owner's 5,066 calls since the port (164 browser agents).**
+- **`eval` takes `await`.** The body runs as an async function in all three evaluators.
+  `await` was the cause of 53 of 132 eval errors. Firefox's page-world path used to run a
+  script that returned a promise twice; it now runs it once.
+- **`close_tab`.** 323 tabs were opened and almost none were closed. `close_tab` closes a tab
+  this session opened and refuses any other, so the person's own tabs stay. The browser agent
+  closes its tab when it is done.
+- **`press` is sent by the content script itself.** It used to run through page-world eval, and
+  12 of 37 presses failed on pages whose Content Security Policy forbids that. A `selector` that
+  matches nothing is now an error, as it is for `click`. Before, the key went to whatever had
+  focus.
+- **`open` shows a preview of the page.** `open`, `new_tab`, `new_window` and `reload` returned
+  48% of all browser output. They now show the first 8,000 characters and say that `snapshot`
+  reads the rest.
+- **Errors name the next step.** CSP blocks, "Element not found" and `wait` timeouts now say
+  what to do instead of retrying the same call.
+- **Two failures are handled out of sight:**
+  - A read cut off by navigation runs once more by itself. This covers the back/forward cache,
+    a closed message channel and a failed image readback. A click is never repeated.
+  - When no window is open, the extension opens one.
+- **Extension 0.10.3.** Browsers load new extension code only when its version moves. A test now
+  fails if the code changes without a version bump.
+- **The browser agent's brief:**
+  - Pass your own `tab_id` on every call.
+  - One site per agent.
+  - Open a window only when asked.
+  - A download you cannot see is not a failure.
+  - List the records you create.
+
+**Lessons from the owner's memory and usage, now in the agents and the contract.**
+- **reviewer, skeptic, debugger.** Print the mutated line back before the check, so a mutant
+  that never applied cannot pass for a weak test. Bound the run with `timeout`. When siblings
+  share the tree, mutate in a private plain copy, never a hard-linked one.
+- **implementer, worker:**
+  - Never special-case a test, and name any special case
+    ([arXiv 2611.23335](https://arxiv.org/abs/2611.23335): Sonnet 5.5 special-cased 39 of 180
+    impossible tasks, and the sentence "do not special-case tests" cut its cheats on 60 tasks
+    from 22 to 1).
+  - Leave nothing behind: build folders, copies, databases and running test processes. The
+    owner's runs left 88 GB and 149 GB of build output, and an orphaned test binary spun for
+    15 hours.
+- **The SessionStart contract:**
+  - Never end a turn on "waiting" with nothing armed (157 sleep calls and 37 status pings in
+    the window).
+  - Fan out with typed agents (59 of 85 untyped agents were read-only audits).
+  - A new ACT vs ASK line: answer the question asked, act on reversible steps, and wait for a
+    yes on the exact text of anything another person sees.
+- **Doctrine:**
+  - workflow-orchestration: disk and processes are cost too, and an early prompt that finished
+    tasks follow is not edited and resumed.
+  - verify: special-casing is falsifying evidence.
+  - test: mutate the call site too.
+  - review: a re-review covers only what moved.
+  - study and researcher: split the 200-search session budget, and list unreadable pages as
+    `browser-needed:`.
+  - release: read the run's state, not a watcher's exit code.
+  - model-routing: the current lineup; security work stops at opus, because Fable 5.2 hands
+    security work to Opus 4.8.
+
+**Dependencies, one commit each, with the full gate green after each:**
+- `cargo update` moves 17 crates within semver and clears RUSTSEC-2026-0486 (rustix, a
+  dev-dependency).
+- fancy-regex 0.14 to 0.20.2. Five checkers over four real JS/TS repositories and this one
+  printed byte-identical output before and after.
+- windows-sys 0.59 to 0.61.2, checked and linted for the Windows target.
+- Rust 1.98.1 to 1.100.0.
+
+Study: `docs/studies/2026-11-26-improvement-round.md`. Not yet verified live: the extension
+changes in a real browser. They are tested in Node on the real functions, and the server
+against a fake host.
+
 ## 3.3.0
 
 **An opt-in stop gate: `viby stop-gate`.** The verify skill's rule, "never claim done without a
