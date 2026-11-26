@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.4.1
+
+**`viby check-study` accepts a `## Status` heading.** Its status pattern needed a colon or a space
+after "status", so a Status heading followed by a line break was reported as "no status line".
+Found while writing this release's study. A test now pins both halves.
+
+**Four lines from a papers-and-GitHub sweep.** The sweep had 7 agents; the skeptics cut back
+every candidate. Study: `docs/studies/2026-11-26-papers-and-github-sweep.md`.
+- **verify:** list each requirement in the request beside the check that exercised it. A
+  requirement with no check is unverified. Tests written from the task text refuted 34.4% of
+  benchmark runs counted as resolved ([TestJack, arXiv 2610.10619](https://arxiv.org/html/2610.10619)).
+- **worker:** a task that conflicts with a test or checker is stopped and reported
+  ([arXiv 2608.29460](https://arxiv.org/html/2608.29460)).
+- **skeptic:** run a cheap repro on the base commit too before calling a defect "introduced".
+  61.9% of LLM-written repair tests failed on the correct patch
+  ([arXiv 2606.16062](https://arxiv.org/abs/2606.16062)).
+- **skeptic:** when rejecting a finding whose stated mechanism is wrong but whose spot still looks
+  wrong, name the spot. In 68% of analysed misses the right file was named with the wrong
+  mechanism ([SecPRBench, arXiv 2610.33509](https://arxiv.org/html/2610.33509)).
+
+These lines are not measured here yet. Next is an outcome arm comparing `/secure` with a plain
+audit request (`docs/plans/2026-11-26-handoff-secure-outcome-arm.md`).
+
 ## 3.4.0
 
 **The browser, measured on the owner's 5,066 calls since the port (164 browser agents).**
