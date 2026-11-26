@@ -234,7 +234,7 @@ pub fn static_regex(pattern: &str) -> Regex {
 }
 
 /// Every match of a lookaround pattern, stopping quietly where the backtrack limit is hit.
-pub fn captures_all<'t>(re: &Fancy, text: &'t str) -> Vec<fancy_regex::Captures<'t>> {
+pub fn captures_all<'t>(re: &Fancy, text: &'t str) -> Vec<fancy_regex::Captures<'t, str>> {
     let mut out = Vec::new();
     for caps in re.captures_iter(text) {
         match caps {
