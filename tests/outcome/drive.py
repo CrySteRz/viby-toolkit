@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the outcome matrix: each task, once per arm per rep, graded by its hidden test.
+"""Run the outcome matrix: each task, once per arm per rep, graded by its hidden test (report tasks: by score_report).
 
   skill  the prompt is prefixed "/viby-toolkit:<skill> ", so the skill is forced
   bare   the same prompt with no prefix, and --disable-slash-commands so no skill can load
@@ -133,6 +133,34 @@ def read_stream(work, skill):
     return result, loaded
 
 
+def report_text(task, work, result):
+    """What a report-graded run said: the final result message plus every *.md file the run created
+    in the work dir (a report written to a file counts; a .md that shipped in repo/ does not)."""
+    shipped = set()
+    repo = os.path.join(validate.TASKS_DIR, task, "repo")
+    for dirpath, _dirs, files in os.walk(repo):
+        shipped.update(os.path.relpath(os.path.join(dirpath, n), repo) for n in files if n.endswith(".md"))
+    parts = [(result or {}).get("result") or ""]
+    for dirpath, dirs, files in os.walk(work):
+        dirs[:] = [d for d in dirs if d not in (".git", ".orig_tests")]
+        for name in sorted(files):
+            rel = os.path.relpath(os.path.join(dirpath, name), work)
+            if name.endswith(".md") and rel not in shipped:
+                with open(os.path.join(dirpath, name), errors="ignore") as f:
+                    parts.append(f.read())
+    return "\n\n".join(parts)
+
+
+def grade(task, work, result):
+    """Return (passed, graded_by, detail). Code tasks run the hidden test; report tasks are scored
+    by validate.score_report on what the run wrote, the same function validate.py proved."""
+    if validate.is_report(task):
+        passed, reason = validate.score_report(task, report_text(task, work, result))
+        return passed, "report", reason
+    passed, out = validate.run_hidden(task, work)
+    return passed, "hidden_test", out
+
+
 def setup_repo(task, work):
     validate.copy_repo(task, work)
 
@@ -176,11 +204,11 @@ def one(job, settings_path):
     wall_s = time.monotonic() - started
 
     result, loaded = read_stream(work, skill)
-    hidden_pass, hidden_out = validate.run_hidden(task, work)
+    hidden_pass, graded_by, hidden_out = grade(task, work, result)
     visible_pass, visible_out = validate.run_visible(task, work)
     record = {
         "task": task, "skill": skill, "arm": arm, "rep": rep, "model": MODEL,
-        "hidden_pass": hidden_pass, "visible_pass": visible_pass,
+        "hidden_pass": hidden_pass, "graded_by": graded_by, "visible_pass": visible_pass,
         "skill_loaded": loaded, "timed_out": timed_out,
         "finished": result is not None,
         "subtype": result.get("subtype") if result else None,

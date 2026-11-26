@@ -7,11 +7,16 @@ For every task under fixtures/ it proves three things, and exits 1 if any of the
   2. the hidden test PASSES once reference.patch is applied to a copy   (the task is solvable)
   3. the repo's own visible tests pass in both   (they do not catch the bug, and the fix keeps them)
 
+A task whose meta.json says "kind": "report" (the secure-* pilot) has no hidden test or patch: the
+agent's written report is graded by score_report, and the fixture is validated by proving that
+scorer both ways (reference_report.md passes; empty, wrong-file, no-class and decoy-only reports fail).
+
 drive.py grades every model run with the same functions, so a run is judged exactly the way the
 fixture was validated.
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -23,7 +28,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 TASKS_DIR = os.path.join(ROOT, "fixtures")
 TEST_TIMEOUT = 120
 TEST_ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
-SKILLS = ("debug", "plan")
+SKILLS = ("debug", "plan", "secure")
 
 
 def task_ids():
@@ -87,8 +92,125 @@ def py_lines(repo):
     return total
 
 
+def is_report(task):
+    return load_meta(task).get("kind") == "report"
+
+
+def _mentioned(name, text):
+    """Case-insensitive, and not glued to a longer file name (db.py must not match feeds.py)."""
+    return re.search(r"(?<![\w.\-])" + re.escape(name.lower()) + r"(?![\w])", text) is not None
+
+
+def _class_regex(keyword):
+    """A class keyword on word edges, with any run of spaces or hyphens inside it equal ("sql
+    injection" matches "SQL-injection"), so "sqli" does not match "sqlite"."""
+    words = [re.escape(w) for w in re.split(r"[\s\-]+", keyword.lower()) if w]
+    return r"(?<![a-z0-9])" + r"[\s\-]+".join(words) + r"(?![a-z0-9])"
+
+
+def score_report(task, text):
+    """Grade a written security report against the task's planted vulnerability. Mechanical, no
+    model. PASS needs all three: the vulnerable file (full relative path or basename), a line in
+    [first-3, last+3] ("file.py:NN", "line NN", "lines NN-MM", "L NN") or the function name, and one
+    class keyword. Returns (passed, short reason)."""
+    vuln = load_meta(task)["vuln"]
+    text = (text or "").lower()
+    path = vuln["file"].lower()
+    base = os.path.basename(path)
+    if not (_mentioned(path, text) or _mentioned(base, text)):
+        return False, f"does not name {vuln['file']}"
+    first, last = vuln["lines"]
+    lo, hi = first - 3, last + 3
+    pattern = (r"(?:" + re.escape(base) + r"|\blines?|\bl)[\s:#]*(\d+)"
+               r"(?:\s*(?:-|–|to|and)\s*l?(\d+))?")
+    spans = [(int(a), int(b or a)) for a, b in re.findall(pattern, text)]
+    line_hit = any(a <= hi and b >= lo for a, b in spans)
+    func_hit = _mentioned(vuln["function"], text)
+    if not (line_hit or func_hit):
+        return False, f"names the file but neither a line in {lo}-{hi} nor {vuln['function']}"
+    if not any(re.search(_class_regex(k), text) for k in vuln["classes"]):
+        return False, f"does not name the class (one of {', '.join(vuln['classes'])})"
+    return True, "names the file, the location and the class"
+
+
+def _without_classes(task, text):
+    for k in load_meta(task)["vuln"]["classes"]:
+        text = re.sub(_class_regex(k), "", text, flags=re.I)
+    return text
+
+
+def check_report(task, scratch):
+    """Ground truth for a report task: visible tests pass untouched, and the scorer is proven both ways."""
+    base = os.path.join(TASKS_DIR, task)
+    problems = []
+    for name in ("repo", "prompt.txt", "meta.json", "reference_report.md"):
+        if not os.path.exists(os.path.join(base, name)):
+            problems.append(f"missing {name}")
+    if problems:
+        return problems
+    for name in ("hidden_test.py", "reference.patch"):
+        if os.path.exists(os.path.join(base, name)):
+            problems.append(f"{name} has no place in a report task")
+    meta = load_meta(task)
+    if not os.path.isdir(os.path.join(base, "repo", "tests")):
+        return problems + ["repo/tests/ is missing"]
+    for key in ("file", "lines", "function", "classes"):
+        if not meta.get("vuln", {}).get(key):
+            problems.append(f"meta.json vuln.{key} is missing")
+    for key in ("file", "function"):
+        if not meta.get("decoy", {}).get(key):
+            problems.append(f"meta.json decoy.{key} is missing")
+    if problems:
+        return problems
+    vuln, decoy = meta["vuln"], meta["decoy"]
+    for what, spec in (("vuln", vuln), ("decoy", decoy)):
+        path = os.path.join(base, "repo", spec["file"])
+        if not os.path.isfile(path):
+            problems.append(f"{what} file {spec['file']} is not in repo/")
+        else:
+            with open(path) as f:
+                if f"def {spec['function']}(" not in f.read():
+                    problems.append(f"{what} function {spec['function']} is not defined in {spec['file']}")
+    if vuln["file"] == decoy["file"]:
+        problems.append("vuln and decoy must live in different files")
+    if os.path.isfile(os.path.join(base, "repo", vuln["file"])):
+        with open(os.path.join(base, "repo", vuln["file"])) as f:
+            n = sum(1 for _ in f)
+        if not 1 <= vuln["lines"][0] <= vuln["lines"][1] <= n:
+            problems.append(f"vuln.lines {vuln['lines']} is outside {vuln['file']} ({n} lines)")
+    if problems:
+        return problems
+
+    untouched = os.path.join(scratch, task, "untouched")
+    copy_repo(task, untouched)
+    ok, out = run_visible(task, untouched)
+    if not ok:
+        problems.append(f"visible tests fail on the untouched repo:\n{out}")
+
+    with open(os.path.join(base, "reference_report.md")) as f:
+        ref = f.read()
+    path_re = re.compile(re.escape(vuln["file"]) + "|" + re.escape(os.path.basename(vuln["file"])), re.I)
+    cases = [
+        ("reference_report.md", ref, True),
+        ("empty report", "", False),
+        ("reference with the vuln file renamed to the decoy file",
+         path_re.sub(decoy["file"], ref), False),
+        ("reference with every class keyword removed", _without_classes(task, ref), False),
+        ("report naming only the decoy",
+         f"{decoy['file']} {decoy['function']} line 1: possible {vuln['classes'][0]}, HIGH", False),
+    ]
+    for label, text, want in cases:
+        got, why = score_report(task, text)
+        if got != want:
+            problems.append(f"scorer: {label} should {'PASS' if want else 'FAIL'} but "
+                            f"{'passed' if got else 'failed'} ({why})")
+    return problems
+
+
 def check(task, scratch):
     """Return a list of problems with one task; empty means it is valid ground truth."""
+    if os.path.exists(os.path.join(TASKS_DIR, task, "meta.json")) and is_report(task):
+        return check_report(task, scratch)
     base = os.path.join(TASKS_DIR, task)
     problems = []
     for name in ("repo", "prompt.txt", "hidden_test.py", "reference.patch", "meta.json"):
@@ -141,11 +263,14 @@ def main():
             lines = py_lines(os.path.join(TASKS_DIR, task, "repo"))
             if problems:
                 failed += 1
-                print(f"FAIL  {task:<24}{skill:<7}{lines:>4} lines")
+                print(f"FAIL  {task:<26}{skill:<7}{lines:>4} lines")
                 for p in problems:
                     print("      " + p.replace("\n", "\n      "))
+            elif is_report(task):
+                print(f"ok    {task:<26}{skill:<7}{lines:>4} lines   untouched: visible pass"
+                      "   scorer: reference pass, empty/wrong-file/no-class/decoy-only fail")
             else:
-                print(f"ok    {task:<24}{skill:<7}{lines:>4} lines   untouched: visible pass, hidden fail"
+                print(f"ok    {task:<26}{skill:<7}{lines:>4} lines   untouched: visible pass, hidden fail"
                       "   reference: visible pass, hidden pass")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)

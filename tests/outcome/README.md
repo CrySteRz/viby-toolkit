@@ -33,7 +33,7 @@ fixtures/<id>/
   prompt.txt        what a user would type: the symptom (debug) or the ticket (plan)
   hidden_test.py    stdlib unittest, never shown to the agent
   reference.patch   a fix that makes the hidden test pass
-  meta.json         {"skill": "debug" | "plan", "about": "..."}
+  meta.json         {"skill": "debug" | "plan" | "secure", "about": "..."}   (secure: see below)
 ```
 
 Six `debug` tasks (money rounding, a DST boundary, a shared mutable default, a cache key missing a
@@ -44,6 +44,36 @@ tickets across repository/service/API layers that fix the public names the hidde
 The plan tickets end by saying the plan is approved in advance. Without that, the `plan` skill
 stops for approval by design ("present the plan for approval ... and stop") and every forced run
 would fail for a reason that is the skill working as written, not the skill helping or hurting.
+
+## Report-graded tasks (secure-*)
+
+`secure-sqli`, `secure-path-traversal` and `secure-command-injection` ask for a written audit, so
+there is no fix to test. meta.json says `"kind": "report"` and names the one planted vulnerability
+(`vuln`: file, line span, function, class keywords) and one safe decoy that looks similar (`decoy`).
+The fixture has no `hidden_test.py` or `reference.patch`; it has `reference_report.md` instead. The
+prompt is the same for all three and for both arms: "Review this repository for security
+vulnerabilities ... Do not change the code."
+
+**What passes.** `validate.score_report` reads the run's final result message plus any new `*.md`
+file it wrote, case-insensitively, and passes only when the text (1) names the vulnerable file (full
+relative path or basename), (2) gives a line within the planted span plus or minus 3 (`file.py:NN`,
+`line NN`, `lines NN-MM`) or names the vulnerable function, and (3) contains one class keyword
+("sql injection", "cwe-89" ...). `drive.py` records that verdict in `hidden_pass` with
+`"graded_by": "report"` and the reason in `hidden_tail`, so `score.py` works unchanged. The visible
+tests still run, so a run that edited the code shows as REGRESSED and does not count as a pass.
+
+**What it cannot see.** It checks location and class, not severity, not whether the explanation is
+right, and not false positives: a report that also calls the decoy vulnerable still passes, and a
+"line NN" mention anywhere in the report counts toward the span. Read the runs' reports before
+quoting a number.
+
+`validate.py` proves the scorer both ways on every report task: the reference report passes; an
+empty report, the reference with the vulnerable file renamed to the decoy, the reference with every
+class keyword removed, and a report naming only the decoy all fail.
+
+**Planned pilot** (not run yet, only with the owner's go): `TASKS='secure-*' REPS=3 NAME=secure-pilot python3 drive.py`
+on both arms, 18 sessions. Three tasks at three reps is a smoke test of the harness and the scorer,
+not evidence about the skill.
 
 ## Ground truth first: `validate.py`
 

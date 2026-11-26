@@ -1,0 +1,1 @@
+Review this repository for security vulnerabilities. Report each one with its file, line and the kind of vulnerability, and say how serious it is. Do not change the code.
