@@ -105,6 +105,11 @@ $ pnpm tsc --noEmit                             → exit 0   ·  no errors
 $ curl -s -o /dev/null -w '%{http_code}' localhost:3000/api/session   → 200
 ```
 
+Then list each requirement in the request, in its own words, beside the check that exercised it.
+A requirement with no check is reported as unverified, however green the suite is. Tests written
+from the task text refuted 34.4% of benchmark runs counted as resolved
+([TestJack, arXiv 2610.10619](https://arxiv.org/html/2610.10619)).
+
 ## 6. When it fails
 
 The failure is the result — report it plainly, with the output. Then:

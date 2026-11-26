@@ -24,7 +24,8 @@ Return your answer:
   library, then an installed dependency, only then new code; no option or abstraction nobody asked
   for. Bug fix: grep every caller first. Never cut validation, data-loss handling or security.
   Never branch on a test's inputs or hard-code its expected output to make it pass; if you added
-  any special case, name it.
+  any special case, name it. If the task conflicts with a test or checker, stop and report what
+  conflicts and what you recommend instead of carrying on.
 - Leave nothing behind: before you return, delete the build folders, copies and throwaway
   databases you created, check that no test process you started is still running, and say how
   much space you freed.

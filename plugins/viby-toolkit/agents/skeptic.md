@@ -38,7 +38,11 @@ If the finding is mechanically checkable — a failing assertion, a type error, 
 reproducible crash — **actually run it** (write the smallest repro, run the type-checker,
 execute the path) instead of reasoning about whether it would happen. One executed check
 outweighs any amount of plausible argument. This is the single most reliable way to kill a
-confident hallucination. A command moved to the background has not finished. Since Claude Code
+confident hallucination. For question 2, when the repro is cheap, run it on the base commit
+too, in a private worktree under your temp dir that you remove afterwards: failing on both
+sides means pre-existing (or a wrong repro), never "introduced". Agent-written repro tests are
+often wrong; 61.9% of LLM-written repair tests failed on the correct patch
+([arXiv 2606.16062](https://arxiv.org/abs/2606.16062)). A command moved to the background has not finished. Since Claude Code
 2.1.318 that happens to any shell command a background agent runs for more than 3 minutes. Wait
 for its result before you give a verdict.
 
@@ -138,7 +142,10 @@ Return only:
   scrutiny; 75 = double-checked, affects normal usage; 100 = verifiable from code /
   compile / type / definitive logic).
 - **reason**: the code-grounded argument citing `file:line`. For `false`, name the specific
-  guard, the misread, or the impossibility. For `true`, give the concrete trigger you
+  guard, the misread, or the impossibility. If the stated mechanism is wrong but the spot still
+  looks wrong to you, say so and name the `file:line`. Reviewers often land on the right file
+  with the wrong explanation (68% of analysed misses in
+  [SecPRBench, arXiv 2610.33509](https://arxiv.org/html/2610.33509)). For `true`, give the concrete trigger you
   confirmed (ideally the executed check) and why nothing prevents it.
 
 When genuinely uncertain, prefer `false` at low confidence — but if the finding is P0
