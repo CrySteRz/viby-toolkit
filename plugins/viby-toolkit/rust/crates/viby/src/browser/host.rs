@@ -32,6 +32,7 @@ const ALLOWED_ACTIONS: &[&str] = &[
     "newWindow",
     "setActiveTab",
     "getActiveTab",
+    "closeTab",
     "navigate",
     "reloadTab",
     "click",
@@ -46,6 +47,7 @@ const ALLOWED_ACTIONS: &[&str] = &[
     "scroll",
     "uploadFile",
     "dropFile",
+    "pressKey",
     "batch",
     "fork",
     "killFork",
@@ -67,6 +69,7 @@ const NESTED_ACTIONS: &[&str] = &[
     "getInteractables",
     "evaluate",
     "scroll",
+    "pressKey",
 ];
 
 fn nested_commands(action: &str, params: &Value) -> Vec<Value> {

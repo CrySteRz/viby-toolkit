@@ -213,12 +213,28 @@ impl From<String> for CallError {
     }
 }
 
+/// Reads that can run again safely when the page moved under them.
+const READ_ONLY_RETRY: [&str; 5] = [
+    "wait",
+    "snapshot",
+    "get_content",
+    "interactables",
+    "screenshot",
+];
+
+fn is_transient(error: Option<&str>) -> bool {
+    regex::Regex::new(r"(?i)message channel (is )?closed|back/forward cache|image readback failed")
+        .is_ok_and(|re| re.is_match(error.unwrap_or("")))
+}
+
 #[derive(Default)]
 struct Session {
     tab_id: Option<i64>,
     browser: Option<String>,
     /// Fork names to tabs, in the order they were made.
     forks: Vec<(String, Option<i64>)>,
+    /// Tabs this session opened (open with no tab, new_tab, new_window): the only ones close_tab closes.
+    opened: Vec<i64>,
 }
 
 impl Session {
@@ -805,6 +821,7 @@ impl BrowserServer {
                 s.browser = Some(browser.clone());
                 s.tab_id = None;
                 s.forks.clear();
+                s.opened.clear();
             }
         }
         self.sync_extension(&browser)?;
@@ -852,7 +869,15 @@ impl BrowserServer {
             }
         }
 
+        if action == "close_tab" {
+            if let Some(tab) = tab_id.filter(|t| !lock(&self.session).opened.contains(t)) {
+                return Err(CallError::Input(format!(
+                    "Tab {tab} was not opened by this session, so close_tab leaves it alone: it may be one the person is using. Close only tabs you opened with open, new_tab or new_window."
+                )));
+            }
+        }
         let (bridge_action, mut params) = bridge_request(action, input, tab_id)?;
+        let mut created = bridge_action == "newSession" || bridge_action == "newWindow";
         let prefix = fork_prefix();
         if action == "fork" {
             if let Some(paths) = params.get_mut("paths").and_then(Value::as_array_mut) {
@@ -868,7 +893,13 @@ impl BrowserServer {
         let session_tab = tab_id.is_some() && tab_id == session_tab_id && !in_fork;
         let socket = socket_path(&browser);
         let timeout = ms(REQUEST_TIMEOUT_MS + 2000);
-        let mut reply = call_host(&socket, &bridge_action, params, timeout);
+        let mut reply = call_host(&socket, &bridge_action, params.clone(), timeout);
+        if !reply.ok && READ_ONLY_RETRY.contains(&action) && is_transient(reply.error.as_deref()) {
+            // The page navigated or its frame moved to the back/forward cache mid-call: a read
+            // can safely run again once, so the agent never sees this.
+            std::thread::sleep(ms(300));
+            reply = call_host(&socket, &bridge_action, params, timeout);
+        }
         let mut note = "";
         let tab_closed = regex::Regex::new(r"(?i)no tab with id")
             .is_ok_and(|re| re.is_match(reply.error.as_deref().unwrap_or("")));
@@ -885,6 +916,7 @@ impl BrowserServer {
                 note = "The session's tab had been closed, so this opened a new background tab.\n";
                 let (retry_action, retry_params) = bridge_request(action, input, None)?;
                 reply = call_host(&socket, &retry_action, retry_params, timeout);
+                created = true;
             }
         }
         if !reply.ok {
@@ -911,6 +943,16 @@ impl BrowserServer {
                 s.tab_id = result_tab;
             } else if action == "select_tab" {
                 s.tab_id = js_int(input.get("tab_id"));
+            }
+            if let Some(tab) = result_tab.filter(|_| created && !in_fork) {
+                s.opened.push(tab);
+            }
+            if action == "close_tab" {
+                s.opened.retain(|t| Some(*t) != tab_id);
+                s.forks.retain(|(_, id)| *id != tab_id);
+                if s.tab_id == tab_id {
+                    s.tab_id = None;
+                }
             }
             if action == "fork" || action == "list_forks" {
                 if let Some(forks) = result.get_mut("forks").and_then(Value::as_array_mut) {

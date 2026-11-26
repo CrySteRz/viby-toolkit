@@ -26,7 +26,8 @@ window, so every page is signed in as them.
 
 | Step | Action | Notes |
 |---|---|---|
-| Get a tab | `open` with `url` | The first `open` creates this session's own background tab; later ones navigate it. `new_tab: true` for another, `new_window` for a window of its own, `sandbox: true` for a private window (no cookies or logins). To use a tab the person already has open: `list_tabs`, then `select_tab`. |
+| Get a tab | `open` with `url` | The first `open` creates this session's own background tab; later ones navigate it. `new_tab: true` for another, `new_window` only when a window of its own is asked for, `sandbox: true` for a private window (no cookies or logins). To use a tab the person already has open: `list_tabs`, then `select_tab`. The result shows the start of the page (8,000 characters); `snapshot` reads all of it. |
+| Done with a tab | `close_tab` | Closes a tab this session opened (with `open`, `new_tab` or `new_window`), and refuses any other: the person's own tabs stay. Close your tabs when the task ends. |
 | Read | `snapshot` | Annotated text: `[button: "Save" \| selector: #save]`, `[input:email: "Email" \| value: "" \| selector: #email]`, form state included. Cheaper than a screenshot and carries selectors. |
 | Act | `click`, `type`, `fill_form`, `select`, `press`, `upload`, `drop_file`, `scroll`, `reload` | Use selectors from the latest snapshot. `fill_form` handles inputs, selects, checkboxes, radios and rich editors (ProseMirror, Lexical, Draft.js, TinyMCE). `drop_file` drags a local file onto a drop zone or editor (`selector`, `path`). |
 | Confirm | `wait` with `selector`, `text` or `contains` | Never sleep. Then snapshot again. |
@@ -74,4 +75,7 @@ globals), `list_frames` + `frame_id` / `all_frames` for iframes, `get_active_tab
 | `No tab with id` | The tab was closed and the session forgot it. `open` with a url opens a new one by itself; for anything else, `open` or `list_tabs`. |
 | `Receiving end does not exist` | The tab predates the extension or is still loading: `open` it again. |
 | `Request timed out` after a click or submit | Snapshot before repeating — it may have worked. |
+| `Content Security Policy` / `unsafe-eval` from `eval` | The page forbids running scripts, and a retry fails the same way. Read with `get_content` or `snapshot`; act with `click`, `type`, `press` (sent natively, so the policy does not block it). |
+| `file://` page fails in Firefox 153 or later | Firefox now turns off extensions' access to local files by default; the person grants it on the add-on's permissions page. |
+| A download that never appears | The browser may be showing a save dialog outside the page. Ask the person, or confirm it from the server side; it is not evidence the site failed. |
 | Extension loaded but never connects | Run `setup` again (it reinstalls the host), then reload the extension. |

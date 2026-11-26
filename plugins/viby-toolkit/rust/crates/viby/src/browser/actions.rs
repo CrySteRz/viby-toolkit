@@ -15,7 +15,8 @@ pub const TOOL_DESCRIPTION: &str = concat!(
     "Control the person's real browser (Brave, Chrome, Edge or Firefox) with their logins and tabs. ",
     "Check action='status' first; run action='setup' only if it is not ready. ",
     "Work in one explicit tab: action='open' with a url creates this session's tab the first time, ",
-    "or pick one with list_tabs then select_tab (new_window gives it a window of its own, sandbox=true a private one). Read the page with action='snapshot' (annotated: every ",
+    "or pick one with list_tabs then select_tab (new_window only when a window of its own is asked for; sandbox=true a private one). ",
+    "Close the tabs you opened with close_tab when the task is done. Read the page with action='snapshot' (annotated: every ",
     "control with a CSS selector) and act with the selectors it shows. Use action='wait', never sleep. ",
     "Save round trips with batch (several steps in one tab), try_until (first alternative that works), ",
     "fork (copies of this tab to try paths side by side) and parallel (several pages at once in background tabs). ",
@@ -24,13 +25,14 @@ pub const TOOL_DESCRIPTION: &str = concat!(
     "one-time codes or payment details: ask the person to do that step in the tab, then continue.",
 );
 
-pub const ACTIONS: [&str; 30] = [
+pub const ACTIONS: [&str; 31] = [
     "status",
     "setup",
     "list_tabs",
     "new_tab",
     "new_window",
     "select_tab",
+    "close_tab",
     "get_active_tab",
     "list_frames",
     "open",
@@ -86,7 +88,7 @@ const STEP_ACTIONS: [&str; 13] = [
     "scroll",
     "press",
 ];
-const STEP_VERBS: [&str; 10] = [
+const STEP_VERBS: [&str; 11] = [
     "navigate",
     "reloadTab",
     "getContent",
@@ -97,6 +99,7 @@ const STEP_VERBS: [&str; 10] = [
     "waitFor",
     "evaluate",
     "scroll",
+    "pressKey",
 ];
 /// What try_until may try: the extension runs these three inside the page.
 const ALTERNATIVE_ACTIONS: [&str; 3] = ["click", "type", "wait"];
@@ -291,27 +294,6 @@ fn need_list<'a>(value: Option<&'a Value>, message: &str) -> Result<&'a Vec<Valu
         .ok_or_else(|| InputError(message.into()))
 }
 
-pub fn build_press_script(key: &Value, selector: Option<&str>) -> String {
-    let target = match selector {
-        Some(s) if !s.is_empty() => format!("document.querySelector({})", json!(s)),
-        _ => "null".into(),
-    };
-    format!(
-        "return (() => {{
-  const target = {target} || document.activeElement || document.body;
-  if (!target) throw new Error('No target available for key press');
-  if (typeof target.focus === 'function') target.focus();
-  const key = {key};
-  const eventInit = {{ key, bubbles: true, cancelable: true }};
-  target.dispatchEvent(new KeyboardEvent('keydown', eventInit));
-  target.dispatchEvent(new KeyboardEvent('keypress', eventInit));
-  if (key === 'Enter' && target.form && typeof target.form.requestSubmit === 'function') target.form.requestSubmit();
-  target.dispatchEvent(new KeyboardEvent('keyup', eventInit));
-  return {{ pressed: true, key, tag: target.tagName || null }};
-}})();"
-    )
-}
-
 /// Maps steps to extension commands. Without a tab (fork, parallel) the extension assigns it.
 fn step_commands(
     steps: Option<&Value>,
@@ -434,6 +416,7 @@ pub fn bridge_request(
     match action {
         "list_tabs" => r("listTabs", json!({})),
         "get_active_tab" => r("getActiveTab", json!({})),
+        "close_tab" => r("closeTab", Value::Object(tab_only(&p))),
         "new_tab" => r(
             "newSession",
             session_params(
@@ -738,11 +721,14 @@ pub fn bridge_request(
             if let Some(f) = p.get("frameId") {
                 m.insert("frameId".into(), f.clone());
             }
-            let key = need(field("key"), "key is required for press")?;
-            let script = build_press_script(&key, p.get("selector").and_then(Value::as_str));
-            m.insert("script".into(), json!(script));
-            m.insert("pageWorld".into(), json!(true));
-            r("evaluate", Value::Object(m))
+            m.insert(
+                "key".into(),
+                need(field("key"), "key is required for press")?,
+            );
+            if let Some(s) = p.get("selector") {
+                m.insert("selector".into(), s.clone());
+            }
+            r("pressKey", Value::Object(m))
         }
         _ => Err(InputError(format!(
             "{action} is answered by the server, not the browser"
@@ -795,6 +781,20 @@ pub fn explain_error(action: &str, details: &str) -> String {
     if lower.contains("no tab with id") {
         return format!("{details}\nThat tab was closed. Run action='list_tabs' and pick another, or action='open' with a url.");
     }
+    if lower.contains("content security policy")
+        || lower.contains("unsafe-eval")
+        || lower.contains("trusted type")
+    {
+        return format!("{details}\nThis page's Content Security Policy blocks running scripts, so retrying will fail the same way. Read it with get_content, snapshot or interactables, and act with click, type and press.");
+    }
+    if lower.contains("element not found") {
+        return format!("{details}\nNothing on the page matches that selector now. Take action='snapshot' for the current selectors instead of retrying this one.");
+    }
+    if lower.starts_with("timeout waiting for") {
+        return format!(
+            "{details}\nTake action='snapshot' to see what the page shows before waiting again."
+        );
+    }
     if lower.contains("request timed out") {
         return format!("{details}\nThe browser did not answer for '{action}'. If it was an action with side effects (click, submit), snapshot the page before repeating it.");
     }
@@ -802,26 +802,37 @@ pub fn explain_error(action: &str, details: &str) -> String {
 }
 
 const MAX_TEXT: usize = 60_000;
+/// What open, new_tab, new_window and reload show of the page: these results were about half of
+/// every character the tool returned (median 5K, p90 25K for open), and agents often snapshot again.
+const PAGE_PREVIEW: usize = 8_000;
 
 /// Caps text at MAX_TEXT UTF-16 units, as the TypeScript's `length` and `slice` counted.
 fn clip(text: String) -> String {
+    clip_at(
+        text,
+        MAX_TEXT,
+        "narrow with selector or use get_content format=title",
+    )
+}
+
+fn clip_at(text: String, max: usize, hint: &str) -> String {
     let units = text.encode_utf16().count();
-    if units <= MAX_TEXT {
+    if units <= max {
         return text;
     }
     let mut seen = 0;
     let mut end = 0;
     for (at, c) in text.char_indices() {
-        if seen + c.len_utf16() > MAX_TEXT {
+        if seen + c.len_utf16() > max {
             break;
         }
         seen += c.len_utf16();
         end = at + c.len_utf8();
     }
     format!(
-        "{}\n… [truncated {} characters; narrow with selector or use get_content format=title]",
+        "{}\n… [truncated {} characters; {hint}]",
         &text[..end],
-        units - MAX_TEXT
+        units - max
     )
 }
 
@@ -953,8 +964,10 @@ pub fn format_result(action: &str, result: &Value, input: &Value) -> Vec<Value> 
             }
             None => String::new(),
         };
-        return vec![text_block(clip(
+        return vec![text_block(clip_at(
             js_trim(&format!("{head}\n\n{body}")).to_string(),
+            PAGE_PREVIEW,
+            "read the rest with action='snapshot', or get_content with a selector",
         ))];
     }
     if action == "interactables" {

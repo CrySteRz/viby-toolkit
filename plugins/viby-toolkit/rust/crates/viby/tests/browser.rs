@@ -607,13 +607,23 @@ fn actions_each_action_maps_to_the_extensions_verb_and_params() {
         .as_str()
         .unwrap_or_default()
         .contains(r##"document.querySelector("#list")"##));
-    let (press_action, press_params) = bridge("press", json!({ "key": "Enter" }), Some(1));
-    assert_eq!(press_action, "evaluate");
-    assert_eq!(press_params["pageWorld"], true);
-    assert!(press_params["script"]
-        .as_str()
-        .unwrap_or_default()
-        .contains(r#"const key = "Enter""#));
+    let (press_action, press_params) = bridge(
+        "press",
+        json!({ "key": "Enter", "selector": "#q" }),
+        Some(1),
+    );
+    assert_eq!(
+        press_action, "pressKey",
+        "dispatched natively, not through eval"
+    );
+    assert_eq!(
+        press_params,
+        json!({ "tabId": 1, "key": "Enter", "selector": "#q" })
+    );
+    assert_eq!(
+        bridge("close_tab", json!({}), Some(7)),
+        ("closeTab".to_string(), json!({ "tabId": 7 }))
+    );
 }
 
 #[test]
@@ -646,9 +656,46 @@ fn actions_screenshots_come_back_as_an_image_block_errors_name_the_next_step() {
         .contains("tab 2"));
     assert!(explain_error("open", "Timed out waiting for page load").contains("snapshot"));
     assert!(explain_error("snapshot", "Cannot access a chrome:// URL").contains("internal pages"));
+    assert!(explain_error("click", "Element not found: #x").contains("action='snapshot'"));
+    assert!(explain_error("wait", "Timeout waiting for: Done").contains("before waiting again"));
+    let csp = explain_error(
+        "eval",
+        "Refused to evaluate a string as JavaScript because 'unsafe-eval' is not allowed",
+    );
+    assert!(csp.contains("get_content") && csp.contains("retrying will fail"));
     assert_eq!(
-        explain_error("click", "Element not found: #x"),
-        "Element not found: #x"
+        explain_error("click", "Something else broke"),
+        "Something else broke",
+        "an error with no known next step is passed through as it is"
+    );
+}
+
+#[test]
+fn actions_open_shows_a_preview_of_the_page_and_says_how_to_read_the_rest() {
+    let page = |body: &str| json!({ "tabId": 3, "windowId": 1, "content": { "title": "T", "url": "https://a.test", "content": body } });
+    let long = "x".repeat(20_000);
+    let text = format_result("open", &page(&long), &json!({}))[0]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    assert!(text.len() < 8_200, "{}", text.len());
+    assert!(text.contains("read the rest with action='snapshot'"));
+    let short = format_result("open", &page("[button: Go | selector: #go]"), &json!({}));
+    assert!(!short[0]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("truncated"));
+    let snapshot = format_result(
+        "snapshot",
+        &json!({ "title": "T", "url": "u", "content": long }),
+        &json!({}),
+    );
+    assert!(
+        !snapshot[0]["text"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("truncated"),
+        "snapshot still returns the whole page"
     );
 }
 
@@ -1093,6 +1140,81 @@ fn server_a_closed_session_tab_is_forgotten_open_retries_once_in_a_new_backgroun
     assert!(
         text_of(&server.call_tool(&json!({ "action": "snapshot" }))).contains("No tab yet"),
         "the dead tab is not tried again"
+    );
+    host.close();
+}
+
+#[test]
+fn server_close_tab_closes_only_tabs_this_session_opened() {
+    let _env = setup();
+    let server = server();
+    let host = fake_host("brave", |action, params| {
+        Ok(match action {
+            "newSession" => json!({ "tabId": 21, "windowId": 1, "url": params["url"] }),
+            "setActiveTab" => json!({ "tabId": params["tabId"], "windowId": 1 }),
+            "closeTab" => json!({ "closed": true, "tabId": params["tabId"] }),
+            _ => json!({}),
+        })
+    });
+    server.call_tool(&json!({ "action": "select_tab", "tab_id": 5 }));
+    let refused = server.call_tool(&json!({ "action": "close_tab" }));
+    assert!(refused.is_error);
+    assert!(text_of(&refused).contains("not opened by this session"));
+    assert!(!host.seen().iter().any(|m| m["action"] == "closeTab"));
+    server.call_tool(&json!({ "action": "open", "url": "https://a.test", "new_tab": true }));
+    let closed = server.call_tool(&json!({ "action": "close_tab", "tab_id": 21 }));
+    assert!(!closed.is_error, "{}", text_of(&closed));
+    assert_eq!(host.last()["params"]["tabId"], 21);
+    assert!(
+        text_of(&server.call_tool(&json!({ "action": "snapshot" }))).contains("No tab yet"),
+        "the closed tab was the session's tab, so it is forgotten"
+    );
+    assert!(
+        server
+            .call_tool(&json!({ "action": "close_tab", "tab_id": 21 }))
+            .is_error,
+        "and cannot be closed twice"
+    );
+    host.close();
+}
+
+#[test]
+fn server_a_read_cut_off_by_navigation_runs_once_more_a_click_never_does() {
+    let _env = setup();
+    let server = server();
+    let calls = Arc::new(Mutex::new(0));
+    let counted = Arc::clone(&calls);
+    let host = fake_host("brave", move |action, params| {
+        if action == "newSession" {
+            return Ok(json!({ "tabId": 31, "windowId": 1, "url": params["url"] }));
+        }
+        let cut = "The page keeping the extension port is moved into back/forward cache, so the message channel is closed.";
+        match action {
+            "getContent" => {
+                let mut n = counted.lock().unwrap_or_else(|e| e.into_inner());
+                *n += 1;
+                if *n == 1 {
+                    return Err(cut.into());
+                }
+                Ok(json!({ "title": "T", "url": "u", "content": "page" }))
+            }
+            "click" => Err(cut.into()),
+            _ => Ok(json!({})),
+        }
+    });
+    server.call_tool(&json!({ "action": "open", "url": "https://a.test" }));
+    let read = server.call_tool(&json!({ "action": "snapshot" }));
+    assert!(!read.is_error, "{}", text_of(&read));
+    assert_eq!(*calls.lock().unwrap_or_else(|e| e.into_inner()), 2);
+    let clicked = server.call_tool(&json!({ "action": "click", "selector": "#go" }));
+    assert!(clicked.is_error);
+    assert_eq!(
+        host.seen()
+            .iter()
+            .filter(|m| m["action"] == "click")
+            .count(),
+        1,
+        "an action with side effects is never repeated on its own"
     );
     host.close();
 }
@@ -1932,6 +2054,62 @@ fn extension_main_world_eval_accepts_await() {
             { "__bridgeError": "Evaluate error: boom" },
             1
         ])
+    );
+}
+
+#[test]
+fn extension_press_dispatches_keys_natively_and_refuses_a_missing_target() {
+    let content = content();
+    let source = re(r"async function handlePressKey\(params\) \{[\s\S]*?\n\}")
+        .find(&content)
+        .expect("handlePressKey")
+        .as_str();
+    let script = format!(
+        "const events = []; const el = {{ tagName: 'INPUT', focus() {{ events.push('focus'); }}, dispatchEvent(e) {{ events.push(e.type + ':' + e.key); }}, form: {{ requestSubmit() {{ events.push('submit'); }} }} }}; globalThis.document = {{ querySelector: (s) => (s === '#q' ? el : null), activeElement: null, body: null }}; globalThis.KeyboardEvent = class {{ constructor(type, init) {{ this.type = type; Object.assign(this, init); }} }}; const press = new Function({}); (async () => {{ const out = [await press()({{ key: 'Enter', selector: '#q' }}), events]; try {{ await press()({{ key: 'Enter', selector: '#nope' }}); }} catch (e) {{ out.push(e.message); }} console.log(JSON.stringify(out)); }})();",
+        json!(format!("{source}; return handlePressKey;"))
+    );
+    let Some(out) = node(&script) else {
+        return;
+    };
+    assert_eq!(
+        serde_json::from_str::<Value>(&out).expect("json"),
+        json!([
+            { "pressed": true, "key": "Enter", "tag": "INPUT" },
+            ["focus", "keydown:Enter", "keypress:Enter", "submit", "keyup:Enter"],
+            "Element not found: #nope"
+        ])
+    );
+}
+
+/// The extension's code as of its manifest version. Browsers load the new code only when the
+/// version moves (the server reloads an extension whose version differs from this build's), so a
+/// code change without a version bump never reaches the person's browser.
+const EXTENSION_CODE: (&str, u64) = ("0.10.3", 13489641374786855090);
+
+#[test]
+fn extension_code_changes_come_with_a_new_version() {
+    let dir = extension_dir();
+    let manifest: Value = serde_json::from_str(
+        &std::fs::read_to_string(dir.join("manifest.json")).expect("manifest"),
+    )
+    .expect("json");
+    let version = manifest["version"].as_str().unwrap_or_default().to_string();
+    let mut without_version = manifest.clone();
+    without_version["version"] = json!("");
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut feed = |bytes: &[u8]| {
+        for b in bytes {
+            hash = (hash ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3);
+        }
+    };
+    for file in ["background.js", "content.js", "popup.js", "popup.html"] {
+        feed(&std::fs::read(dir.join(file)).expect(file));
+    }
+    feed(without_version.to_string().as_bytes());
+    assert_eq!(
+        (version.as_str(), hash),
+        EXTENSION_CODE,
+        "the extension's code changed: bump \"version\" in browser/extension/manifest.json, then set EXTENSION_CODE to the new version and this hash"
     );
 }
 

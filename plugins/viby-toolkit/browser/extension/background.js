@@ -401,6 +401,10 @@ async function dispatchAction(action, params, profile) {
       return setActiveTab(params);
     case "getActiveTab":
       return getActiveTabInfo(params);
+    case "closeTab":
+      if (!Number.isInteger(params?.tabId)) throw new Error("closeTab requires tabId");
+      await browser.tabs.remove(params.tabId);
+      return { closed: true, tabId: params.tabId };
 
     // Navigation
     case "navigate":
@@ -421,6 +425,8 @@ async function dispatchAction(action, params, profile) {
       return sendToContent("uploadFile", params, profile);
     case "dropFile":
       return sendToContent("dropFile", params, profile);
+    case "pressKey":
+      return sendToContent("pressKey", params, profile);
 
     // Page Content
     case "getContent":
@@ -832,7 +838,14 @@ async function openSessionTarget(params, options = {}) {
       createProps.windowId = params.windowId;
       createProps.active = true;
     }
-    tab = await browser.tabs.create(createProps);
+    try {
+      tab = await browser.tabs.create(createProps);
+    } catch (err) {
+      // Every window is closed while the browser still runs: open one for the tab.
+      if (!/no current window/i.test(String(err && err.message))) throw err;
+      const createdWindow = await browser.windows.create({ url, focused: params?.focus === true });
+      tab = createdWindow.tabs[0];
+    }
   }
 
   const loadWarning = url !== "about:blank" && params?.wait !== false

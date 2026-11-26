@@ -1379,6 +1379,24 @@ async function handleEvaluate(params) {
   }
 }
 
+// Dispatches a key press from the content script itself, so a page whose Content Security
+// Policy forbids eval still receives it.
+async function handlePressKey(params) {
+  const key = params && params.key;
+  if (typeof key !== 'string' || !key) throw new Error("Missing key parameter");
+  const found = params.selector ? document.querySelector(params.selector) : null;
+  if (params.selector && !found) throw new Error(`Element not found: ${params.selector}`);
+  const target = found || document.activeElement || document.body;
+  if (!target) throw new Error('No target available for key press');
+  if (typeof target.focus === 'function') target.focus();
+  const eventInit = { key, bubbles: true, cancelable: true };
+  target.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+  target.dispatchEvent(new KeyboardEvent('keypress', eventInit));
+  if (key === 'Enter' && target.form && typeof target.form.requestSubmit === 'function') target.form.requestSubmit();
+  target.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+  return { pressed: true, key, tag: target.tagName || null };
+}
+
 async function handleScroll(params) {
   if (!params) {
     throw new Error("Missing scroll parameters");
@@ -1683,6 +1701,8 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return handleUploadFile(params);
       case "dropFile":
         return handleDropFile(params);
+      case "pressKey":
+        return handlePressKey(params);
       default:
         throw new Error(`Unknown content action: ${message.action}`);
     }
